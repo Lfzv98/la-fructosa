@@ -20,6 +20,16 @@ function computeBalance(account, txs) {
   return balance;
 }
 
+function activeAccounts(accounts) {
+  return (accounts || [])
+    .filter((a) => !a.archived)
+    .sort((x, y) => {
+      const so = (Number(x.sort_order) || 0) - (Number(y.sort_order) || 0);
+      if (so) return so;
+      return String(x.name || '').localeCompare(String(y.name || ''), 'es');
+    });
+}
+
 function attachAccounts(txs, accounts) {
   const byId = Object.fromEntries((accounts || []).map((a) => [a.id, a]));
   return (txs || []).map((t) => {
@@ -44,10 +54,10 @@ const real = {
   },
   async listBalances() {
     const [accRes, txRes] = await Promise.all([
-      supabase.from('accounts').select('*').eq('archived', false).order('sort_order').order('name'),
+      supabase.from('accounts').select('*'),
       supabase.from('transactions').select('type, account_id, amount, to_account_id, to_amount'),
     ]);
-    const accounts = unwrap(accRes) || [];
+    const accounts = activeAccounts(unwrap(accRes));
     const txs = txRes.error ? [] : (txRes.data || []);
     return accounts.map((a) => ({ ...a, balance: computeBalance(a, txs) }));
   },
