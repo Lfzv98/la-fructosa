@@ -203,7 +203,7 @@ create trigger transactions_updated_at
   for each row execute function public.set_updated_at();
 
 -- ---------------------------------------------------------------------
--- 6. Saldos por cuenta (vista que respeta RLS del usuario que consulta)
+-- 6. Saldos por cuenta (vista opcional; la PWA consolida en el cliente)
 -- ---------------------------------------------------------------------
 create view public.account_balances
 with (security_invoker = true) as

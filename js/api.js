@@ -11,6 +11,15 @@ function unwrap({ data, error }) {
   return data;
 }
 
+function computeBalance(account, txs) {
+  let balance = Number(account.initial_balance || 0);
+  for (const t of txs) {
+    if (t.account_id === account.id) balance += t.type === 'income' ? Number(t.amount) : -Number(t.amount);
+    if (t.to_account_id === account.id) balance += Number(t.to_amount || 0);
+  }
+  return balance;
+}
+
 const real = {
   async getProfile() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -21,8 +30,11 @@ const real = {
     return normalizeProfile(unwrap(await supabase.from('profiles').update(patch).eq('id', user.id).select().single()));
   },
   async listBalances() {
-    return unwrap(await supabase.from('account_balances').select('*')
+    const accounts = unwrap(await supabase.from('accounts').select('*')
       .eq('archived', false).order('sort_order').order('name'));
+    const txs = unwrap(await supabase.from('transactions')
+      .select('type, account_id, amount, to_account_id, to_amount'));
+    return accounts.map((a) => ({ ...a, balance: computeBalance(a, txs) }));
   },
   async createAccount(acc) {
     return unwrap(await supabase.from('accounts').insert(acc).select().single());
@@ -127,14 +139,7 @@ const demo = {
     return normalizeProfile(demoState.profile);
   },
   async listBalances() {
-    return demoState.accounts.map((a) => {
-      let balance = Number(a.initial_balance);
-      for (const t of demoState.txs) {
-        if (t.account_id === a.id) balance += t.type === 'income' ? t.amount : -t.amount;
-        if (t.to_account_id === a.id) balance += t.to_amount;
-      }
-      return { ...a, archived: false, balance };
-    });
+    return demoState.accounts.map((a) => ({ ...a, archived: false, balance: computeBalance(a, demoState.txs) }));
   },
   async createAccount(acc) { const a = { id: uid(), sort_order: 99, ...acc }; demoState.accounts.push(a); return a; },
   async updateAccount(id, patch) {
