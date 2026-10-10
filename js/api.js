@@ -31,14 +31,41 @@ const real = {
     const { data: { user } } = await supabase.auth.getUser();
     return unwrap(await supabase.from('accounts').update(patch).eq('id', id).eq('user_id', user.id).select().single());
   },
-  async listTransactions(limit = 100) {
-    return unwrap(await supabase.from('transactions')
+  async listTransactions({ limit = 400, from, to, accountId } = {}) {
+    let q = supabase.from('transactions')
       .select('*, account:accounts!transactions_account_id_user_id_fkey(name,currency), to_account:accounts!transactions_to_account_id_user_id_fkey(name,currency)')
       .order('occurred_on', { ascending: false }).order('created_at', { ascending: false })
-      .limit(limit));
+      .limit(limit);
+    if (from) q = q.gte('occurred_on', from);
+    if (to) q = q.lte('occurred_on', to);
+    if (accountId) q = q.or(`account_id.eq.${accountId},to_account_id.eq.${accountId}`);
+    return unwrap(await q);
   },
   async createTransaction(tx) {
     return unwrap(await supabase.from('transactions').insert(tx).select().single());
+  },
+  async listBudgets() {
+    return unwrap(await supabase.from('budgets').select('*').order('category'));
+  },
+  async upsertBudget(row) {
+    const { data: { user } } = await supabase.auth.getUser();
+    return unwrap(await supabase.from('budgets').upsert({ ...row, user_id: user.id }, { onConflict: 'user_id,category,currency' }).select().single());
+  },
+  async deleteBudget(id) {
+    return unwrap(await supabase.from('budgets').delete().eq('id', id));
+  },
+  async listRecurring() {
+    return unwrap(await supabase.from('recurring_expenses').select('*').order('due_day'));
+  },
+  async createRecurring(row) {
+    const { data: { user } } = await supabase.auth.getUser();
+    return unwrap(await supabase.from('recurring_expenses').insert({ ...row, user_id: user.id }).select().single());
+  },
+  async updateRecurring(id, patch) {
+    return unwrap(await supabase.from('recurring_expenses').update(patch).eq('id', id).select().single());
+  },
+  async deleteRecurring(id) {
+    return unwrap(await supabase.from('recurring_expenses').delete().eq('id', id));
   },
   async latestRates() {
     const rows = unwrap(await supabase.from('latest_rates').select('*'));
@@ -71,6 +98,23 @@ const demoState = {
       rate_bcv: 180.25, rate_paralelo: 252.4, created_at: new Date().toISOString() },
     { id: 't2', type: 'income', account_id: 'a2', amount: 600, category: 'Sueldo', description: 'Quincena',
       occurred_on: today, created_at: new Date().toISOString() },
+    { id: 't3', type: 'expense', account_id: 'a2', amount: 45, category: 'Servicios', description: 'Electricidad',
+      occurred_on: today, created_at: new Date().toISOString() },
+    { id: 't4', type: 'expense', account_id: 'a1', amount: 20, category: 'Transporte', description: 'Gasolina',
+      occurred_on: today, created_at: new Date().toISOString() },
+    { id: 't5', type: 'expense', account_id: 'a1', amount: 8, category: 'Salud', description: 'Farmacia',
+      occurred_on: today, created_at: new Date().toISOString() },
+  ],
+  budgets: [
+    { id: 'b1', category: 'Comida', monthly_limit: 80, currency: 'USD' },
+    { id: 'b2', category: 'Servicios', monthly_limit: 40, currency: 'USD' },
+    { id: 'b3', category: 'Transporte', monthly_limit: 25, currency: 'USD' },
+    { id: 'b4', category: 'Salud', monthly_limit: 30, currency: 'USD' },
+  ],
+  recurring: [
+    { id: 'r1', name: 'Internet', amount: 25, currency: 'USD', category: 'Servicios', due_day: 12, account_id: 'a2', is_active: true },
+    { id: 'r2', name: 'Netflix', amount: 6.99, currency: 'USD', category: 'Salidas', due_day: 5, account_id: 'a2', is_active: true },
+    { id: 'r3', name: 'Gimnasio', amount: 15, currency: 'USD', category: 'Salud', due_day: 10, account_id: 'a1', is_active: true },
   ],
 };
 const uid = () => Math.random().toString(36).slice(2);
@@ -96,8 +140,10 @@ const demo = {
     Object.assign(a, patch);
     return { ...a };
   },
-  async listTransactions() {
+  async listTransactions({ from, to, accountId } = {}) {
     return [...demoState.txs]
+      .filter((t) => (!from || t.occurred_on >= from) && (!to || t.occurred_on <= to)
+        && (!accountId || t.account_id === accountId || t.to_account_id === accountId))
       .sort((x, y) => (y.occurred_on + y.created_at).localeCompare(x.occurred_on + x.created_at))
       .map((t) => ({ ...t, account: accById(t.account_id), to_account: t.to_account_id ? accById(t.to_account_id) : null }));
   },
@@ -106,6 +152,28 @@ const demo = {
     demoState.txs.push(t);
     return t;
   },
+  async listBudgets() { return demoState.budgets.map((b) => ({ ...b })); },
+  async upsertBudget(row) {
+    const found = demoState.budgets.find((b) => b.category === row.category && b.currency === row.currency);
+    if (found) { Object.assign(found, row); return { ...found }; }
+    const b = { id: uid(), ...row };
+    demoState.budgets.push(b);
+    return b;
+  },
+  async deleteBudget(id) { demoState.budgets = demoState.budgets.filter((b) => b.id !== id); },
+  async listRecurring() { return demoState.recurring.map((r) => ({ ...r })); },
+  async createRecurring(row) {
+    const r = { id: uid(), is_active: true, ...row };
+    demoState.recurring.push(r);
+    return r;
+  },
+  async updateRecurring(id, patch) {
+    const r = demoState.recurring.find((x) => x.id === id);
+    if (!r) throw new Error('Recurrente no encontrado');
+    Object.assign(r, patch);
+    return { ...r };
+  },
+  async deleteRecurring(id) { demoState.recurring = demoState.recurring.filter((r) => r.id !== id); },
   async latestRates() { return Object.fromEntries(demoState.rates.map((r) => [r.rate_type, r.rate])); },
   async latestRateRows() { return demoState.rates; },
 };

@@ -213,13 +213,50 @@ select
     as balance
 from public.accounts a;
 
+-- ---------------------------------------------------------------------
+-- 6b. budgets (tope mensual por categoría)
+-- ---------------------------------------------------------------------
+create table public.budgets (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  category       text not null check (char_length(category) between 1 and 40),
+  monthly_limit  numeric(20, 8) not null check (monthly_limit > 0),
+  currency       public.currency_code not null default 'USD',
+  created_at     timestamptz not null default now(),
+  unique (user_id, category, currency)
+);
+
+create index budgets_user_idx on public.budgets (user_id);
+
+-- ---------------------------------------------------------------------
+-- 6c. recurring_expenses (gastos fijos / suscripciones)
+-- ---------------------------------------------------------------------
+create table public.recurring_expenses (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  name        text not null check (char_length(name) between 1 and 60),
+  amount      numeric(20, 8) not null check (amount > 0),
+  currency    public.currency_code not null,
+  category    text,
+  due_day     int not null check (due_day between 1 and 31),
+  account_id  uuid not null,
+  is_active   boolean not null default true,
+  created_at  timestamptz not null default now(),
+  unique (id, user_id),
+  foreign key (account_id, user_id) references public.accounts (id, user_id) on delete cascade
+);
+
+create index recurring_expenses_user_idx on public.recurring_expenses (user_id) where is_active;
+
 -- =====================================================================
 -- 7. Row Level Security
 -- =====================================================================
-alter table public.profiles       enable row level security;
-alter table public.accounts       enable row level security;
-alter table public.transactions   enable row level security;
-alter table public.exchange_rates enable row level security;
+alter table public.profiles            enable row level security;
+alter table public.accounts            enable row level security;
+alter table public.transactions        enable row level security;
+alter table public.exchange_rates      enable row level security;
+alter table public.budgets             enable row level security;
+alter table public.recurring_expenses  enable row level security;
 
 -- profiles: cada quien ve y edita solo su perfil (lo crea el trigger).
 create policy "profiles_select_own" on public.profiles
@@ -252,7 +289,28 @@ create policy "transactions_delete_own" on public.transactions
 create policy "exchange_rates_read_authenticated" on public.exchange_rates
   for select to authenticated using (true);
 
+-- budgets: CRUD solo propias.
+create policy "budgets_select_own" on public.budgets
+  for select to authenticated using ((select auth.uid()) = user_id);
+create policy "budgets_insert_own" on public.budgets
+  for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "budgets_update_own" on public.budgets
+  for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "budgets_delete_own" on public.budgets
+  for delete to authenticated using ((select auth.uid()) = user_id);
+
+-- recurring_expenses: CRUD solo propias.
+create policy "recurring_select_own" on public.recurring_expenses
+  for select to authenticated using ((select auth.uid()) = user_id);
+create policy "recurring_insert_own" on public.recurring_expenses
+  for insert to authenticated with check ((select auth.uid()) = user_id);
+create policy "recurring_update_own" on public.recurring_expenses
+  for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+create policy "recurring_delete_own" on public.recurring_expenses
+  for delete to authenticated using ((select auth.uid()) = user_id);
+
 -- Defensa extra: el rol anónimo no toca nada.
-revoke all on public.profiles, public.accounts, public.transactions, public.exchange_rates from anon;
+revoke all on public.profiles, public.accounts, public.transactions, public.exchange_rates,
+  public.budgets, public.recurring_expenses from anon;
 revoke all on public.account_balances, public.latest_rates from anon;
 revoke insert, update, delete on public.exchange_rates from authenticated;

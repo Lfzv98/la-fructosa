@@ -7,6 +7,8 @@ import {
   CURRENCIES, RATE_LABELS, CATEGORIES, LIVE_RATE_KEYS, LIVE_RATES_NOTE,
   ACCOUNT_PRESETS, accountIcon, presetForAccount,
   consolidate, convert, balanceBreakdown, spreadCalc, marketRateFor, fmt, fmtRate,
+  monthBounds, yearBounds, spentInCategory, budgetTone, recurringStatus,
+  transactionsToCsv, downloadCsv,
 } from './money.js';
 
 const html = htm.bind(React.createElement);
@@ -433,40 +435,347 @@ function SpreadCard({ spread, debit, currency }) {
 }
 
 // ---------------------------------------------------------------------
+// Exportación CSV / Excel
+// ---------------------------------------------------------------------
+function periodRange(period) {
+  if (period === 'prev') return monthBounds(-1);
+  if (period === 'year') return yearBounds();
+  return monthBounds(0);
+}
+
+function ExportReport({ balances, compact = false }) {
+  const [period, setPeriod] = useState('current');
+  const [accountId, setAccountId] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  const range = periodRange(period);
+
+  async function exportCsv() {
+    setBusy(true); setError(null);
+    try {
+      const rows = await api.listTransactions({
+        from: range.from, to: range.to, accountId: accountId || undefined, limit: 2000,
+      });
+      downloadCsv(`la-fructosa-${range.from}_${range.to}.csv`, transactionsToCsv(rows));
+    } catch (err) { setError(err); } finally { setBusy(false); }
+  }
+
+  return html`
+    <div class=${(compact ? '' : card + ' ') + 'p-4 space-y-3'}>
+      ${!compact && html`<h3 class="font-semibold">Exportar reporte</h3>`}
+      <${Segmented} value=${period} onChange=${setPeriod}
+        options=${[['current', 'Mes actual'], ['prev', 'Mes anterior'], ['year', 'Año']]} />
+      <${Field} label="Cuenta">
+        <select class=${input} value=${accountId} onChange=${(e) => setAccountId(e.target.value)}>
+          <option value="">Todas las cuentas</option>
+          ${balances.map((a) => html`<option key=${a.id} value=${a.id}>${accountIcon(a)} ${a.name} · ${a.currency}</option>`)}
+        </select>
+      <//>
+      <${ErrorBox} error=${error} />
+      <button type="button" class=${btnPrimary} disabled=${busy} onClick=${exportCsv}>
+        ${busy ? 'Preparando…' : '📥 Exportar reporte'}
+      </button>
+      <p class="text-[11px] opacity-60">CSV / Excel · ${range.from} — ${range.to}</p>
+    </div>`;
+}
+
+// ---------------------------------------------------------------------
 // Movimientos
 // ---------------------------------------------------------------------
-function Movements({ txs }) {
+function Movements({ txs, balances }) {
+  const [period, setPeriod] = useState('current');
+  const [accountId, setAccountId] = useState('');
+  const range = periodRange(period);
+  const filtered = useMemo(() => txs.filter((t) => (
+    t.occurred_on >= range.from && t.occurred_on <= range.to
+    && (!accountId || t.account_id === accountId || t.to_account_id === accountId)
+  )), [txs, range.from, range.to, accountId]);
   const groups = useMemo(() => {
     const m = new Map();
-    for (const t of txs) { if (!m.has(t.occurred_on)) m.set(t.occurred_on, []); m.get(t.occurred_on).push(t); }
+    for (const t of filtered) { if (!m.has(t.occurred_on)) m.set(t.occurred_on, []); m.get(t.occurred_on).push(t); }
     return [...m.entries()];
-  }, [txs]);
-  if (txs.length === 0) return html`<div class=${card + ' p-5 text-center opacity-80'}>Aún no hay movimientos.</div>`;
+  }, [filtered]);
+
   return html`
     <section class="space-y-4">
-      ${groups.map(([day, list]) => html`
-        <div key=${day}>
-          <h3 class="text-xs uppercase tracking-wide opacity-60 mb-2">${new Date(day + 'T12:00').toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
-          <ul class=${card + ' divide-y divide-azul-100 dark:divide-azul-800 overflow-hidden'}>
-            ${list.map((t) => html`
-              <li key=${t.id} class=${'p-3 flex items-center gap-3 ' + (t.type === 'expense' ? 'bg-salmon-50/80 dark:bg-salmon-900/25' : '')}>
-                <span class="text-xl">${t.type === 'income' ? '⬇️' : t.type === 'expense' ? '⬆️' : '🔁'}</span>
-                <div class="flex-1 min-w-0">
-                  <p class="font-medium truncate">${t.description || t.category}</p>
-                  <p class="text-xs opacity-60 truncate">
-                    ${t.account?.name}${t.to_account ? ' → ' + t.to_account.name : ''}
-                    ${t.original_currency === 'VES' ? ` · ${fmt(t.original_amount, 'VES')}` : ''}
-                  </p>
-                </div>
-                <div class="text-right">
-                  <p class=${'font-semibold tabular ' + (t.type === 'income' ? 'text-azul-600 dark:text-azul-200' : t.type === 'expense' ? 'text-salmon-700 dark:text-salmon-200' : '')}>
-                    ${t.type === 'income' ? '+' : '−'}${fmt(t.amount, t.account?.currency)}
-                  </p>
-                  ${t.spread_usd != null && html`<p class="text-[11px] opacity-60 tabular">brecha ${fmt(Math.abs(t.spread_usd))}</p>`}
-                </div>
-              </li>`)}
-          </ul>
-        </div>`)}
+      <${Segmented} value=${period} onChange=${setPeriod}
+        options=${[['current', 'Mes actual'], ['prev', 'Mes ant.'], ['year', 'Año']]} />
+      <select class=${input} value=${accountId} onChange=${(e) => setAccountId(e.target.value)}>
+        <option value="">Todas las cuentas</option>
+        ${balances.map((a) => html`<option key=${a.id} value=${a.id}>${accountIcon(a)} ${a.name}</option>`)}
+      </select>
+      <button type="button" class=${btnPrimary}
+        onClick=${() => {
+          const rows = txs.filter((t) => (
+            t.occurred_on >= range.from && t.occurred_on <= range.to
+            && (!accountId || t.account_id === accountId || t.to_account_id === accountId)
+          ));
+          downloadCsv(`la-fructosa-${range.from}_${range.to}.csv`, transactionsToCsv(rows));
+        }}>
+        📥 Exportar reporte
+      </button>
+      ${filtered.length === 0
+        ? html`<div class=${card + ' p-5 text-center opacity-80'}>No hay movimientos en este período.</div>`
+        : groups.map(([day, list]) => html`
+          <div key=${day}>
+            <h3 class="text-xs uppercase tracking-wide opacity-60 mb-2">${new Date(day + 'T12:00').toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
+            <ul class=${card + ' divide-y divide-azul-100 dark:divide-azul-800 overflow-hidden'}>
+              ${list.map((t) => html`
+                <li key=${t.id} class=${'p-3 flex items-center gap-3 ' + (t.type === 'expense' ? 'bg-salmon-50/80 dark:bg-salmon-900/25' : '')}>
+                  <span class="text-xl">${t.type === 'income' ? '⬇️' : t.type === 'expense' ? '⬆️' : '🔁'}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-medium truncate">${t.description || t.category}</p>
+                    <p class="text-xs opacity-60 truncate">
+                      ${t.account?.name}${t.to_account ? ' → ' + t.to_account.name : ''}
+                      ${t.original_currency === 'VES' ? ` · ${fmt(t.original_amount, 'VES')}` : ''}
+                    </p>
+                  </div>
+                  <div class="text-right">
+                    <p class=${'font-semibold tabular ' + (t.type === 'income' ? 'text-azul-600 dark:text-azul-200' : t.type === 'expense' ? 'text-salmon-700 dark:text-salmon-200' : '')}>
+                      ${t.type === 'income' ? '+' : '−'}${fmt(t.amount, t.account?.currency)}
+                    </p>
+                    ${t.spread_usd != null && html`<p class="text-[11px] opacity-60 tabular">brecha ${fmt(Math.abs(t.spread_usd))}</p>`}
+                  </div>
+                </li>`)}
+            </ul>
+          </div>`)}
+    </section>`;
+}
+
+// ---------------------------------------------------------------------
+// Presupuestos mensuales
+// ---------------------------------------------------------------------
+function BudgetForm({ onDone, onCancel }) {
+  const [category, setCategory] = useState(CATEGORIES.expense[0]);
+  const [limit, setLimit] = useState('');
+  const [currency, setCurrency] = useState('USD');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true); setError(null);
+    try {
+      const monthly_limit = Number(limit);
+      if (!(monthly_limit > 0)) throw new Error('Indica un límite mayor a 0.');
+      await api.upsertBudget({ category, monthly_limit, currency });
+      onDone();
+    } catch (err) { setError(err); } finally { setBusy(false); }
+  }
+
+  return html`
+    <form onSubmit=${submit} class="space-y-3">
+      <h3 class="font-semibold">Nuevo presupuesto</h3>
+      <${Field} label="Categoría">
+        <select class=${input} value=${category} onChange=${(e) => setCategory(e.target.value)}>
+          ${CATEGORIES.expense.map((c) => html`<option key=${c} value=${c}>${c}</option>`)}
+        </select>
+      <//>
+      <div class="grid grid-cols-2 gap-3">
+        <${Field} label="Límite mensual">
+          <input class=${input + ' tabular'} type="number" inputmode="decimal" step="any" required
+            value=${limit} onInput=${(e) => setLimit(e.target.value)} />
+        <//>
+        <${Field} label="Moneda">
+          <select class=${input} value=${currency} onChange=${(e) => setCurrency(e.target.value)}>
+            ${Object.keys(CURRENCIES).map((c) => html`<option key=${c} value=${c}>${c}</option>`)}
+          </select>
+        <//>
+      </div>
+      <${ErrorBox} error=${error} />
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" class="rounded-xl border border-azul-200 dark:border-azul-600 py-3" onClick=${onCancel}>Cancelar</button>
+        <button class=${btnPrimary} disabled=${busy}>${busy ? '…' : 'Guardar'}</button>
+      </div>
+    </form>`;
+}
+
+function Budgets({ budgets, txs, rates, profile, onChanged }) {
+  const [adding, setAdding] = useState(false);
+  const month = monthBounds(0);
+  return html`
+    <div class="space-y-3">
+      <p class="text-xs opacity-60 capitalize">${month.label}</p>
+      ${budgets.length === 0 && !adding && html`
+        <div class=${card + ' p-5 text-center opacity-80'}>Define un límite mensual por categoría.</div>`}
+      ${budgets.map((b) => {
+        const { total, missing } = spentInCategory(txs, b.category, month.from, month.to, b.currency, rates, profile.valuation_rate);
+        const limit = Number(b.monthly_limit);
+        const pct = limit > 0 ? Math.min(999, (total / limit) * 100) : 0;
+        const tone = budgetTone(pct);
+        return html`
+          <article key=${b.id} class=${card + ' p-4 space-y-2'}>
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="font-semibold">${b.category}</p>
+                <p class=${'text-xs ' + tone.text}>${tone.label}${missing ? ' · falta tasa' : ''}</p>
+              </div>
+              <div class="text-right">
+                <p class="text-sm tabular font-semibold">${fmt(total, b.currency)} / ${fmt(limit, b.currency)}</p>
+                <button type="button" class="text-[11px] opacity-50" onClick=${async () => { await api.deleteBudget(b.id); onChanged(); }}>Quitar</button>
+              </div>
+            </div>
+            <div class="h-2.5 rounded-full bg-azul-50 dark:bg-azul-900 overflow-hidden">
+              <div class=${'h-full rounded-full transition-all ' + tone.bar} style=${{ width: `${Math.min(100, pct)}%` }}></div>
+            </div>
+            <p class="text-[11px] opacity-60 tabular">${pct.toFixed(0)}% del límite</p>
+          </article>`;
+      })}
+      ${adding
+        ? html`<div class=${card + ' p-4'}><${BudgetForm} onCancel=${() => setAdding(false)} onDone=${() => { setAdding(false); onChanged(); }} /></div>`
+        : html`<button type="button" class=${btnPrimary} onClick=${() => setAdding(true)}>+ Presupuesto</button>`}
+    </div>`;
+}
+
+// ---------------------------------------------------------------------
+// Pagos recurrentes / suscripciones
+// ---------------------------------------------------------------------
+function RecurringForm({ balances, onDone, onCancel }) {
+  const [name, setName] = useState('');
+  const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState(balances[0]?.currency || 'USD');
+  const [category, setCategory] = useState('Servicios');
+  const [dueDay, setDueDay] = useState('5');
+  const [accountId, setAccountId] = useState(balances[0]?.id || '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true); setError(null);
+    try {
+      const n = Number(amount);
+      const day = Number(dueDay);
+      if (!(n > 0)) throw new Error('Indica un monto mayor a 0.');
+      if (!accountId) throw new Error('Elige la cuenta de cobro.');
+      if (!(day >= 1 && day <= 31)) throw new Error('El día de pago debe ser entre 1 y 31.');
+      await api.createRecurring({
+        name: name.trim(), amount: n, currency, category, due_day: day, account_id: accountId, is_active: true,
+      });
+      onDone();
+    } catch (err) { setError(err); } finally { setBusy(false); }
+  }
+
+  return html`
+    <form onSubmit=${submit} class="space-y-3">
+      <h3 class="font-semibold">Nuevo pago fijo</h3>
+      <${Field} label="Nombre">
+        <input class=${input} required placeholder="Internet, Netflix, Alquiler…" value=${name} onInput=${(e) => setName(e.target.value)} />
+      <//>
+      <div class="grid grid-cols-2 gap-3">
+        <${Field} label="Monto">
+          <input class=${input + ' tabular'} type="number" inputmode="decimal" step="any" required
+            value=${amount} onInput=${(e) => setAmount(e.target.value)} />
+        <//>
+        <${Field} label="Moneda">
+          <select class=${input} value=${currency} onChange=${(e) => setCurrency(e.target.value)}>
+            ${Object.keys(CURRENCIES).map((c) => html`<option key=${c} value=${c}>${c}</option>`)}
+          </select>
+        <//>
+      </div>
+      <${Field} label="Categoría">
+        <select class=${input} value=${category} onChange=${(e) => setCategory(e.target.value)}>
+          ${CATEGORIES.expense.map((c) => html`<option key=${c} value=${c}>${c}</option>`)}
+        </select>
+      <//>
+      <div class="grid grid-cols-2 gap-3">
+        <${Field} label="Día de pago (1–31)">
+          <input class=${input + ' tabular'} type="number" inputmode="numeric" min="1" max="31" required
+            value=${dueDay} onInput=${(e) => setDueDay(e.target.value)} />
+        <//>
+        <${Field} label="Cuenta de cobro">
+          <select class=${input} value=${accountId} onChange=${(e) => setAccountId(e.target.value)}>
+            ${balances.map((a) => html`<option key=${a.id} value=${a.id}>${accountIcon(a)} ${a.name}</option>`)}
+          </select>
+        <//>
+      </div>
+      <${ErrorBox} error=${error} />
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" class="rounded-xl border border-azul-200 dark:border-azul-600 py-3" onClick=${onCancel}>Cancelar</button>
+        <button class=${btnPrimary} disabled=${busy}>${busy ? '…' : 'Guardar'}</button>
+      </div>
+    </form>`;
+}
+
+function Recurring({ items, txs, balances, rates, profile, onChanged }) {
+  const [adding, setAdding] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [error, setError] = useState(null);
+  const month = monthBounds(0);
+  const active = items.filter((r) => r.is_active);
+
+  async function pay(rec) {
+    setBusyId(rec.id); setError(null);
+    try {
+      const acc = balances.find((a) => a.id === rec.account_id);
+      if (!acc) throw new Error('La cuenta asociada ya no existe.');
+      let amount = Number(rec.amount);
+      if (acc.currency !== rec.currency) {
+        const v = convert(amount, rec.currency, acc.currency, rates, profile.valuation_rate);
+        if (v == null) throw new Error('No hay tasa para convertir el pago.');
+        amount = v;
+      }
+      await api.createTransaction({
+        type: 'expense',
+        account_id: rec.account_id,
+        amount: Number(amount.toFixed(8)),
+        category: rec.category || 'Otros',
+        description: rec.name,
+        occurred_on: todayISO(),
+        original_amount: Number(rec.amount),
+        original_currency: rec.currency,
+      });
+      onChanged();
+    } catch (err) { setError(err); } finally { setBusyId(null); }
+  }
+
+  return html`
+    <div class="space-y-3">
+      <${ErrorBox} error=${error} />
+      ${active.length === 0 && !adding && html`
+        <div class=${card + ' p-5 text-center opacity-80'}>Registra alquiler, internet, streaming u otros fijos.</div>`}
+      ${active.map((r) => {
+        const acc = balances.find((a) => a.id === r.account_id);
+        const st = recurringStatus(r, txs, month.from, month.to);
+        return html`
+          <article key=${r.id} class=${card + ' p-4 space-y-3'}>
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="font-semibold">${r.name}</p>
+                <p class="text-xs opacity-60">${r.category} · ${acc ? acc.name : 'sin cuenta'} · día ${r.due_day}</p>
+              </div>
+              <p class="font-semibold tabular">${fmt(r.amount, r.currency)}</p>
+            </div>
+            ${st.soon && html`
+              <span class="inline-flex text-[11px] font-bold uppercase tracking-wide rounded-full bg-sol text-azul-900 px-2 py-0.5">${st.label}</span>`}
+            ${!st.soon && html`<span class=${'text-[11px] ' + (st.kind === 'late' ? 'text-salmon-700 dark:text-salmon-200' : 'opacity-60')}>${st.label}</span>`}
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" class=${btnPrimary + (st.kind === 'paid' ? ' opacity-50' : '')}
+                disabled=${busyId === r.id || st.kind === 'paid'} onClick=${() => pay(r)}>
+                ${st.kind === 'paid' ? 'Pagado' : busyId === r.id ? '…' : 'Registrar pago'}
+              </button>
+              <button type="button" class="rounded-xl border border-azul-200 dark:border-azul-600 text-sm"
+                onClick=${async () => { await api.updateRecurring(r.id, { is_active: false }); onChanged(); }}>
+                Pausar
+              </button>
+            </div>
+          </article>`;
+      })}
+      ${adding
+        ? html`<div class=${card + ' p-4'}><${RecurringForm} balances=${balances} onCancel=${() => setAdding(false)} onDone=${() => { setAdding(false); onChanged(); }} /></div>`
+        : html`<button type="button" class=${btnPrimary} onClick=${() => setAdding(true)}>+ Pago recurrente</button>`}
+    </div>`;
+}
+
+function Plan({ budgets, recurring, txs, balances, rates, profile, onChanged }) {
+  const [view, setView] = useState('budgets');
+  return html`
+    <section class="space-y-4">
+      <${Segmented} value=${view} onChange=${setView}
+        options=${[['budgets', 'Presupuestos'], ['recurring', 'Recurrentes']]} />
+      ${view === 'budgets'
+        ? html`<${Budgets} budgets=${budgets} txs=${txs} rates=${rates} profile=${profile} onChanged=${onChanged} />`
+        : html`<${Recurring} items=${recurring} txs=${txs} balances=${balances} rates=${rates} profile=${profile} onChanged=${onChanged} />`}
     </section>`;
 }
 
@@ -519,7 +828,7 @@ function Rates({ rows, rates, onRefresh, busy, note, error }) {
 // ---------------------------------------------------------------------
 // Ajustes
 // ---------------------------------------------------------------------
-function Settings({ profile, onSave }) {
+function Settings({ profile, onSave, balances }) {
   return html`
     <section class="space-y-4">
       <div class=${card + ' p-4 space-y-4'}>
@@ -532,9 +841,23 @@ function Settings({ profile, onSave }) {
             options=${[['BCV_USD', 'BCV'], ['PARALELO', 'USDT']]} />
         <//>
       </div>
+      <${ExportReport} balances=${balances} />
       ${!isDemo && html`
         <button class="w-full rounded-xl border border-salmon-600 text-salmon-700 dark:text-salmon-200 dark:border-salmon-300 py-3 font-semibold"
           onClick=${() => supabase.auth.signOut()}>Cerrar sesión</button>`}
+    </section>`;
+}
+
+function More({ profile, onSave, balances, rateRows, rates, onRefresh, ratesBusy, ratesNote, ratesError }) {
+  const [view, setView] = useState('rates');
+  return html`
+    <section class="space-y-4">
+      <${Segmented} value=${view} onChange=${setView}
+        options=${[['rates', 'Tasas'], ['settings', 'Ajustes']]} />
+      ${view === 'rates'
+        ? html`<${Rates} rows=${rateRows} rates=${rates} onRefresh=${onRefresh}
+            busy=${ratesBusy} note=${ratesNote} error=${ratesError} />`
+        : html`<${Settings} profile=${profile} onSave=${onSave} balances=${balances} />`}
     </section>`;
 }
 
@@ -543,10 +866,10 @@ function Settings({ profile, onSave }) {
 // ---------------------------------------------------------------------
 const TABS = [
   ['home', 'Inicio', '🏠'],
-  ['movs', 'Movimientos', '📒'],
+  ['movs', 'Movs', '📒'],
   ['new', 'Nuevo', '➕'],
-  ['rates', 'Tasas', '📈'],
-  ['settings', 'Ajustes', '⚙️'],
+  ['plan', 'Plan', '📊'],
+  ['more', 'Más', '✨'],
 ];
 
 function MainApp() {
@@ -555,6 +878,8 @@ function MainApp() {
   const [profile, setProfile] = useState(null);
   const [balances, setBalances] = useState([]);
   const [txs, setTxs] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+  const [recurring, setRecurring] = useState([]);
   const [rates, setRates] = useState({});
   const [rateRows, setRateRows] = useState([]);
   const [ratesBusy, setRatesBusy] = useState(false);
@@ -586,6 +911,12 @@ function MainApp() {
         api.getProfile(), api.listBalances(), api.listTransactions(),
       ]);
       setProfile(p); setBalances(b); setTxs(t);
+      try {
+        const [bu, rec] = await Promise.all([api.listBudgets(), api.listRecurring()]);
+        setBudgets(bu); setRecurring(rec);
+      } catch {
+        setBudgets([]); setRecurring([]);
+      }
       await applyLiveRates();
     } catch (err) { setError(err); }
   }, [applyLiveRates]);
@@ -616,11 +947,13 @@ function MainApp() {
           onEditAccount=${(a) => setSheet({ mode: 'edit', account: a })}
           onToggleCurrency=${() => saveProfile({ preferred_currency: profile.preferred_currency === 'USD' ? 'VES' : 'USD' })}
           onRefreshRates=${applyLiveRates} ratesBusy=${ratesBusy} ratesNote=${ratesNote} />`}
-        ${tab === 'movs' && html`<${Movements} txs=${txs} />`}
+        ${tab === 'movs' && html`<${Movements} txs=${txs} balances=${balances} />`}
         ${tab === 'new' && html`<${NewTransaction} balances=${balances} rates=${rates} onDone=${() => { load(); setTab('movs'); }} />`}
-        ${tab === 'rates' && html`<${Rates} rows=${rateRows} rates=${rates} onRefresh=${applyLiveRates}
-          busy=${ratesBusy} note=${ratesNote} error=${ratesError} />`}
-        ${tab === 'settings' && html`<${Settings} profile=${profile} onSave=${saveProfile} />`}
+        ${tab === 'plan' && html`<${Plan} budgets=${budgets} recurring=${recurring} txs=${txs}
+          balances=${balances} rates=${rates} profile=${profile} onChanged=${load} />`}
+        ${tab === 'more' && html`<${More} profile=${profile} onSave=${saveProfile} balances=${balances}
+          rateRows=${rateRows} rates=${rates} onRefresh=${applyLiveRates}
+          ratesBusy=${ratesBusy} ratesNote=${ratesNote} ratesError=${ratesError} />`}
       </main>
 
       <nav class="fixed bottom-0 inset-x-0 safe-bottom bg-azul-50/95 dark:bg-azul-900/95 backdrop-blur border-t border-azul-100 dark:border-azul-800">

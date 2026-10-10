@@ -245,3 +245,96 @@ export function fmt(amount, currency = 'USD', opts = {}) {
 export function fmtRate(rate) {
   return Number(rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 }
+
+export function caracasToday() {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+}
+
+export function monthBounds(offset = 0) {
+  const [y, m] = caracasToday().split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + offset, 1));
+  const yy = d.getUTCFullYear();
+  const mm = d.getUTCMonth() + 1;
+  const last = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
+  const pad = (n) => String(n).padStart(2, '0');
+  return {
+    from: `${yy}-${pad(mm)}-01`,
+    to: `${yy}-${pad(mm)}-${pad(last)}`,
+    label: d.toLocaleDateString('es-VE', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
+    year: yy,
+    month: mm,
+  };
+}
+
+export function yearBounds() {
+  const y = caracasToday().slice(0, 4);
+  return { from: `${y}-01-01`, to: `${y}-12-31`, label: y };
+}
+
+export function spentInCategory(txs, category, from, to, target, rates, valuation) {
+  let total = 0;
+  let missing = false;
+  for (const t of txs) {
+    if (t.type !== 'expense' || t.category !== category) continue;
+    if (t.occurred_on < from || t.occurred_on > to) continue;
+    const cur = t.account?.currency || 'USD';
+    const v = convert(Number(t.amount), cur, target, rates, valuation);
+    if (v == null) missing = true;
+    else total += v;
+  }
+  return { total, missing };
+}
+
+export function budgetTone(pct) {
+  if (pct >= 100) return { bar: 'bg-salmon', text: 'text-salmon-700 dark:text-salmon-200', label: 'Excedido' };
+  if (pct >= 75) return { bar: 'bg-sol', text: 'text-sol-700 dark:text-sol-100', label: 'Al 75%+' };
+  return { bar: 'bg-azul-400', text: 'text-azul-700 dark:text-azul-200', label: 'Dentro del límite' };
+}
+
+export function recurringStatus(rec, txs, from, to) {
+  const today = caracasToday();
+  const day = Number(today.slice(8, 10));
+  const last = Number(to.slice(8, 10));
+  const due = Math.min(Number(rec.due_day), last);
+  const paid = txs.some((t) => (
+    t.type === 'expense'
+    && t.occurred_on >= from && t.occurred_on <= to
+    && (t.description === rec.name
+      || (t.category === rec.category && t.account_id === rec.account_id && Number(t.amount) === Number(rec.amount)))
+  ));
+  if (paid) return { kind: 'paid', label: 'Pagado este mes', soon: false };
+  if (due === day) return { kind: 'soon', label: 'Vence hoy', soon: true };
+  if (due > day && due - day <= 5) return { kind: 'soon', label: `Vence en ${due - day} días`, soon: true };
+  if (due < day) return { kind: 'late', label: `Venció el día ${due}`, soon: false };
+  return { kind: 'ok', label: `Día ${due}`, soon: false };
+}
+
+const TX_TIPO = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
+
+export function transactionsToCsv(txs) {
+  const headers = ['Fecha', 'Descripción', 'Categoría', 'Tipo', 'Monto Original', 'Moneda', 'Cuenta', 'Tasa de Cambio'];
+  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const lines = txs.map((t) => [
+    t.occurred_on,
+    t.description ?? '',
+    t.category ?? '',
+    TX_TIPO[t.type] ?? t.type,
+    t.original_amount ?? t.amount ?? '',
+    t.original_currency ?? t.account?.currency ?? '',
+    t.account?.name ?? '',
+    t.rate_applied ?? '',
+  ].map(esc).join(','));
+  return `\uFEFF${[headers.map(esc).join(','), ...lines].join('\r\n')}`;
+}
+
+export function downloadCsv(filename, csv) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
