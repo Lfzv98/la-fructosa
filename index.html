@@ -7,16 +7,16 @@
   <meta name="description" content="Finanzas personales en USD, VES y USDT." />
 
   <!-- PWA -->
-  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="manifest" href="./manifest.webmanifest" />
   <meta name="theme-color" content="#1F4D3A" />
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
 
   <!-- iOS: pantalla completa al instalar desde Safari > Compartir > Agregar a inicio -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="La Fructosa" />
-  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
 
   <!-- Estilos: Tailwind por CDN (sin build step) -->
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
@@ -61,14 +61,14 @@
   <div id="root">
     <!-- Splash mientras cargan los módulos -->
     <div class="min-h-screen grid place-items-center">
-      <img src="icons/icon-192.png" alt="" class="w-20 h-20 rounded-2xl animate-pulse" />
+      <img src="./icons/icon-192.png" alt="" class="w-20 h-20 rounded-2xl animate-pulse" />
     </div>
   </div>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="./js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
     }
   </script>
 </body>

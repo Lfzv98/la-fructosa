@@ -71,7 +71,7 @@ function AuthScreen() {
   return html`
     <main class="min-h-screen safe-top px-6 flex flex-col justify-center max-w-sm mx-auto">
       <div class="text-center mb-8">
-        <img src="icons/icon-192.png" alt="" class="w-20 h-20 rounded-2xl mx-auto shadow" />
+        <img src="./icons/icon-192.png" alt="" class="w-20 h-20 rounded-2xl mx-auto shadow" />
         <h1 class="text-3xl font-bold mt-4">La Fructosa</h1>
         <p class="opacity-70 mt-1">Tus cuentas, solo tuyas.</p>
       </div>

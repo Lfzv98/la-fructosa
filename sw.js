@@ -1,19 +1,19 @@
 // La Fructosa · Service Worker
 // Sube CACHE_VERSION en cada despliegue para forzar la actualización.
-const CACHE_VERSION = 'fructosa-v1';
+const CACHE_VERSION = 'fructosa-v2';
 
 const APP_SHELL = [
   './',
-  'index.html',
-  'manifest.webmanifest',
-  'js/app.js',
-  'js/config.js',
-  'js/supabase.js',
-  'js/money.js',
-  'js/api.js',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-  'icons/apple-touch-icon.png',
+  './index.html',
+  './manifest.webmanifest',
+  './js/app.js',
+  './js/config.js',
+  './js/supabase.js',
+  './js/money.js',
+  './js/api.js',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/apple-touch-icon.png',
 ];
 
 // CDNs de librerías (versiones fijas): se cachean al primer uso.
