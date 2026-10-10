@@ -128,7 +128,7 @@ function AuthScreen() {
 
           ${mode === 'signup' && html`
             <${Field} label="Nombre">
-              <input class=${input} value=${name} onInput=${(e) => setName(e.target.value)} autocomplete="name" placeholder="Cómo te llamamos" />
+              <input class=${input} value=${name} onInput=${(e) => setName(e.target.value)} autocomplete="name" placeholder="Inserta tu nombre aquí" />
             <//>`}
 
           <${Field} label="Correo electrónico">
