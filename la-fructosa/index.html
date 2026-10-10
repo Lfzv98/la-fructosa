@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>La Fructosa</title>
+  <meta name="description" content="Finanzas personales en USD, VES y USDT." />
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#1F4D3A" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
+
+  <!-- iOS: pantalla completa al instalar desde Safari > Compartir > Agregar a inicio -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="La Fructosa" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+
+  <!-- Estilos: Tailwind por CDN (sin build step) -->
+  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'media',
+      theme: {
+        extend: {
+          colors: {
+            hoja:   { DEFAULT: '#1F4D3A', 50: '#EEF5F1', 100: '#D5E7DD', 600: '#27624A', 700: '#1F4D3A', 900: '#12301F' },
+            mango:  { DEFAULT: '#F2A541', 100: '#FDEBD0', 600: '#D98A1F' },
+            crema:  { DEFAULT: '#FAF3E0' },
+            arcilla:{ DEFAULT: '#C0583A' },
+          },
+          fontFamily: { sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <style>
+    html, body { background: #FAF3E0; }
+    @media (prefers-color-scheme: dark) { html, body { background: #0F1A14; } }
+    body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
+    .safe-top    { padding-top: env(safe-area-inset-top); }
+    .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
+    .tabular     { font-variant-numeric: tabular-nums; }
+  </style>
+
+  <!-- Dependencias como módulos ES, versiones fijas -->
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.3.1",
+        "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+        "htm": "https://esm.sh/htm@3.1.1",
+        "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.45.4"
+      }
+    }
+  </script>
+</head>
+<body class="min-h-screen text-hoja-900 dark:text-crema antialiased">
+  <div id="root">
+    <!-- Splash mientras cargan los módulos -->
+    <div class="min-h-screen grid place-items-center">
+      <img src="icons/icon-192.png" alt="" class="w-20 h-20 rounded-2xl animate-pulse" />
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+    }
+  </script>
+</body>
+</html>

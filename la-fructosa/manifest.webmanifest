@@ -1,0 +1,17 @@
+{
+  "name": "La Fructosa",
+  "short_name": "La Fructosa",
+  "description": "Finanzas personales en USD, VES y USDT para la familia.",
+  "lang": "es-VE",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FAF3E0",
+  "theme_color": "#1F4D3A",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
