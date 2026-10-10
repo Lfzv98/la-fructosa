@@ -109,7 +109,7 @@ function AuthScreen() {
         <header class="text-center mb-7">
           <img src="./icons/icon-192.png" alt="La Fructosa" class="w-16 h-16 rounded-2xl mx-auto shadow-sm" />
           <h1 class="text-3xl font-bold tracking-tight mt-4">La Fructosa</h1>
-          <p class="text-sm opacity-50 mt-1">Finanzas Familiares</p>
+          <p class="text-sm opacity-50 mt-1">Finanzas Personales</p>
         </header>
 
         <form onSubmit=${submit} class=${card + ' p-5 space-y-4'}>
