@@ -2,7 +2,7 @@
 // - Modo real: Supabase (RLS garantiza que cada quien vea solo lo suyo).
 // - Modo demo (?demo o sin config): datos en memoria para ver la UI.
 import { supabase, isConfigured } from './supabase.js';
-import { fetchLiveMarketRates } from './money.js';
+import { fetchLiveMarketRates, normalizeProfile } from './money.js';
 
 export const isDemo = !isConfigured || new URLSearchParams(location.search).has('demo');
 
@@ -14,11 +14,11 @@ function unwrap({ data, error }) {
 const real = {
   async getProfile() {
     const { data: { user } } = await supabase.auth.getUser();
-    return unwrap(await supabase.from('profiles').select('*').eq('id', user.id).single());
+    return normalizeProfile(unwrap(await supabase.from('profiles').select('*').eq('id', user.id).single()));
   },
   async updateProfile(patch) {
     const { data: { user } } = await supabase.auth.getUser();
-    return unwrap(await supabase.from('profiles').update(patch).eq('id', user.id).select().single());
+    return normalizeProfile(unwrap(await supabase.from('profiles').update(patch).eq('id', user.id).select().single()));
   },
   async listBalances() {
     return unwrap(await supabase.from('account_balances').select('*')
@@ -79,7 +79,7 @@ const real = {
 // ---------- Demo en memoria ----------
 const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
 const demoState = {
-  profile: { id: 'demo', display_name: 'Familia', preferred_currency: 'USD', valuation_rate: 'BCV_USD' },
+  profile: { id: 'demo', display_name: 'Familia', region: 'VE', preferred_currency: 'USD', valuation_rate: 'BCV_USD' },
   rates: [
     { rate_type: 'BCV_USD', rate: 180.25, rate_date: today, source: 'demo' },
     { rate_type: 'BCV_EUR', rate: 205.1, rate_date: today, source: 'demo' },
@@ -121,8 +121,11 @@ const uid = () => Math.random().toString(36).slice(2);
 const accById = (id) => demoState.accounts.find((a) => a.id === id);
 
 const demo = {
-  async getProfile() { return { ...demoState.profile }; },
-  async updateProfile(patch) { Object.assign(demoState.profile, patch); return { ...demoState.profile }; },
+  async getProfile() { return normalizeProfile(demoState.profile); },
+  async updateProfile(patch) {
+    Object.assign(demoState.profile, patch);
+    return normalizeProfile(demoState.profile);
+  },
   async listBalances() {
     return demoState.accounts.map((a) => {
       let balance = Number(a.initial_balance);

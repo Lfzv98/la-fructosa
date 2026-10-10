@@ -5,7 +5,8 @@ import { supabase } from './supabase.js';
 import { api, isDemo } from './api.js';
 import {
   CURRENCIES, RATE_LABELS, CATEGORIES, LIVE_RATE_KEYS, LIVE_RATES_NOTE,
-  ACCOUNT_PRESETS, accountIcon, presetForAccount,
+  ACCOUNT_PRESETS, accountIcon, presetForAccount, REGIONS, regionOf,
+  presetsForRegion, currenciesForRegion, patchForRegion,
   consolidate, convert, balanceBreakdown, spreadCalc, marketRateFor, fmt, fmtRate,
   monthBounds, yearBounds, spentInCategory, budgetTone, recurringStatus,
   transactionsToCsv, downloadCsv,
@@ -45,6 +46,21 @@ function ErrorBox({ error }) {
   return html`<p class="text-sm text-salmon-800 dark:text-salmon-100 bg-salmon-100/80 dark:bg-salmon-900/50 rounded-lg p-2">${error.message ?? String(error)}</p>`;
 }
 
+function RegionPicker({ value, onChange }) {
+  return html`
+    <div class="space-y-2">
+      ${Object.values(REGIONS).map((r) => html`
+        <button key=${r.id} type="button" onClick=${() => onChange(r.id)}
+          class=${'w-full text-left rounded-2xl border px-4 py-3 flex items-start gap-3 min-h-[56px] ' + (value === r.id ? 'border-salmon bg-salmon/20' : 'border-azul-100 dark:border-azul-700')}>
+          <span class="text-2xl" aria-hidden="true">${r.flag}</span>
+          <div class="min-w-0">
+            <p class="font-semibold text-sm">${r.label}</p>
+            <p class="text-xs opacity-60">${r.hint}</p>
+          </div>
+        </button>`)}
+    </div>`;
+}
+
 // ---------------------------------------------------------------------
 // Autenticación
 // ---------------------------------------------------------------------
@@ -53,6 +69,7 @@ function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [region, setRegion] = useState('VE');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
@@ -66,7 +83,7 @@ function AuthScreen() {
         if (error) throw error;
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email, password, options: { data: { display_name: name } },
+          email, password, options: { data: { display_name: name, region } },
         });
         if (error) throw error;
         if (!data.session) setNotice('Te enviamos un correo para confirmar tu cuenta.');
@@ -84,7 +101,11 @@ function AuthScreen() {
       <form onSubmit=${submit} class="space-y-4">
         <${Segmented} value=${mode} onChange=${setMode} options=${[['login', 'Entrar'], ['signup', 'Crear cuenta']]} />
         ${mode === 'signup' && html`
-          <${Field} label="Nombre"><input class=${input} value=${name} onInput=${(e) => setName(e.target.value)} autocomplete="name" /><//>`}
+          <${Field} label="Nombre"><input class=${input} value=${name} onInput=${(e) => setName(e.target.value)} autocomplete="name" /><//>
+          <div class="space-y-2">
+            <p class="text-sm opacity-70">Región y moneda base</p>
+            <${RegionPicker} value=${region} onChange=${setRegion} />
+          </div>`}
         <${Field} label="Correo">
           <input class=${input} type="email" required value=${email} onInput=${(e) => setEmail(e.target.value)} autocomplete="email" />
         <//>
@@ -105,19 +126,24 @@ function AuthScreen() {
 function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleCurrency, onRefreshRates, ratesBusy, ratesNote }) {
   const target = profile.preferred_currency;
   const valuation = profile.valuation_rate;
+  const zone = regionOf(profile);
   const { total, missing } = consolidate(balances, target, rates, valuation);
   const parts = balanceBreakdown(balances, target, rates, valuation);
+  const subtitle = zone.showRates
+    ? `Convertido a tasa ${RATE_LABELS[valuation]} del día`
+    : `Expresado en ${CURRENCIES[target]?.label ?? target}`;
   return html`
     <section class="space-y-4">
       <div class="rounded-3xl bg-azul-200 dark:bg-azul-800 text-azul-900 dark:text-papel p-5 shadow-lg">
         <div class="flex items-center justify-between">
           <span class="text-sm opacity-80">Saldo total en ${target}</span>
-          <button onClick=${onToggleCurrency} class=${currencyBadge + ' text-xs px-3 py-1'}>
-            ${target} · ${RATE_LABELS[valuation]}
+          <button type="button" onClick=${zone.showRates ? onToggleCurrency : undefined}
+            class=${currencyBadge + ' text-xs px-3 py-1'}>
+            ${zone.flag} ${target}${zone.showRates ? ` · ${RATE_LABELS[valuation]}` : ''}
           </button>
         </div>
         <p class="text-4xl font-bold mt-2 tabular">${fmt(total, target)}</p>
-        <p class="text-[11px] opacity-70 mt-1">Convertido a tasa ${RATE_LABELS[valuation]} del día</p>
+        <p class="text-[11px] opacity-70 mt-1">${subtitle}</p>
         ${parts.length > 0 && html`
           <ul class="mt-3 space-y-1 text-xs opacity-90">
             ${parts.map((p) => html`
@@ -129,14 +155,18 @@ function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleC
         ${missing && html`<p class="text-xs mt-2 rounded-lg bg-sol-100 text-azul-900 px-2 py-1">Faltan tasas para convertir algunas cuentas.</p>`}
       </div>
 
-      <${RatesStrip} rates=${rates} onRefresh=${onRefreshRates} busy=${ratesBusy} note=${ratesNote} />
+      ${zone.showRates && html`<${RatesStrip} rates=${rates} onRefresh=${onRefreshRates} busy=${ratesBusy} note=${ratesNote} />`}
 
       <div class="flex items-center justify-between pt-2">
         <h2 class="font-semibold">Cuentas</h2>
         <button onClick=${onAddAccount} class="text-sm font-semibold text-salmon-700 dark:text-salmon-200">+ Nueva</button>
       </div>
       ${balances.length === 0 && html`
-        <div class=${card + ' p-5 text-center opacity-80'}>Crea tu primera cuenta: Zelle, Efectivo, Pago Móvil o Binance.</div>`}
+        <div class=${card + ' p-5 text-center opacity-80'}>${
+          zone.id === 'ES' ? 'Crea tu primera cuenta: Efectivo o transferencia en euros.'
+            : zone.id === 'US' ? 'Crea tu primera cuenta: Zelle, Efectivo o Wire en dólares.'
+            : 'Crea tu primera cuenta: Zelle, Efectivo, Pago Móvil o Binance.'
+        }</div>`}
       <ul class="space-y-2">
         ${balances.map((a) => html`
           <li key=${a.id}>
@@ -183,23 +213,27 @@ function RatesStrip({ rates, onRefresh, busy, note }) {
 // ---------------------------------------------------------------------
 // Nueva cuenta
 // ---------------------------------------------------------------------
-function AccountForm({ account, onDone, onCancel }) {
+function AccountForm({ account, onDone, onCancel, region = 'VE' }) {
   const editing = Boolean(account);
-  const start = presetForAccount(account);
+  const visible = presetsForRegion(region, account);
+  const current = presetForAccount(account);
+  const start = visible.find((p) => p.id === current.id) ?? visible[0] ?? current;
   const [presetId, setPresetId] = useState(start.id);
   const [form, setForm] = useState({
     name: account?.name ?? start.names[0] ?? '',
-    currency: account?.currency ?? start.currencies[0],
+    currency: account?.currency ?? currenciesForRegion(region, start.currencies)[0],
     kind: account?.kind ?? start.kind,
     icon: account?.icon ?? start.icon,
     initial_balance: '',
   });
   const [error, setError] = useState(null);
   const preset = ACCOUNT_PRESETS.find((p) => p.id === presetId) ?? start;
+  const currencyOptions = currenciesForRegion(region, preset.currencies);
 
   function applyPreset(next) {
     setPresetId(next.id);
-    const currency = next.currencies.includes(form.currency) ? form.currency : next.currencies[0];
+    const allowed = currenciesForRegion(region, next.currencies);
+    const currency = allowed.includes(form.currency) ? form.currency : allowed[0];
     setForm({
       ...form,
       kind: next.kind,
@@ -224,7 +258,7 @@ function AccountForm({ account, onDone, onCancel }) {
     <form onSubmit=${submit} class="space-y-4">
       <h2 class="text-xl font-bold">${editing ? 'Editar cuenta' : 'Nueva cuenta'}</h2>
       <div class="grid grid-cols-2 gap-2">
-        ${ACCOUNT_PRESETS.map((p) => html`
+        ${visible.map((p) => html`
           <button key=${p.id} type="button" onClick=${() => applyPreset(p)}
             class=${'text-left rounded-2xl border px-3 py-2 ' + (presetId === p.id ? 'border-salmon bg-salmon/20' : 'border-azul-100 dark:border-azul-700')}>
             <p class="font-medium text-sm">${p.icon} ${p.label}</p>
@@ -243,7 +277,7 @@ function AccountForm({ account, onDone, onCancel }) {
       <//>
       <${Field} label="Moneda">
         <${Segmented} value=${form.currency} onChange=${(v) => setForm({ ...form, currency: v })}
-          options=${preset.currencies.map((c) => [c, c])} />
+          options=${currencyOptions.map((c) => [c, c])} />
       <//>
       ${preset.id === 'custom' && html`
         <${Field} label="Tipo">
@@ -284,7 +318,7 @@ function AccountPicker({ label, balances, value, onChange, excludeId }) {
 // ---------------------------------------------------------------------
 // Nueva transacción + calculadora de brecha
 // ---------------------------------------------------------------------
-function NewTransaction({ balances, rates, onDone }) {
+function NewTransaction({ balances, rates, onDone, profile }) {
   const [type, setType] = useState('expense');
   const [accountId, setAccountId] = useState(balances[0]?.id ?? '');
   const [toAccountId, setToAccountId] = useState(balances[1]?.id ?? '');
@@ -301,7 +335,7 @@ function NewTransaction({ balances, rates, onDone }) {
 
   const account = balances.find((a) => a.id === accountId);
   const toAccount = balances.find((a) => a.id === toAccountId);
-  const canPayInVes = type !== 'transfer' && account && account.currency !== 'VES';
+  const canPayInVes = regionOf(profile).showRates && type !== 'transfer' && account && account.currency !== 'VES';
   const usingVes = canPayInVes && paidInVes;
 
   useEffect(() => { setCategory(CATEGORIES[type][0]); }, [type]);
@@ -826,20 +860,144 @@ function Rates({ rows, rates, onRefresh, busy, note, error }) {
 }
 
 // ---------------------------------------------------------------------
+// Manual de Uso
+// ---------------------------------------------------------------------
+const MANUAL = [
+  {
+    id: 'cuentas',
+    icon: '💵',
+    title: 'Mis Cuentas y Divisas',
+    steps: [
+      '1. En Inicio, toca + Nueva.',
+      '2. Elige el tipo: Zelle (USD), Efectivo (USD, VES o EUR), Pago Móvil / banco nacional (VES), Wire (USD o EUR), USDT / Binance, o una cuenta personalizada.',
+      '3. Ponle un nombre claro y la moneda de esa billetera. Cada cuenta guarda su saldo en su propia divisa.',
+      '4. El recuadro azul de Inicio suma todas tus cuentas y las convierte a dólares o bolívares, según lo que elijas en Ajustes, usando la tasa del día.',
+      '5. Toca una cuenta para editarla. El total se actualiza solo cuando registras ingresos, gastos o traspasos.',
+    ],
+  },
+  {
+    id: 'tasas',
+    icon: '📈',
+    title: 'Tasas de Cambio Automáticas',
+    steps: [
+      '1. Al abrir la app se cargan las tres tasas vivas: Dólar BCV, Euro BCV y USDT Binance P2P.',
+      '2. Las ves en Inicio (franja de tasas) y en Más → Tasas, con la fecha y la fuente.',
+      '3. Toca 🔄 Actualizar si quieres forzar un refresco. Verás el aviso «Actualizado según BCV y USDT Binance».',
+      '4. En Ajustes eliges si el saldo total valora el dólar a tasa BCV o a USDT. Eso no cambia el dinero en cada cuenta: solo la conversión del total.',
+      '5. La calculadora de Tasas convierte un monto en bolívares a USD, EUR o USDT con las tasas del momento.',
+    ],
+  },
+  {
+    id: 'movimientos',
+    icon: '💸',
+    title: 'Registrar Movimientos y Transferencias',
+    steps: [
+      '1. Toca Nuevo en la barra de abajo.',
+      '2. Ingreso: elige la cuenta que recibe, la categoría (Sueldo, Remesas…) y el monto. El saldo de esa cuenta sube.',
+      '3. Gasto: elige de qué cuenta sale, la categoría (Comida, Servicios, Transporte…) y el monto. El saldo baja. Si pagaste en bolívares desde una cuenta en divisa, marca «Pagué en bolívares» e indica la tasa usada.',
+      '4. Traspaso: mueve dinero entre dos cuentas tuyas (por ejemplo Zelle → Efectivo). Elige origen y destino. El patrimonio total no cambia: solo cambia de billetera.',
+      '5. Revisa todo en Movs. Ahí ves el historial agrupado por día.',
+    ],
+  },
+  {
+    id: 'presupuestos',
+    icon: '📊',
+    title: 'Presupuestos Mensuales',
+    steps: [
+      '1. Ve a Plan → Presupuestos y toca + Presupuesto.',
+      '2. Elige la categoría (Mercado, Servicios, Transporte, Salud…) y un límite mensual en USD, VES, EUR o USDT.',
+      '3. La barra compara ese tope con tus gastos del mes en curso.',
+      '4. Azul = vas bien (menos del 75%). Amarillo = cerca del límite (75% o más). Salmón = te pasaste.',
+      '5. Puedes quitar o ajustar un presupuesto cuando quieras. No bloquea el gasto: solo te avisa.',
+    ],
+  },
+  {
+    id: 'recurrentes',
+    icon: '🔄',
+    title: 'Gastos Fijos y Suscripciones',
+    steps: [
+      '1. Ve a Plan → Recurrentes y toca + Pago recurrente.',
+      '2. Anota el nombre (Alquiler, Internet, Netflix…), el monto, la categoría, el día de cobro (1 al 31) y la cuenta de la que se descuenta.',
+      '3. Si el vencimiento está a 1–5 días, verás una insignia amarilla. Si ya pasó el día, el aviso pasa a salmón.',
+      '4. Cuando pagues de verdad, toca Registrar pago. En un clic se crea el gasto y se descuenta de la cuenta elegida.',
+      '5. Pausar oculta el compromiso sin borrar el historial de pagos ya registrados.',
+    ],
+  },
+  {
+    id: 'exportar',
+    icon: '📥',
+    title: 'Exportar a Excel',
+    steps: [
+      '1. En Movs o en Más → Ajustes busca el botón Exportar reporte.',
+      '2. Filtra por Mes actual, Mes anterior o Año, y opcionalmente por una cuenta.',
+      '3. Toca Exportar reporte. Se descarga un archivo CSV que Excel y Numbers abren sin problema.',
+      '4. El archivo trae: Fecha, Descripción, Categoría, Tipo (Ingreso / Gasto / Transferencia), Monto Original, Moneda, Cuenta y Tasa de Cambio.',
+      '5. Úsalo para tu contabilidad familiar o para enviárselo a quien lleve las cuentas, sin darle acceso a la app.',
+    ],
+  },
+  {
+    id: 'privacidad',
+    icon: '🔐',
+    title: 'Privacidad y Seguridad',
+    steps: [
+      'Cada familiar entra con su propio correo. La base de datos (Supabase) aplica seguridad RLS: una fila solo se ve si pertenece a tu usuario (auth.uid() = user_id).',
+      'Nadie de la familia —ni otro miembro con cuenta— puede leer, editar o borrar tus billeteras, movimientos, presupuestos o suscripciones.',
+      'En el celular la app funciona como PWA: puedes instalarla en la pantalla de inicio. Cierra sesión desde Ajustes cuando uses un teléfono compartido.',
+      'Tus datos no se mezclan con los de otra persona. Si no ves un movimiento, es que está en otra cuenta de usuario, no en la tuya.',
+    ],
+  },
+];
+
+function UserManual() {
+  const [open, setOpen] = useState(null);
+  return html`
+    <div class=${card + ' overflow-hidden'}>
+      <div class="px-4 pt-4 pb-3 bg-sol-100/80 dark:bg-sol-900/40">
+        <h3 class="font-semibold text-azul-900 dark:text-papel">📖 Manual de Uso</h3>
+        <p class="text-xs opacity-70 mt-1">Guía paso a paso. Toca un tema para abrirlo.</p>
+      </div>
+      ${MANUAL.map((ch) => {
+        const active = open === ch.id;
+        return html`
+          <div key=${ch.id} class="border-t border-azul-100 dark:border-azul-700">
+            <button type="button" aria-expanded=${active}
+              class=${'w-full text-left px-4 py-3.5 flex items-center gap-3 min-h-[48px] ' + (active ? 'bg-azul-50/80 dark:bg-azul-900/50' : '')}
+              onClick=${() => setOpen(active ? null : ch.id)}>
+              <span class="text-xl" aria-hidden="true">${ch.icon}</span>
+              <span class="flex-1 font-medium text-sm">${ch.title}</span>
+              <span class=${'text-sm ' + (active ? 'text-salmon-700 dark:text-salmon-200' : 'opacity-40')}>${active ? '▾' : '▸'}</span>
+            </button>
+            ${active && html`
+              <div class="px-4 pb-4 space-y-2 text-sm leading-relaxed">
+                ${ch.steps.map((s) => html`<p key=${s} class="opacity-90">${s}</p>`)}
+              </div>`}
+          </div>`;
+      })}
+    </div>`;
+}
+
+// ---------------------------------------------------------------------
 // Ajustes
 // ---------------------------------------------------------------------
 function Settings({ profile, onSave, balances }) {
+  const zone = regionOf(profile);
   return html`
     <section class="space-y-4">
+      <${UserManual} />
       <div class=${card + ' p-4 space-y-4'}>
-        <${Field} label="Moneda para el saldo total">
+        <div class="space-y-2">
+          <p class="text-sm opacity-70">Región y moneda base principal</p>
+          <${RegionPicker} value=${zone.id} onChange=${(id) => onSave(patchForRegion(id, profile))} />
+        </div>
+        <${Field} label="Moneda base predilecta">
           <${Segmented} value=${profile.preferred_currency} onChange=${(v) => onSave({ preferred_currency: v })}
-            options=${[['USD', 'Dólares'], ['VES', 'Bolívares']]} />
+            options=${[['EUR', 'Euros'], ['USD', 'Dólares'], ['VES', 'Bolívares']]} />
         <//>
-        <${Field} label="Valorar dólares a tasa">
-          <${Segmented} value=${profile.valuation_rate} onChange=${(v) => onSave({ valuation_rate: v })}
-            options=${[['BCV_USD', 'BCV'], ['PARALELO', 'USDT']]} />
-        <//>
+        ${zone.showRates && html`
+          <${Field} label="Valorar dólares a tasa">
+            <${Segmented} value=${profile.valuation_rate} onChange=${(v) => onSave({ valuation_rate: v })}
+              options=${[['BCV_USD', 'BCV'], ['PARALELO', 'USDT']]} />
+          <//>`}
       </div>
       <${ExportReport} balances=${balances} />
       ${!isDemo && html`
@@ -849,12 +1007,14 @@ function Settings({ profile, onSave, balances }) {
 }
 
 function More({ profile, onSave, balances, rateRows, rates, onRefresh, ratesBusy, ratesNote, ratesError }) {
-  const [view, setView] = useState('rates');
+  const showRates = regionOf(profile).showRates;
+  const [view, setView] = useState(showRates ? 'rates' : 'settings');
   return html`
     <section class="space-y-4">
-      <${Segmented} value=${view} onChange=${setView}
-        options=${[['rates', 'Tasas'], ['settings', 'Ajustes']]} />
-      ${view === 'rates'
+      ${showRates && html`
+        <${Segmented} value=${view} onChange=${setView}
+          options=${[['rates', 'Tasas'], ['settings', 'Ajustes']]} />`}
+      ${showRates && view === 'rates'
         ? html`<${Rates} rows=${rateRows} rates=${rates} onRefresh=${onRefresh}
             busy=${ratesBusy} note=${ratesNote} error=${ratesError} />`
         : html`<${Settings} profile=${profile} onSave=${onSave} balances=${balances} />`}
@@ -948,7 +1108,7 @@ function MainApp() {
           onToggleCurrency=${() => saveProfile({ preferred_currency: profile.preferred_currency === 'USD' ? 'VES' : 'USD' })}
           onRefreshRates=${applyLiveRates} ratesBusy=${ratesBusy} ratesNote=${ratesNote} />`}
         ${tab === 'movs' && html`<${Movements} txs=${txs} balances=${balances} />`}
-        ${tab === 'new' && html`<${NewTransaction} balances=${balances} rates=${rates} onDone=${() => { load(); setTab('movs'); }} />`}
+        ${tab === 'new' && html`<${NewTransaction} balances=${balances} rates=${rates} profile=${profile} onDone=${() => { load(); setTab('movs'); }} />`}
         ${tab === 'plan' && html`<${Plan} budgets=${budgets} recurring=${recurring} txs=${txs}
           balances=${balances} rates=${rates} profile=${profile} onChanged=${load} />`}
         ${tab === 'more' && html`<${More} profile=${profile} onSave=${saveProfile} balances=${balances}
@@ -971,7 +1131,7 @@ function MainApp() {
       ${sheet && html`
         <div class="fixed inset-0 z-20 bg-black/40 flex items-end" onClick=${() => setSheet(null)}>
           <div class="sheet w-full max-w-md mx-auto bg-papel dark:bg-azul-900 rounded-t-3xl p-5 safe-bottom" onClick=${(e) => e.stopPropagation()}>
-            <${AccountForm} account=${sheet.mode === 'edit' ? sheet.account : null}
+            <${AccountForm} account=${sheet.mode === 'edit' ? sheet.account : null} region=${profile.region}
               onCancel=${() => setSheet(null)} onDone=${() => { setSheet(null); load(); }} />
           </div>
         </div>`}

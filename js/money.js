@@ -29,6 +29,81 @@ export function presetForAccount(acc) {
     ?? ACCOUNT_PRESETS.find((p) => p.id === 'custom');
 }
 
+export const REGIONS = {
+  ES: {
+    id: 'ES',
+    flag: '🇪🇸',
+    label: 'España / Europa',
+    hint: 'Euros · sin tasas BCV ni USDT',
+    currency: 'EUR',
+    showRates: false,
+    presets: ['cash', 'wire', 'custom'],
+    currencies: ['EUR', 'USD'],
+  },
+  US: {
+    id: 'US',
+    flag: '🇺🇸',
+    label: 'Estados Unidos',
+    hint: 'Dólares · Zelle y Wire',
+    currency: 'USD',
+    showRates: false,
+    presets: ['zelle', 'cash', 'wire', 'custom'],
+    currencies: ['USD'],
+  },
+  VE: {
+    id: 'VE',
+    flag: '🇻🇪',
+    label: 'Venezuela / Multimoneda',
+    hint: 'VES, USD y USDT · BCV y Pago Móvil',
+    currency: 'USD',
+    showRates: true,
+    presets: ['zelle', 'cash', 'crypto', 'wire', 'pago_movil', 'custom'],
+    currencies: ['USD', 'VES', 'USDT', 'EUR'],
+  },
+};
+
+export function regionOf(profile) {
+  return REGIONS[profile?.region] ?? REGIONS.VE;
+}
+
+export function normalizeProfile(p = {}) {
+  const region = REGIONS[p.region] ? p.region : 'VE';
+  const preferred = ['USD', 'VES', 'EUR'].includes(p.preferred_currency)
+    ? p.preferred_currency
+    : REGIONS[region].currency;
+  return {
+    ...p,
+    region,
+    preferred_currency: preferred,
+    valuation_rate: p.valuation_rate || 'BCV_USD',
+  };
+}
+
+export function presetsForRegion(regionId, account) {
+  const allowed = new Set((REGIONS[regionId] ?? REGIONS.VE).presets);
+  const list = ACCOUNT_PRESETS.filter((p) => allowed.has(p.id));
+  if (!account) return list;
+  const current = presetForAccount(account);
+  if (!list.some((p) => p.id === current.id)) return [current, ...list];
+  return list;
+}
+
+export function currenciesForRegion(regionId, presetCurrencies) {
+  const allowed = new Set((REGIONS[regionId] ?? REGIONS.VE).currencies);
+  const source = presetCurrencies ?? [...allowed];
+  const next = source.filter((c) => allowed.has(c));
+  return next.length ? next : source;
+}
+
+export function patchForRegion(regionId, profile = {}) {
+  const r = REGIONS[regionId] ?? REGIONS.VE;
+  return {
+    region: r.id,
+    preferred_currency: r.currency,
+    valuation_rate: profile.valuation_rate || 'BCV_USD',
+  };
+}
+
 export const RATE_LABELS = {
   BCV_USD:  'Dólar BCV',
   BCV_EUR:  'Euro BCV',

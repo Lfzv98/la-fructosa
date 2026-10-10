@@ -45,9 +45,12 @@ $$;
 create table public.profiles (
   id                  uuid primary key references auth.users (id) on delete cascade,
   display_name        text,
+  -- VE = motor de tasas BCV/USDT; US = dólares; ES = euros.
+  region              text not null default 'VE'
+                        check (region in ('VE', 'US', 'ES')),
   preferred_currency  public.currency_code not null default 'USD'
-                        check (preferred_currency in ('USD', 'VES')),
-  -- Tasa con la que se consolida el saldo total (BCV o Paralelo).
+                        check (preferred_currency in ('USD', 'VES', 'EUR')),
+  -- Tasa con la que se consolida el saldo total (BCV o Paralelo). Solo aplica en VE.
   valuation_rate      public.rate_type not null default 'BCV_USD',
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now()
@@ -65,8 +68,17 @@ security definer
 set search_path = ''
 as $$
 begin
-  insert into public.profiles (id, display_name)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'display_name', split_part(new.email, '@', 1)));
+  insert into public.profiles (id, display_name, region, preferred_currency)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'display_name', split_part(new.email, '@', 1)),
+    coalesce(new.raw_user_meta_data ->> 'region', 'VE'),
+    case coalesce(new.raw_user_meta_data ->> 'region', 'VE')
+      when 'ES' then 'EUR'
+      when 'US' then 'USD'
+      else 'USD'
+    end
+  );
   return new;
 end;
 $$;
