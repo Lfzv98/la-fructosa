@@ -12,11 +12,13 @@ export const KIND_ICONS = { cash: '💵', bank: '🏦', digital: '📱', crypto:
 
 export const ACCOUNT_PRESETS = [
   { id: 'zelle', icon: '📱', label: 'Zelle', hint: 'USD', kind: 'digital', currencies: ['USD'], names: ['Zelle'] },
-  { id: 'cash', icon: '💵', label: 'Efectivo', hint: 'USD / VES / EUR', kind: 'cash', currencies: ['USD', 'VES', 'EUR'], names: ['Efectivo'] },
-  { id: 'crypto', icon: '🟡', label: 'USDT / Crypto', hint: 'Binance, Bybit, Wallet', kind: 'crypto', currencies: ['USDT'], names: ['Binance', 'Bybit', 'Wallet'] },
-  { id: 'wire', icon: '🏦', label: 'Wire / Transferencia', hint: 'USD / EUR', kind: 'bank', currencies: ['USD', 'EUR'], names: ['Wire Transfer', 'Transferencia bancaria'] },
-  { id: 'pago_movil', icon: '🇻🇪', label: 'Banco nacional / Pago Móvil', hint: 'VES', kind: 'bank', currencies: ['VES'], names: ['Pago Móvil', 'Banco nacional'] },
-  { id: 'custom', icon: '✏️', label: 'Personalizada', hint: 'Nombre y moneda libres', kind: 'digital', currencies: ['USD', 'VES', 'USDT', 'EUR'], names: [] },
+  { id: 'crypto', icon: '🟡', label: 'Binance / Crypto', hint: 'USDT / BTC', kind: 'crypto', currencies: ['USDT'], names: ['Binance', 'BTC', 'Bybit', 'Wallet'] },
+  { id: 'paypal', icon: '🅿️', label: 'PayPal', hint: 'USD / EUR', kind: 'digital', currencies: ['USD', 'EUR'], names: ['PayPal'] },
+  { id: 'wise', icon: '🌐', label: 'Wise / Revolut', hint: 'USD / EUR', kind: 'digital', currencies: ['USD', 'EUR'], names: ['Wise', 'Revolut'] },
+  { id: 'cash', icon: '💵', label: 'Efectivo', hint: 'USD / EUR / VES', kind: 'cash', currencies: ['USD', 'EUR', 'VES'], names: ['Efectivo'] },
+  { id: 'wire', icon: '🏦', label: 'Wire / Banco int.', hint: 'USD / EUR', kind: 'bank', currencies: ['USD', 'EUR'], names: ['Wire Transfer', 'Facebank', 'Bank of America', 'BBVA', 'Santander'] },
+  { id: 'pago_movil', icon: '🇻🇪', label: 'Pago Móvil / Banco nacional', hint: 'VES', kind: 'bank', currencies: ['VES'], names: ['Pago Móvil', 'Banesco', 'Mercantil', 'BNC', 'Provincial'] },
+  { id: 'custom', icon: '✏️', label: 'Personalizada / Libre', hint: 'Nombre, moneda y saldo', kind: 'digital', currencies: ['USD', 'EUR', 'VES', 'USDT'], names: [] },
 ];
 
 export function accountIcon(acc) {
@@ -25,6 +27,10 @@ export function accountIcon(acc) {
 
 export function presetForAccount(acc) {
   if (!acc) return ACCOUNT_PRESETS[0];
+  const byIcon = ACCOUNT_PRESETS.find((p) => p.id !== 'custom' && p.icon === acc.icon);
+  if (byIcon) return byIcon;
+  const byName = ACCOUNT_PRESETS.find((p) => p.names.some((n) => n.toLowerCase() === String(acc.name || '').toLowerCase()));
+  if (byName) return byName;
   return ACCOUNT_PRESETS.find((p) => p.id !== 'custom' && p.kind === acc.kind && p.currencies.includes(acc.currency))
     ?? ACCOUNT_PRESETS.find((p) => p.id === 'custom');
 }
@@ -38,7 +44,7 @@ export const REGIONS = {
     hint: 'Euros · sin tasas BCV ni USDT',
     currency: 'EUR',
     showRates: false,
-    presets: ['cash', 'wire', 'custom'],
+    presets: ['crypto', 'paypal', 'wise', 'cash', 'wire', 'custom'],
     currencies: ['EUR', 'USD'],
   },
   US: {
@@ -49,7 +55,7 @@ export const REGIONS = {
     hint: 'Dólares · Zelle y Wire',
     currency: 'USD',
     showRates: false,
-    presets: ['zelle', 'cash', 'wire', 'custom'],
+    presets: ['zelle', 'crypto', 'paypal', 'wise', 'cash', 'wire', 'custom'],
     currencies: ['USD'],
   },
   VE: {
@@ -60,7 +66,7 @@ export const REGIONS = {
     hint: 'VES, USD y USDT · BCV y Pago Móvil',
     currency: 'USD',
     showRates: true,
-    presets: ['zelle', 'cash', 'crypto', 'wire', 'pago_movil', 'custom'],
+    presets: ['zelle', 'crypto', 'paypal', 'wise', 'cash', 'wire', 'pago_movil', 'custom'],
     currencies: ['USD', 'VES', 'USDT', 'EUR'],
   },
 };
@@ -82,20 +88,23 @@ export function normalizeProfile(p = {}) {
   };
 }
 
-export function presetsForRegion(regionId, account) {
-  const allowed = new Set((REGIONS[regionId] ?? REGIONS.VE).presets);
-  const list = ACCOUNT_PRESETS.filter((p) => allowed.has(p.id));
+export function presetsForRegion(_regionId, account) {
+  const list = ACCOUNT_PRESETS;
   if (!account) return list;
   const current = presetForAccount(account);
   if (!list.some((p) => p.id === current.id)) return [current, ...list];
   return list;
 }
 
-export function currenciesForRegion(regionId, presetCurrencies) {
-  const allowed = new Set((REGIONS[regionId] ?? REGIONS.VE).currencies);
-  const source = presetCurrencies ?? [...allowed];
-  const next = source.filter((c) => allowed.has(c));
-  return next.length ? next : source;
+export function currenciesForRegion(regionId, presetCurrencies, presetId) {
+  if (presetId === 'custom') return ['USD', 'EUR', 'VES', 'USDT'];
+  const source = presetCurrencies ?? ['USD', 'EUR', 'VES', 'USDT'];
+  if (!(REGIONS[regionId] ?? REGIONS.VE).showRates) {
+    const allowed = new Set((REGIONS[regionId] ?? REGIONS.VE).currencies);
+    const next = source.filter((c) => allowed.has(c));
+    if (next.length) return next;
+  }
+  return source;
 }
 
 export function patchForRegion(regionId, profile = {}) {

@@ -46,6 +46,118 @@ function ErrorBox({ error }) {
   return html`<p class="text-sm text-salmon-800 dark:text-salmon-100 bg-salmon-100/80 dark:bg-salmon-900/50 rounded-lg p-2">${error.message ?? String(error)}</p>`;
 }
 
+function calcFormat(n) {
+  if (!Number.isFinite(n)) return '0';
+  const s = String(Number(n.toPrecision(12)));
+  return s;
+}
+
+function Calculator({ onClose }) {
+  const [expr, setExpr] = useState('0');
+  const [acc, setAcc] = useState(null);
+  const [op, setOp] = useState(null);
+  const [fresh, setFresh] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const value = () => Number(expr) || 0;
+  const apply = (a, operator, b) => {
+    if (operator === '+') return a + b;
+    if (operator === '−') return a - b;
+    if (operator === '×') return a * b;
+    if (operator === '÷') return b === 0 ? a : a / b;
+    return b;
+  };
+
+  function digit(d) {
+    setCopied(false);
+    if (fresh || expr === '0') {
+      setExpr(d === '.' ? '0.' : d);
+      setFresh(false);
+      return;
+    }
+    if (d === '.' && expr.includes('.')) return;
+    setExpr(expr + d);
+  }
+
+  function operate(next) {
+    const n = value();
+    if (op && !fresh) {
+      const r = apply(acc ?? n, op, n);
+      setAcc(r);
+      setExpr(calcFormat(r));
+    } else setAcc(n);
+    setOp(next);
+    setFresh(true);
+    setCopied(false);
+  }
+
+  function equals() {
+    if (!op) return;
+    const r = apply(acc ?? 0, op, value());
+    setExpr(calcFormat(r));
+    setAcc(null);
+    setOp(null);
+    setFresh(true);
+    setCopied(false);
+  }
+
+  async function copy() {
+    const text = expr;
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const t = document.createElement('textarea');
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      document.execCommand('copy');
+      t.remove();
+    }
+    setCopied(true);
+  }
+
+  const keys = [
+    ['C', '⌫', '%', '÷'],
+    ['7', '8', '9', '×'],
+    ['4', '5', '6', '−'],
+    ['1', '2', '3', '+'],
+    ['0', '.', '='],
+  ];
+
+  function press(k) {
+    if (k === 'C') { setExpr('0'); setAcc(null); setOp(null); setFresh(false); setCopied(false); return; }
+    if (k === '⌫') {
+      if (fresh || expr.length <= 1) setExpr('0');
+      else setExpr(expr.slice(0, -1));
+      return;
+    }
+    if (k === '%') { setExpr(calcFormat(value() / 100)); setFresh(true); return; }
+    if (k === '=') { equals(); return; }
+    if ('+−×÷'.includes(k)) { operate(k); return; }
+    digit(k);
+  }
+
+  return html`
+    <div class="fixed inset-0 z-30 bg-black/40 flex items-end sm:items-center justify-center px-4" onClick=${onClose}>
+      <div class=${card + ' w-full max-w-sm p-4 mb-24 sm:mb-0 safe-bottom'} onClick=${(e) => e.stopPropagation()}>
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold">🧮 Calculadora</h2>
+          <button type="button" class="w-10 h-10 rounded-full bg-azul-50 dark:bg-azul-900" onClick=${onClose} aria-label="Cerrar">✕</button>
+        </div>
+        <p class="rounded-2xl bg-sol-100/80 dark:bg-sol-900/40 text-right text-3xl font-bold tabular px-4 py-3 mb-3 overflow-x-auto">${expr}</p>
+        <div class="grid grid-cols-4 gap-2">
+          ${keys.flatMap((row) => row.map((k) => html`
+            <button key=${k} type="button" onClick=${() => press(k)}
+              class=${'min-h-[48px] rounded-2xl font-semibold text-lg active:scale-[.98] ' + (k === '0' ? 'col-span-2 ' : '') + ('+−×÷='.includes(k) ? 'bg-salmon text-azul-900' : k === 'C' || k === '⌫' || k === '%' ? 'bg-azul-100 dark:bg-azul-900' : 'bg-white dark:bg-azul-900 border border-azul-100 dark:border-azul-700')}>
+              ${k}
+            </button>`))}
+        </div>
+        <button type="button" class=${btnPrimary + ' mt-3'} onClick=${copy}>
+          ${copied ? 'Copiado' : 'Copiar resultado'}
+        </button>
+      </div>
+    </div>`;
+}
+
 function RegionPicker({ value, onChange }) {
   return html`
     <div class="space-y-2">
@@ -212,11 +324,7 @@ function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleC
         <button onClick=${onAddAccount} class="text-sm font-semibold text-salmon-700 dark:text-salmon-200">+ Nueva</button>
       </div>
       ${balances.length === 0 && html`
-        <div class=${card + ' p-5 text-center opacity-80'}>${
-          zone.id === 'ES' ? 'Crea tu primera cuenta: Efectivo o transferencia en euros.'
-            : zone.id === 'US' ? 'Crea tu primera cuenta: Zelle, Efectivo o Wire en dólares.'
-            : 'Crea tu primera cuenta: Zelle, Efectivo, Pago Móvil o Binance.'
-        }</div>`}
+        <div class=${card + ' p-5 text-center opacity-80'}>Crea tu primera cuenta: Zelle, PayPal, Wise, Efectivo, Wire o Pago Móvil.</div>`}
       <ul class="space-y-2">
         ${balances.map((a) => html`
           <li key=${a.id}>
@@ -271,18 +379,18 @@ function AccountForm({ account, onDone, onCancel, region = 'VE' }) {
   const [presetId, setPresetId] = useState(start.id);
   const [form, setForm] = useState({
     name: account?.name ?? start.names[0] ?? '',
-    currency: account?.currency ?? currenciesForRegion(region, start.currencies)[0],
+    currency: account?.currency ?? currenciesForRegion(region, start.currencies, start.id)[0],
     kind: account?.kind ?? start.kind,
     icon: account?.icon ?? start.icon,
     initial_balance: '',
   });
   const [error, setError] = useState(null);
   const preset = ACCOUNT_PRESETS.find((p) => p.id === presetId) ?? start;
-  const currencyOptions = currenciesForRegion(region, preset.currencies);
+  const currencyOptions = currenciesForRegion(region, preset.currencies, preset.id);
 
   function applyPreset(next) {
     setPresetId(next.id);
-    const allowed = currenciesForRegion(region, next.currencies);
+    const allowed = currenciesForRegion(region, next.currencies, next.id);
     const currency = allowed.includes(form.currency) ? form.currency : allowed[0];
     setForm({
       ...form,
@@ -307,7 +415,7 @@ function AccountForm({ account, onDone, onCancel, region = 'VE' }) {
   return html`
     <form onSubmit=${submit} class="space-y-4">
       <h2 class="text-xl font-bold">${editing ? 'Editar cuenta' : 'Nueva cuenta'}</h2>
-      <div class="grid grid-cols-2 gap-2">
+      <div class="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-0.5">
         ${visible.map((p) => html`
           <button key=${p.id} type="button" onClick=${() => applyPreset(p)}
             class=${'text-left rounded-2xl border px-3 py-2 ' + (presetId === p.id ? 'border-salmon bg-salmon/20' : 'border-azul-100 dark:border-azul-700')}>
@@ -1096,6 +1204,7 @@ function MainApp() {
   const [ratesNote, setRatesNote] = useState('');
   const [ratesError, setRatesError] = useState(null);
   const [error, setError] = useState(null);
+  const [calcOpen, setCalcOpen] = useState(false);
 
   const applyLiveRates = useCallback(async () => {
     setRatesBusy(true); setRatesError(null);
@@ -1143,12 +1252,17 @@ function MainApp() {
 
   return html`
     <div class="min-h-screen flex flex-col max-w-md mx-auto">
-      <header class="safe-top px-5 pt-4 pb-2 flex items-end justify-between">
-        <div>
+      <header class="safe-top px-5 pt-4 pb-2 flex items-end justify-between gap-3">
+        <div class="min-w-0">
           <p class="text-xs opacity-60">${tab === 'home' ? `Hola, ${profile.display_name ?? ''}` : 'La Fructosa'}</p>
-          <h1 class="text-2xl font-bold">${tab === 'home' ? 'La Fructosa' : title}</h1>
+          <h1 class="text-2xl font-bold truncate">${tab === 'home' ? 'La Fructosa' : title}</h1>
         </div>
-        ${isDemo && html`<span class="text-[10px] font-bold uppercase bg-sol text-azul-900 rounded-full px-2 py-1">Demo</span>`}
+        <div class="flex items-center gap-2 shrink-0">
+          ${isDemo && html`<span class="text-[10px] font-bold uppercase bg-sol text-azul-900 rounded-full px-2 py-1">Demo</span>`}
+          <button type="button" onClick=${() => setCalcOpen(true)}
+            class="w-10 h-10 rounded-full bg-azul-100 dark:bg-azul-800 grid place-items-center text-lg"
+            aria-label="Abrir calculadora">🧮</button>
+        </div>
       </header>
 
       <main class="flex-1 px-5 pb-28 pt-2">
@@ -1178,6 +1292,7 @@ function MainApp() {
         </ul>
       </nav>
 
+      ${calcOpen && html`<${Calculator} onClose=${() => setCalcOpen(false)} />`}
       ${sheet && html`
         <div class="fixed inset-0 z-20 bg-black/40 flex items-end" onClick=${() => setSheet(null)}>
           <div class="sheet w-full max-w-md mx-auto bg-papel dark:bg-azul-900 rounded-t-3xl p-5 safe-bottom" onClick=${(e) => e.stopPropagation()}>
@@ -1198,7 +1313,12 @@ function App() {
   }, []);
 
   if (isDemo) return html`<${MainApp} />`;
-  if (session === undefined) return html`<main class="min-h-screen grid place-items-center opacity-60">Cargando…</main>`;
+  if (session === undefined) {
+    return html`
+      <main class="min-h-screen grid place-items-center bg-azul-50 dark:bg-azul-900">
+        <img src="./icons/icon-192.png" alt="La Fructosa" class="w-16 h-16 rounded-2xl" />
+      </main>`;
+  }
   return session ? html`<${MainApp} key=${session.user.id} />` : html`<${AuthScreen} />`;
 }
 
