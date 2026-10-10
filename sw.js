@@ -1,6 +1,6 @@
 // La Fructosa · Service Worker
 // Sube CACHE_VERSION en cada despliegue para forzar la actualización.
-const CACHE_VERSION = 'fructosa-v3';
+const CACHE_VERSION = 'fructosa-v4';
 
 const APP_SHELL = [
   './',
@@ -11,8 +11,10 @@ const APP_SHELL = [
   './js/supabase.js',
   './js/money.js',
   './js/api.js',
+  './icons/favicon.ico',
   './icons/icon-192.png',
   './icons/icon-512.png',
+  './icons/icon-maskable-512.png',
   './icons/apple-touch-icon.png',
 ];
 
