@@ -285,6 +285,12 @@ function AuthScreen() {
 // ---------------------------------------------------------------------
 // Inicio: saldo consolidado + cuentas
 // ---------------------------------------------------------------------
+function greetName(profile) {
+  const n = String(profile?.display_name || '').trim();
+  if (!n || /^la\s*fructosa$/i.test(n)) return '';
+  return n.split(/\s+/)[0];
+}
+
 function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleCurrency, onRefreshRates, ratesBusy, ratesNote }) {
   const target = profile.preferred_currency;
   const valuation = profile.valuation_rate;
@@ -295,40 +301,57 @@ function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleC
     ? `Convertido a tasa ${RATE_LABELS[valuation]} del día`
     : `Expresado en ${CURRENCIES[target]?.label ?? target}`;
   return html`
-    <section class="space-y-4">
-      <div class="rounded-3xl bg-azul-200 dark:bg-azul-800 text-azul-900 dark:text-papel p-5 shadow-lg">
-        <div class="flex items-center justify-between">
-          <span class="text-sm opacity-80">Saldo total en ${target}</span>
+    <section class="space-y-5">
+      <div class="dash-balance">
+        <div class="flex items-center justify-between gap-3">
+          <span class="dash-balance-label">Saldo total en ${target}</span>
           <button type="button" onClick=${zone.showRates ? onToggleCurrency : undefined}
             class=${currencyBadge + ' text-xs px-3 py-1'}>
             ${zone.flag} ${target}${zone.showRates ? ` · ${RATE_LABELS[valuation]}` : ''}
           </button>
         </div>
-        <p class="text-4xl font-bold mt-2 tabular">${fmt(total, target)}</p>
-        <p class="text-[11px] opacity-70 mt-1">${subtitle}</p>
+        <p class="dash-balance-amount tabular">${fmt(total, target)}</p>
+        <p class="dash-balance-note">${subtitle}</p>
         ${parts.length > 0 && html`
-          <ul class="mt-3 space-y-1 text-xs opacity-90">
+          <ul class="mt-3 space-y-1 text-xs" style=${{ color: '#2C528A' }}>
             ${parts.map((p) => html`
               <li key=${p.currency} class="flex justify-between gap-2 tabular">
                 <span>${p.currency} ${fmt(p.native, p.currency)}</span>
                 <span>${p.currency === target ? 'en tu moneda' : p.missing ? 'sin tasa' : `≈ ${fmt(p.converted, target)}`}</span>
               </li>`)}
           </ul>`}
-        ${missing && html`<p class="text-xs mt-2 rounded-lg bg-sol-100 text-azul-900 px-2 py-1">Faltan tasas para convertir algunas cuentas.</p>`}
+        ${missing && html`<p class="text-xs mt-2 rounded-lg px-2 py-1" style=${{ background: '#FEFCBF', color: '#152033' }}>Faltan tasas para convertir algunas cuentas.</p>`}
+        ${zone.showRates && html`
+          <div class="dash-rates">
+            ${LIVE_RATE_KEYS.map((k) => html`
+              <button key=${k} type="button" class="dash-rate" onClick=${onRefreshRates} disabled=${ratesBusy}>
+                <p>${RATE_LABELS[k]}</p>
+                <p class="tabular">${rates[k] ? fmtRate(rates[k]) : '—'}</p>
+              </button>`)}
+          </div>`}
+        ${zone.showRates && html`
+          <div class="flex items-center justify-between gap-2 mt-2">
+            <p class="dash-balance-note">${ratesNote || LIVE_RATES_NOTE}</p>
+            <button type="button" onClick=${onRefreshRates} disabled=${ratesBusy}
+              class="rounded-full text-xs font-semibold px-3 py-1.5" style=${{ background: '#FFADAD', color: '#152033' }}
+              aria-label="Actualizar tasas">${ratesBusy ? '…' : '🔄'}</button>
+          </div>`}
       </div>
 
-      ${zone.showRates && html`<${RatesStrip} rates=${rates} onRefresh=${onRefreshRates} busy=${ratesBusy} note=${ratesNote} />`}
-
-      <div class="flex items-center justify-between pt-2">
-        <h2 class="font-semibold">Cuentas</h2>
-        <button onClick=${onAddAccount} class="text-sm font-semibold text-salmon-700 dark:text-salmon-200">+ Nueva</button>
+      <div class="flex items-center justify-between">
+        <h2 class="font-semibold text-papel">Cuentas</h2>
+        <button onClick=${onAddAccount} class="text-sm font-semibold" style=${{ color: '#FFADAD' }}>+ Nueva</button>
       </div>
       ${balances.length === 0 && html`
-        <div class=${card + ' p-5 text-center opacity-80'}>Crea tu primera cuenta: Zelle, PayPal, Wise, Efectivo, Wire o Pago Móvil.</div>`}
+        <button type="button" onClick=${onAddAccount} class="dash-empty w-full">
+          <p class="text-2xl" aria-hidden="true">💳</p>
+          <h3>Crea tu primera cuenta</h3>
+          <p>Zelle, PayPal, Wise, Efectivo, Wire o Pago Móvil.</p>
+        </button>`}
       <ul class="space-y-2">
         ${balances.map((a) => html`
           <li key=${a.id}>
-            <button type="button" onClick=${() => onEditAccount(a)} class=${accountCard + ' w-full p-4 flex items-center gap-3 text-left'}>
+            <button type="button" onClick=${() => onEditAccount(a)} class="dash-account">
               <span class="text-2xl">${accountIcon(a)}</span>
               <div class="flex-1 min-w-0">
                 <p class="font-medium truncate">${a.name}</p>
@@ -337,7 +360,7 @@ function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleC
               <div class="text-right">
                 <p class="font-semibold tabular">${fmt(a.balance, a.currency)}</p>
                 ${a.currency !== target && html`
-                  <p class="text-xs opacity-60 tabular">${convert(Number(a.balance), a.currency, target, rates, valuation) == null
+                  <p class="text-xs opacity-70 tabular">${convert(Number(a.balance), a.currency, target, rates, valuation) == null
                     ? 'sin tasa'
                     : `≈ ${fmt(convert(Number(a.balance), a.currency, target, rates, valuation), target)}`}</p>`}
               </div>
@@ -345,27 +368,6 @@ function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleC
           </li>`)}
       </ul>
     </section>`;
-}
-
-function RatesStrip({ rates, onRefresh, busy, note }) {
-  return html`
-    <div class="space-y-2">
-      <div class="grid grid-cols-3 gap-2 text-center">
-        ${LIVE_RATE_KEYS.map((k) => html`
-          <div key=${k} class=${rateCard + ' py-2 px-1'}>
-            <p class="text-[10px] uppercase tracking-wide opacity-60">${RATE_LABELS[k].replace('Dólar ', '')}</p>
-            <p class="text-sm font-semibold tabular">${rates[k] ? fmtRate(rates[k]) : '—'}</p>
-          </div>`)}
-      </div>
-      <div class="flex items-center justify-between gap-2">
-        <p class="text-[11px] text-azul-700 dark:text-sol-100">${note || ''}</p>
-        <button type="button" onClick=${onRefresh} disabled=${busy}
-          class="shrink-0 rounded-full bg-salmon text-azul-900 text-sm font-semibold px-3 py-1.5 disabled:opacity-50"
-          aria-label="Actualizar tasas">
-          ${busy ? '…' : '🔄'}
-        </button>
-      </div>
-    </div>`;
 }
 
 // ---------------------------------------------------------------------
@@ -1257,19 +1259,24 @@ function MainApp() {
   if (!profile) return html`<main class="min-h-screen grid place-items-center opacity-60">Cargando…</main>`;
 
   const title = TABS.find(([k]) => k === tab)[1];
+  const who = greetName(profile);
 
   return html`
-    <div class="min-h-screen flex flex-col max-w-md mx-auto">
-      <header class="safe-top px-5 pt-4 pb-2 flex items-end justify-between gap-3">
+    <div class="dash-shell flex flex-col max-w-md mx-auto">
+      <header class="safe-top px-5 pt-4 pb-3 dash-header">
         <div class="min-w-0">
-          <p class="text-xs opacity-60">${tab === 'home' ? `Hola, ${profile.display_name ?? ''}` : 'La Fructosa'}</p>
-          <h1 class="text-2xl font-bold truncate">${tab === 'home' ? 'La Fructosa' : title}</h1>
+          ${tab === 'home'
+            ? html`<h1 class="dash-greet truncate">${who ? `Hola, ${who}` : 'Bienvenido'}</h1>
+                <p class="dash-greet-sub">La Fructosa</p>`
+            : html`<p class="dash-greet-sub">La Fructosa</p>
+                <h1 class="dash-greet truncate">${title}</h1>`}
         </div>
-        <div class="flex items-center gap-2 shrink-0">
-          ${isDemo && html`<span class="text-[10px] font-bold uppercase bg-sol text-azul-900 rounded-full px-2 py-1">Demo</span>`}
-          <button type="button" onClick=${() => setCalcOpen(true)}
-            class="w-10 h-10 rounded-full bg-azul-100 dark:bg-azul-800 grid place-items-center text-lg"
-            aria-label="Abrir calculadora">🧮</button>
+        <div class="dash-toolbar">
+          ${isDemo && html`<span class="text-[10px] font-bold uppercase rounded-full px-2 py-1" style=${{ background: '#FDFFB6', color: '#152033' }}>Demo</span>`}
+          <button type="button" class="dash-icon-btn" onClick=${() => setCalcOpen(true)} aria-label="Calculadora">🧮</button>
+          <button type="button" class="dash-icon-btn" onClick=${() => setTab('more')} aria-label="Perfil">👤</button>
+          ${!isDemo && html`
+            <button type="button" class="dash-icon-btn" onClick=${() => supabase.auth.signOut()} aria-label="Cerrar sesión">⎋</button>`}
         </div>
       </header>
 
@@ -1293,12 +1300,12 @@ function MainApp() {
           ratesBusy=${ratesBusy} ratesNote=${ratesNote} ratesError=${ratesError} />`}
       </main>
 
-      <nav class="fixed bottom-0 inset-x-0 safe-bottom bg-azul-50/95 dark:bg-azul-900/95 backdrop-blur border-t border-azul-100 dark:border-azul-800">
-        <ul class="max-w-md mx-auto grid grid-cols-5">
+      <nav class="dash-dock fixed bottom-0 inset-x-0 safe-bottom">
+        <ul class="max-w-md mx-auto">
           ${TABS.map(([k, label, icon]) => html`
             <li key=${k}>
-              <button onClick=${() => setTab(k)} class=${'w-full pt-2 pb-1 flex flex-col items-center text-[11px] ' + (tab === k ? 'font-semibold text-azul-700 dark:text-azul-200' : 'opacity-50')}>
-                <span class=${k === 'new' ? 'text-xl grid place-items-center w-10 h-10 -mt-1 rounded-full bg-salmon text-azul-900' : 'text-xl'}>${icon}</span>
+              <button type="button" onClick=${() => setTab(k)} class=${tab === k ? 'is-on' : ''}>
+                <span class=${'dock-ico' + (k === 'new' ? ' is-new' : '')}>${icon}</span>
                 ${label}
               </button>
             </li>`)}

@@ -134,3 +134,192 @@
 .auth-submit:not(:disabled):active {
   transform: scale(0.99);
 }
+
+/* Dashboard: pastel sobre fondo oscuro */
+.dash-shell {
+  min-height: 100vh;
+  background: #152033;
+  color: #F7FAFF;
+}
+
+.dash-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.dash-greet {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #F7FAFF;
+}
+
+.dash-greet-sub {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: #BEE3F8;
+}
+
+.dash-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+}
+
+.dash-icon-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid #2C528A;
+  border-radius: 999px;
+  background: #1E3A5F;
+  color: #F7FAFF;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+}
+
+.dash-balance {
+  background: #D6E8FF;
+  color: #152033;
+  border-radius: 1rem;
+  padding: 1.35rem 1.4rem 1.2rem;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.dash-balance-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #2C528A;
+}
+
+.dash-balance-amount {
+  margin: 0.45rem 0 0;
+  font-size: 2rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  color: #152033;
+}
+
+.dash-balance-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.7rem;
+  color: #3D6BB3;
+}
+
+.dash-rates {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.9rem;
+}
+
+.dash-rate {
+  background: #FEFCBF;
+  color: #152033;
+  border-radius: 0.85rem;
+  padding: 0.55rem 0.35rem;
+  text-align: center;
+  min-height: 3.4rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.dash-rate p:first-child {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #5C5414;
+}
+
+.dash-rate p:last-child {
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.dash-empty {
+  border: 1.5px dashed #7AABF5;
+  background: rgba(160, 196, 255, 0.08);
+  border-radius: 1rem;
+  padding: 2rem 1.25rem;
+  text-align: center;
+}
+
+.dash-empty h3 {
+  margin: 0.5rem 0 0;
+  font-size: 1rem;
+  color: #F7FAFF;
+}
+
+.dash-empty p {
+  margin: 0.4rem 0 0;
+  font-size: 0.8rem;
+  color: #BEE3F8;
+}
+
+.dash-account {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  background: #1E3A5F;
+  border: 1px solid #2C528A;
+  border-radius: 1rem;
+  padding: 0.95rem 1rem;
+  color: #F7FAFF;
+}
+
+.dash-dock {
+  background: rgba(21, 32, 51, 0.96);
+  border-top: 1px solid #1E3A5F;
+  backdrop-filter: blur(10px);
+}
+
+.dash-dock ul {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+}
+
+.dash-dock button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.55rem 0 0.4rem;
+  color: #7AABF5;
+  font-size: 0.68rem;
+}
+
+.dash-dock button.is-on {
+  color: #F7FAFF;
+  font-weight: 600;
+}
+
+.dash-dock .dock-ico {
+  width: 2.1rem;
+  height: 2.1rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 1.05rem;
+}
+
+.dash-dock button.is-on .dock-ico {
+  background: #A0C4FF;
+  color: #152033;
+}
+
+.dash-dock .dock-ico.is-new {
+  background: #FFADAD;
+  color: #152033;
+}
