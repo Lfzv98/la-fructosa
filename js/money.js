@@ -11,9 +11,128 @@ export const CURRENCIES = {
 export const RATE_LABELS = {
   BCV_USD:  'Dólar BCV',
   BCV_EUR:  'Euro BCV',
-  PARALELO: 'Dólar Paralelo',
-  USDT:     'USDT',
+  USDT:     'USDT Binance',
+  PARALELO: 'USDT Binance',
 };
+
+// Las 3 tasas de Al Cambio: BCV USD, BCV EUR y USDT P2P (mercado).
+export const LIVE_RATE_KEYS = ['BCV_USD', 'BCV_EUR', 'USDT'];
+
+export const LIVE_RATES_NOTE = 'Actualizado según BCV y USDT Binance';
+
+function positiveNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function caracasDate(iso) {
+  const d = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(d.getTime())) return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+}
+
+async function fetchJson(url, opts = {}, timeoutMs = 10000) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...opts, signal: ctrl.signal });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchBcvAndParallel() {
+  const [usdList, eurList] = await Promise.all([
+    fetchJson('https://ve.dolarapi.com/v1/dolares'),
+    fetchJson('https://ve.dolarapi.com/v1/euros'),
+  ]);
+  const usdOficial = usdList.find((x) => x.fuente === 'oficial');
+  const usdParalelo = usdList.find((x) => x.fuente === 'paralelo');
+  const eurOficial = eurList.find((x) => x.fuente === 'oficial');
+  return {
+    bcvUsd: {
+      rate: positiveNumber(usdOficial?.promedio),
+      date: caracasDate(usdOficial?.fechaActualizacion),
+      source: 'BCV oficial',
+    },
+    bcvEur: {
+      rate: positiveNumber(eurOficial?.promedio),
+      date: caracasDate(eurOficial?.fechaActualizacion),
+      source: 'BCV oficial',
+    },
+    market: {
+      rate: positiveNumber(usdParalelo?.promedio),
+      date: caracasDate(usdParalelo?.fechaActualizacion),
+      source: 'Mercado paralelo',
+    },
+  };
+}
+
+async function fetchBinanceUsdt() {
+  const payload = {
+    page: 1,
+    rows: 10,
+    payTypes: [],
+    asset: 'USDT',
+    fiat: 'VES',
+    tradeType: 'BUY',
+    publisherType: null,
+    merchantCheck: true,
+  };
+  const json = await fetchJson(
+    'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search',
+    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) },
+    8000,
+  );
+  const prices = (json.data ?? [])
+    .map((row) => positiveNumber(row.adv?.price))
+    .filter(Boolean);
+  if (!prices.length) throw new Error('Binance P2P sin anuncios USDT/VES');
+  const sample = prices.slice(0, 8);
+  const rate = sample.reduce((sum, n) => sum + n, 0) / sample.length;
+  return { rate, date: caracasDate(), source: 'USDT Binance P2P' };
+}
+
+function toRow(type, info) {
+  return {
+    rate_type: type,
+    rate: info.rate,
+    rate_date: info.date,
+    source: info.source,
+    fetched_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Lee en vivo Dólar BCV, Euro BCV y USDT Binance P2P (como Al Cambio).
+ * Si Binance bloquea CORS, usa el paralelo de DolarAPI como tasa de mercado.
+ */
+export async function fetchLiveMarketRates() {
+  const bcv = await fetchBcvAndParallel();
+  let usdt = null;
+  try {
+    usdt = await fetchBinanceUsdt();
+  } catch {
+    usdt = bcv.market.rate ? { ...bcv.market, source: 'USDT Binance / mercado' } : null;
+  }
+  if (!bcv.bcvUsd.rate || !bcv.bcvEur.rate || !usdt?.rate) {
+    throw new Error('No se pudieron obtener las 3 tasas en tiempo real.');
+  }
+  const rows = [
+    toRow('BCV_USD', bcv.bcvUsd),
+    toRow('BCV_EUR', bcv.bcvEur),
+    toRow('USDT', usdt),
+    toRow('PARALELO', usdt),
+  ];
+  return {
+    rates: Object.fromEntries(rows.map((r) => [r.rate_type, r.rate])),
+    rows,
+    updatedAt: new Date().toISOString(),
+    sourceNote: LIVE_RATES_NOTE,
+  };
+}
 
 export const CATEGORIES = {
   expense:  ['Comida', 'Mercado', 'Servicios', 'Transporte', 'Salidas', 'Salud', 'Hogar', 'Remesas', 'Otros'],

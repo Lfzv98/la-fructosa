@@ -4,7 +4,7 @@ import htm from 'htm';
 import { supabase } from './supabase.js';
 import { api, isDemo } from './api.js';
 import {
-  CURRENCIES, RATE_LABELS, CATEGORIES,
+  CURRENCIES, RATE_LABELS, CATEGORIES, LIVE_RATE_KEYS, LIVE_RATES_NOTE,
   consolidate, convert, spreadCalc, marketRateFor, fmt, fmtRate,
 } from './money.js';
 
@@ -101,7 +101,7 @@ function AuthScreen() {
 // ---------------------------------------------------------------------
 const KIND_ICON = { cash: '💵', bank: '🏦', digital: '📲', crypto: '🪙' };
 
-function Home({ profile, balances, rates, onAddAccount, onToggleCurrency }) {
+function Home({ profile, balances, rates, onAddAccount, onToggleCurrency, onRefreshRates, ratesBusy, ratesNote }) {
   const target = profile.preferred_currency;
   const { total, missing } = consolidate(balances, target, rates, profile.valuation_rate);
   return html`
@@ -117,7 +117,7 @@ function Home({ profile, balances, rates, onAddAccount, onToggleCurrency }) {
         ${missing && html`<p class="text-xs mt-2 rounded-lg bg-sol-100 text-azul-900 px-2 py-1">Faltan tasas para convertir algunas cuentas.</p>`}
       </div>
 
-      <${RatesStrip} rates=${rates} />
+      <${RatesStrip} rates=${rates} onRefresh=${onRefreshRates} busy=${ratesBusy} note=${ratesNote} />
 
       <div class="flex items-center justify-between pt-2">
         <h2 class="font-semibold">Cuentas</h2>
@@ -143,14 +143,24 @@ function Home({ profile, balances, rates, onAddAccount, onToggleCurrency }) {
     </section>`;
 }
 
-function RatesStrip({ rates }) {
+function RatesStrip({ rates, onRefresh, busy, note }) {
   return html`
-    <div class="grid grid-cols-4 gap-2 text-center">
-      ${['BCV_USD', 'PARALELO', 'USDT', 'BCV_EUR'].map((k) => html`
-        <div key=${k} class=${rateCard + ' py-2 px-1'}>
-          <p class="text-[10px] uppercase tracking-wide opacity-60">${RATE_LABELS[k].replace('Dólar ', '')}</p>
-          <p class="text-sm font-semibold tabular">${rates[k] ? fmtRate(rates[k]) : '—'}</p>
-        </div>`)}
+    <div class="space-y-2">
+      <div class="grid grid-cols-3 gap-2 text-center">
+        ${LIVE_RATE_KEYS.map((k) => html`
+          <div key=${k} class=${rateCard + ' py-2 px-1'}>
+            <p class="text-[10px] uppercase tracking-wide opacity-60">${RATE_LABELS[k].replace('Dólar ', '')}</p>
+            <p class="text-sm font-semibold tabular">${rates[k] ? fmtRate(rates[k]) : '—'}</p>
+          </div>`)}
+      </div>
+      <div class="flex items-center justify-between gap-2">
+        <p class="text-[11px] text-azul-700 dark:text-sol-100">${note || ''}</p>
+        <button type="button" onClick=${onRefresh} disabled=${busy}
+          class="shrink-0 rounded-full bg-salmon text-azul-900 text-sm font-semibold px-3 py-1.5 disabled:opacity-50"
+          aria-label="Actualizar tasas">
+          ${busy ? '…' : '🔄'}
+        </button>
+      </div>
     </div>`;
 }
 
@@ -376,13 +386,22 @@ function Movements({ txs }) {
 // ---------------------------------------------------------------------
 // Tasas + calculadora rápida
 // ---------------------------------------------------------------------
-function Rates({ rows, rates }) {
+function Rates({ rows, rates, onRefresh, busy, note, error }) {
   const [ves, setVes] = useState('');
-  const gap = rates.BCV_USD && rates.PARALELO ? ((rates.PARALELO - rates.BCV_USD) / rates.BCV_USD) * 100 : null;
+  const market = rates.USDT ?? rates.PARALELO;
+  const gap = rates.BCV_USD && market ? ((market - rates.BCV_USD) / rates.BCV_USD) * 100 : null;
   return html`
     <section class="space-y-4">
-      <div class="grid grid-cols-2 gap-3">
-        ${['BCV_USD', 'PARALELO', 'USDT', 'BCV_EUR'].map((k) => {
+      <div class="flex items-center justify-between gap-3">
+        <p class="text-sm text-azul-700 dark:text-sol-100">${note || 'Tasas BCV y USDT Binance P2P'}</p>
+        <button type="button" onClick=${onRefresh} disabled=${busy}
+          class="shrink-0 rounded-full bg-salmon text-azul-900 text-sm font-semibold px-3 py-1.5 disabled:opacity-50">
+          ${busy ? 'Actualizando…' : '🔄 Actualizar'}
+        </button>
+      </div>
+      ${error && html`<${ErrorBox} error=${error} />`}
+      <div class="grid grid-cols-1 gap-3">
+        ${LIVE_RATE_KEYS.map((k) => {
           const r = rows.find((x) => x.rate_type === k);
           return html`
             <div key=${k} class=${rateCard + ' p-4'}>
@@ -394,7 +413,7 @@ function Rates({ rows, rates }) {
       </div>
       ${gap != null && html`
         <div class="rounded-2xl bg-sol-100 text-azul-900 p-4">
-          <p class="text-sm">Brecha BCV vs. Paralelo</p>
+          <p class="text-sm">Brecha BCV vs. USDT Binance</p>
           <p class="text-3xl font-bold tabular">${gap.toFixed(1)}%</p>
         </div>`}
       <div class=${card + ' p-4 space-y-3'}>
@@ -402,9 +421,9 @@ function Rates({ rows, rates }) {
         <input class=${input + ' tabular'} type="number" inputmode="decimal" step="any" placeholder="Monto en Bs." value=${ves} onInput=${(e) => setVes(e.target.value)} />
         ${Number(ves) > 0 && html`
           <ul class="text-sm space-y-1">
-            ${['BCV_USD', 'PARALELO', 'USDT'].filter((k) => rates[k]).map((k) => html`
+            ${LIVE_RATE_KEYS.filter((k) => rates[k]).map((k) => html`
               <li key=${k} class="flex justify-between"><span class="opacity-70">${RATE_LABELS[k]}</span>
-                <b class="tabular">${fmt(Number(ves) / rates[k], k === 'USDT' ? 'USDT' : 'USD')}</b></li>`)}
+                <b class="tabular">${fmt(Number(ves) / rates[k], k === 'USDT' ? 'USDT' : k === 'BCV_EUR' ? 'EUR' : 'USD')}</b></li>`)}
           </ul>`}
       </div>
     </section>`;
@@ -423,7 +442,7 @@ function Settings({ profile, onSave }) {
         <//>
         <${Field} label="Valorar dólares a tasa">
           <${Segmented} value=${profile.valuation_rate} onChange=${(v) => onSave({ valuation_rate: v })}
-            options=${[['BCV_USD', 'BCV'], ['PARALELO', 'Paralelo']]} />
+            options=${[['BCV_USD', 'BCV'], ['PARALELO', 'USDT']]} />
         <//>
       </div>
       ${!isDemo && html`
@@ -451,16 +470,38 @@ function MainApp() {
   const [txs, setTxs] = useState([]);
   const [rates, setRates] = useState({});
   const [rateRows, setRateRows] = useState([]);
+  const [ratesBusy, setRatesBusy] = useState(false);
+  const [ratesNote, setRatesNote] = useState('');
+  const [ratesError, setRatesError] = useState(null);
   const [error, setError] = useState(null);
+
+  const applyLiveRates = useCallback(async () => {
+    setRatesBusy(true); setRatesError(null);
+    try {
+      const live = await api.refreshRates();
+      setRates(live.rates);
+      setRateRows(live.rows);
+      setRatesNote(live.sourceNote || LIVE_RATES_NOTE);
+    } catch (err) {
+      setRatesError(err);
+      try {
+        const [r, rr] = await Promise.all([api.latestRates(), api.latestRateRows()]);
+        setRates(r); setRateRows(rr);
+      } catch { /* se mantienen las últimas tasas en pantalla */ }
+    } finally {
+      setRatesBusy(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
-      const [p, b, t, r, rr] = await Promise.all([
-        api.getProfile(), api.listBalances(), api.listTransactions(), api.latestRates(), api.latestRateRows(),
+      const [p, b, t] = await Promise.all([
+        api.getProfile(), api.listBalances(), api.listTransactions(),
       ]);
-      setProfile(p); setBalances(b); setTxs(t); setRates(r); setRateRows(rr);
+      setProfile(p); setBalances(b); setTxs(t);
+      await applyLiveRates();
     } catch (err) { setError(err); }
-  }, []);
+  }, [applyLiveRates]);
   useEffect(() => { load(); }, [load]);
 
   async function saveProfile(patch) {
@@ -485,10 +526,12 @@ function MainApp() {
       <main class="flex-1 px-5 pb-28 pt-2">
         ${tab === 'home' && html`<${Home} profile=${profile} balances=${balances} rates=${rates}
           onAddAccount=${() => setSheet('account')}
-          onToggleCurrency=${() => saveProfile({ preferred_currency: profile.preferred_currency === 'USD' ? 'VES' : 'USD' })} />`}
+          onToggleCurrency=${() => saveProfile({ preferred_currency: profile.preferred_currency === 'USD' ? 'VES' : 'USD' })}
+          onRefreshRates=${applyLiveRates} ratesBusy=${ratesBusy} ratesNote=${ratesNote} />`}
         ${tab === 'movs' && html`<${Movements} txs=${txs} />`}
         ${tab === 'new' && html`<${NewTransaction} balances=${balances} rates=${rates} onDone=${() => { load(); setTab('movs'); }} />`}
-        ${tab === 'rates' && html`<${Rates} rows=${rateRows} rates=${rates} />`}
+        ${tab === 'rates' && html`<${Rates} rows=${rateRows} rates=${rates} onRefresh=${applyLiveRates}
+          busy=${ratesBusy} note=${ratesNote} error=${ratesError} />`}
         ${tab === 'settings' && html`<${Settings} profile=${profile} onSave=${saveProfile} />`}
       </main>
 

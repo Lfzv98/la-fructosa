@@ -2,6 +2,7 @@
 // - Modo real: Supabase (RLS garantiza que cada quien vea solo lo suyo).
 // - Modo demo (?demo o sin config): datos en memoria para ver la UI.
 import { supabase, isConfigured } from './supabase.js';
+import { fetchLiveMarketRates } from './money.js';
 
 export const isDemo = !isConfigured || new URLSearchParams(location.search).has('demo');
 
@@ -99,4 +100,35 @@ const demo = {
   async latestRateRows() { return demoState.rates; },
 };
 
-export const api = isDemo ? demo : real;
+const persist = isDemo ? demo : real;
+let liveRates = null;
+
+export async function refreshRates() {
+  liveRates = await fetchLiveMarketRates();
+  return liveRates;
+}
+
+export const api = {
+  ...persist,
+  async latestRates() {
+    if (liveRates) return liveRates.rates;
+    try {
+      liveRates = await fetchLiveMarketRates();
+      return liveRates.rates;
+    } catch {
+      return persist.latestRates();
+    }
+  },
+  async latestRateRows() {
+    if (liveRates) return liveRates.rows;
+    try {
+      liveRates = await fetchLiveMarketRates();
+      return liveRates.rows;
+    } catch {
+      return persist.latestRateRows();
+    }
+  },
+  async refreshRates() {
+    return refreshRates();
+  },
+};
