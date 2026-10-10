@@ -1,0 +1,136 @@
+/* Portada de acceso: fondo oscuro + tarjeta pastel, contraste fijo. */
+.auth-page {
+  min-height: 100vh;
+  background: #152033;
+  color: #152033;
+}
+
+.auth-brand {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.auth-brand h1 {
+  margin: 1rem 0 0;
+  font-size: 1.875rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #F7FAFF;
+}
+
+.auth-brand p {
+  margin: 0.35rem 0 0;
+  font-size: 0.875rem;
+  color: #BEE3F8;
+}
+
+.auth-card {
+  background: #F7FAFF;
+  border: 1px solid #D6E8FF;
+  border-radius: 1.25rem;
+  padding: 1.25rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.28);
+  color: #152033;
+}
+
+.auth-card label span,
+.auth-card .auth-label {
+  color: #2C528A;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  padding: 0.3rem;
+  border-radius: 0.9rem;
+  background: #D6E8FF;
+}
+
+.auth-tab {
+  min-height: 2.5rem;
+  border: 0;
+  border-radius: 0.7rem;
+  background: transparent;
+  color: #2C528A;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.auth-tab[aria-selected="true"] {
+  background: #FFADAD;
+  color: #152033;
+  box-shadow: 0 1px 2px rgba(21, 32, 51, 0.12);
+}
+
+.auth-region {
+  width: 100%;
+  min-height: 3.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-align: left;
+  border-radius: 1rem;
+  border: 1px solid #D6E8FF;
+  background: #FFFFFF;
+  color: #152033;
+  padding: 0.75rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.auth-region[aria-checked="true"] {
+  border-color: #FFADAD;
+  background: #FFE4E4;
+}
+
+.auth-input {
+  width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid #D6E8FF;
+  background: #FFFFFF;
+  color: #152033;
+  padding: 0.75rem 0.85rem;
+  font-size: 1rem;
+}
+
+.auth-input::placeholder {
+  color: #5B8FD4;
+}
+
+.auth-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFADAD;
+}
+
+.auth-eye {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 0;
+  background: transparent;
+  color: #152033;
+  font-size: 1.125rem;
+}
+
+.auth-submit {
+  width: 100%;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #FFADAD;
+  color: #152033;
+  font-weight: 700;
+  padding: 0.8rem 1rem;
+  box-shadow: 0 1px 2px rgba(21, 32, 51, 0.12);
+}
+
+.auth-submit:disabled {
+  opacity: 0.45;
+}
+
+.auth-submit:not(:disabled):active {
+  transform: scale(0.99);
+}

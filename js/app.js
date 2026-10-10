@@ -104,60 +104,65 @@ function AuthScreen() {
   }
 
   return html`
-    <main class="min-h-screen safe-top safe-bottom px-5 flex flex-col justify-center bg-azul-50 dark:bg-azul-900">
+    <main class="auth-page safe-top safe-bottom px-5 flex flex-col justify-center">
       <div class="w-full max-w-sm mx-auto">
-        <header class="text-center mb-7">
+        <header class="auth-brand">
           <img src="./icons/icon-192.png" alt="La Fructosa" class="w-16 h-16 rounded-2xl mx-auto shadow-sm" />
-          <h1 class="text-3xl font-bold tracking-tight mt-4">La Fructosa</h1>
-          <p class="text-sm opacity-50 mt-1">Finanzas Personales</p>
+          <h1>La Fructosa</h1>
+          <p>Finanzas Personales</p>
         </header>
 
-        <form onSubmit=${submit} class=${card + ' p-5 space-y-4'}>
-          <${Segmented} value=${mode} onChange=${(v) => { setMode(v); setError(null); setNotice(null); }}
-            options=${[['login', 'Iniciar Sesión'], ['signup', 'Crear Cuenta']]} />
+        <form onSubmit=${submit} class="auth-card space-y-4">
+          <div class="auth-tabs" role="tablist" aria-label="Acceso">
+            <button type="button" role="tab" class="auth-tab" aria-selected=${mode === 'login'}
+              onClick=${() => { setMode('login'); setError(null); setNotice(null); }}>Iniciar Sesión</button>
+            <button type="button" role="tab" class="auth-tab" aria-selected=${mode === 'signup'}
+              onClick=${() => { setMode('signup'); setError(null); setNotice(null); }}>Crear Cuenta</button>
+          </div>
 
           <div class="space-y-2">
-            <p class="text-sm font-medium">Región y moneda base <span class="text-salmon-700">*</span></p>
+            <p class="auth-label text-sm font-medium">Región y moneda base <span style="color:#B04343">*</span></p>
             <div class="space-y-2" role="radiogroup" aria-label="Región y moneda base">
               ${Object.values(REGIONS).map((r) => html`
                 <button key=${r.id} type="button" role="radio" aria-checked=${region === r.id}
-                  onClick=${() => { setRegion(r.id); setError(null); }}
-                  class=${'w-full text-left rounded-2xl border px-3.5 py-3 flex items-center gap-3 min-h-[52px] ' + (region === r.id ? 'border-salmon bg-salmon/25 shadow-sm' : 'border-azul-100 dark:border-azul-700')}>
+                  class="auth-region" onClick=${() => { setRegion(r.id); setError(null); }}>
                   <span class="text-xl leading-none" aria-hidden="true">${r.flag}</span>
-                  <span class="text-sm font-medium">${r.cover}</span>
+                  <span>${r.cover}</span>
                 </button>`)}
             </div>
           </div>
 
           ${mode === 'signup' && html`
-            <${Field} label="Nombre">
-              <input class=${input} required value=${name} onInput=${(e) => setName(e.target.value)}
+            <label class="block space-y-1">
+              <span class="text-sm font-medium">Nombre</span>
+              <input class="auth-input" required value=${name} onInput=${(e) => setName(e.target.value)}
                 autocomplete="name" name="name" placeholder="Inserta tu nombre aquí" />
-            <//>`}
+            </label>`}
 
-          <${Field} label="Correo electrónico">
-            <input class=${input} type="email" required name="email" value=${email} placeholder="tu@correo.com"
+          <label class="block space-y-1">
+            <span class="text-sm font-medium">Correo electrónico</span>
+            <input class="auth-input" type="email" required name="email" value=${email} placeholder="tu@correo.com"
               onInput=${(e) => setEmail(e.target.value)} autocomplete="email" />
-          <//>
+          </label>
 
-          <${Field} label="Contraseña">
+          <label class="block space-y-1">
+            <span class="text-sm font-medium">Contraseña</span>
             <div class="relative">
-              <input class=${input + ' pr-12'} type=${showPass ? 'text' : 'password'} required minlength="8"
+              <input class="auth-input" style="padding-right:3rem" type=${showPass ? 'text' : 'password'} required minlength="8"
                 name=${mode === 'login' ? 'password' : 'new-password'} value=${password} placeholder="Mínimo 8 caracteres"
                 onInput=${(e) => setPassword(e.target.value)}
                 autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} />
-              <button type="button" onClick=${() => setShowPass((v) => !v)}
-                class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 grid place-items-center rounded-xl text-lg"
+              <button type="button" class="auth-eye" onClick=${() => setShowPass((v) => !v)}
                 aria-label=${showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
                 ${showPass ? '🙈' : '👁️'}
               </button>
             </div>
-          <//>
+          </label>
 
           <${ErrorBox} error=${error} />
-          ${notice && html`<p class="text-sm bg-sol-100 text-azul-900 rounded-xl p-2">${notice}</p>`}
+          ${notice && html`<p class="text-sm rounded-xl p-2" style="background:#FEFCBF;color:#152033">${notice}</p>`}
 
-          <button class=${btnPrimary} disabled=${!canSubmit}>
+          <button class="auth-submit" disabled=${!canSubmit}>
             ${busy ? '…' : mode === 'login' ? 'Entrar' : 'Registrarse'}
           </button>
         </form>

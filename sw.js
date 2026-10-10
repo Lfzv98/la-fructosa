@@ -1,10 +1,11 @@
 // La Fructosa · Service Worker
 // Sube CACHE_VERSION en cada despliegue para forzar la actualización.
-const CACHE_VERSION = 'fructosa-v11';
+const CACHE_VERSION = 'fructosa-v12';
 
 const APP_SHELL = [
   './',
   './index.html',
+  './styles.css',
   './manifest.webmanifest',
   './js/app.js',
   './js/config.js',
