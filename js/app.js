@@ -113,6 +113,9 @@ function AuthScreen() {
         </header>
 
         <form onSubmit=${submit} class=${card + ' p-5 space-y-4'}>
+          <${Segmented} value=${mode} onChange=${(v) => { setMode(v); setError(null); setNotice(null); }}
+            options=${[['login', 'Iniciar Sesión'], ['signup', 'Crear Cuenta']]} />
+
           <div class="space-y-2">
             <p class="text-sm font-medium">Región y moneda base <span class="text-salmon-700">*</span></p>
             <div class="space-y-2" role="radiogroup" aria-label="Región y moneda base">
@@ -128,18 +131,19 @@ function AuthScreen() {
 
           ${mode === 'signup' && html`
             <${Field} label="Nombre">
-              <input class=${input} value=${name} onInput=${(e) => setName(e.target.value)} autocomplete="name" placeholder="Inserta tu nombre aquí" />
+              <input class=${input} required value=${name} onInput=${(e) => setName(e.target.value)}
+                autocomplete="name" name="name" placeholder="Inserta tu nombre aquí" />
             <//>`}
 
           <${Field} label="Correo electrónico">
-            <input class=${input} type="email" required value=${email} placeholder="tu@correo.com"
+            <input class=${input} type="email" required name="email" value=${email} placeholder="tu@correo.com"
               onInput=${(e) => setEmail(e.target.value)} autocomplete="email" />
           <//>
 
           <${Field} label="Contraseña">
             <div class="relative">
               <input class=${input + ' pr-12'} type=${showPass ? 'text' : 'password'} required minlength="8"
-                value=${password} placeholder="Mínimo 8 caracteres"
+                name=${mode === 'login' ? 'password' : 'new-password'} value=${password} placeholder="Mínimo 8 caracteres"
                 onInput=${(e) => setPassword(e.target.value)}
                 autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} />
               <button type="button" onClick=${() => setShowPass((v) => !v)}
@@ -154,17 +158,9 @@ function AuthScreen() {
           ${notice && html`<p class="text-sm bg-sol-100 text-azul-900 rounded-xl p-2">${notice}</p>`}
 
           <button class=${btnPrimary} disabled=${!canSubmit}>
-            ${busy ? '…' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+            ${busy ? '…' : mode === 'login' ? 'Entrar' : 'Registrarse'}
           </button>
         </form>
-
-        <p class="text-center text-sm mt-5 opacity-70">
-          ${mode === 'login' ? '¿Eres nuevo? ' : '¿Ya tienes cuenta? '}
-          <button type="button" class="font-semibold text-salmon-700 dark:text-salmon-200 underline-offset-2"
-            onClick=${() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null); setNotice(null); }}>
-            ${mode === 'login' ? 'Crear cuenta' : 'Iniciar sesión'}
-          </button>
-        </p>
       </div>
     </main>`;
 }
