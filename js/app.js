@@ -5,7 +5,8 @@ import { supabase } from './supabase.js';
 import { api, isDemo } from './api.js';
 import {
   CURRENCIES, RATE_LABELS, CATEGORIES, LIVE_RATE_KEYS, LIVE_RATES_NOTE,
-  consolidate, convert, spreadCalc, marketRateFor, fmt, fmtRate,
+  ACCOUNT_PRESETS, accountIcon, presetForAccount,
+  consolidate, convert, balanceBreakdown, spreadCalc, marketRateFor, fmt, fmtRate,
 } from './money.js';
 
 const html = htm.bind(React.createElement);
@@ -99,21 +100,30 @@ function AuthScreen() {
 // ---------------------------------------------------------------------
 // Inicio: saldo consolidado + cuentas
 // ---------------------------------------------------------------------
-const KIND_ICON = { cash: '💵', bank: '🏦', digital: '📲', crypto: '🪙' };
-
-function Home({ profile, balances, rates, onAddAccount, onToggleCurrency, onRefreshRates, ratesBusy, ratesNote }) {
+function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleCurrency, onRefreshRates, ratesBusy, ratesNote }) {
   const target = profile.preferred_currency;
-  const { total, missing } = consolidate(balances, target, rates, profile.valuation_rate);
+  const valuation = profile.valuation_rate;
+  const { total, missing } = consolidate(balances, target, rates, valuation);
+  const parts = balanceBreakdown(balances, target, rates, valuation);
   return html`
     <section class="space-y-4">
       <div class="rounded-3xl bg-azul-200 dark:bg-azul-800 text-azul-900 dark:text-papel p-5 shadow-lg">
         <div class="flex items-center justify-between">
-          <span class="text-sm opacity-80">Saldo total</span>
+          <span class="text-sm opacity-80">Saldo total en ${target}</span>
           <button onClick=${onToggleCurrency} class=${currencyBadge + ' text-xs px-3 py-1'}>
-            ${target} · ${RATE_LABELS[profile.valuation_rate]}
+            ${target} · ${RATE_LABELS[valuation]}
           </button>
         </div>
         <p class="text-4xl font-bold mt-2 tabular">${fmt(total, target)}</p>
+        <p class="text-[11px] opacity-70 mt-1">Convertido a tasa ${RATE_LABELS[valuation]} del día</p>
+        ${parts.length > 0 && html`
+          <ul class="mt-3 space-y-1 text-xs opacity-90">
+            ${parts.map((p) => html`
+              <li key=${p.currency} class="flex justify-between gap-2 tabular">
+                <span>${p.currency} ${fmt(p.native, p.currency)}</span>
+                <span>${p.currency === target ? 'en tu moneda' : p.missing ? 'sin tasa' : `≈ ${fmt(p.converted, target)}`}</span>
+              </li>`)}
+          </ul>`}
         ${missing && html`<p class="text-xs mt-2 rounded-lg bg-sol-100 text-azul-900 px-2 py-1">Faltan tasas para convertir algunas cuentas.</p>`}
       </div>
 
@@ -124,20 +134,24 @@ function Home({ profile, balances, rates, onAddAccount, onToggleCurrency, onRefr
         <button onClick=${onAddAccount} class="text-sm font-semibold text-salmon-700 dark:text-salmon-200">+ Nueva</button>
       </div>
       ${balances.length === 0 && html`
-        <div class=${card + ' p-5 text-center opacity-80'}>Crea tu primera cuenta: Efectivo USD, Zelle, Pago Móvil, Binance…</div>`}
+        <div class=${card + ' p-5 text-center opacity-80'}>Crea tu primera cuenta: Zelle, Efectivo, Pago Móvil o Binance.</div>`}
       <ul class="space-y-2">
         ${balances.map((a) => html`
-          <li key=${a.id} class=${accountCard + ' p-4 flex items-center gap-3'}>
-            <span class="text-2xl">${KIND_ICON[a.kind] ?? '💼'}</span>
-            <div class="flex-1 min-w-0">
-              <p class="font-medium truncate">${a.name}</p>
-              <p class=${currencyBadge + ' mt-1'}>${a.currency}</p>
-            </div>
-            <div class="text-right">
-              <p class="font-semibold tabular">${fmt(a.balance, a.currency)}</p>
-              ${a.currency !== target && html`
-                <p class="text-xs opacity-60 tabular">≈ ${fmt(convert(Number(a.balance), a.currency, target, rates, profile.valuation_rate), target)}</p>`}
-            </div>
+          <li key=${a.id}>
+            <button type="button" onClick=${() => onEditAccount(a)} class=${accountCard + ' w-full p-4 flex items-center gap-3 text-left'}>
+              <span class="text-2xl">${accountIcon(a)}</span>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium truncate">${a.name}</p>
+                <p class=${currencyBadge + ' mt-1'}>${a.currency}</p>
+              </div>
+              <div class="text-right">
+                <p class="font-semibold tabular">${fmt(a.balance, a.currency)}</p>
+                ${a.currency !== target && html`
+                  <p class="text-xs opacity-60 tabular">${convert(Number(a.balance), a.currency, target, rates, valuation) == null
+                    ? 'sin tasa'
+                    : `≈ ${fmt(convert(Number(a.balance), a.currency, target, rates, valuation), target)}`}</p>`}
+              </div>
+            </button>
           </li>`)}
       </ul>
     </section>`;
@@ -167,38 +181,102 @@ function RatesStrip({ rates, onRefresh, busy, note }) {
 // ---------------------------------------------------------------------
 // Nueva cuenta
 // ---------------------------------------------------------------------
-function NewAccount({ onDone, onCancel }) {
-  const [form, setForm] = useState({ name: '', currency: 'USD', kind: 'cash', initial_balance: '' });
+function AccountForm({ account, onDone, onCancel }) {
+  const editing = Boolean(account);
+  const start = presetForAccount(account);
+  const [presetId, setPresetId] = useState(start.id);
+  const [form, setForm] = useState({
+    name: account?.name ?? start.names[0] ?? '',
+    currency: account?.currency ?? start.currencies[0],
+    kind: account?.kind ?? start.kind,
+    icon: account?.icon ?? start.icon,
+    initial_balance: '',
+  });
   const [error, setError] = useState(null);
-  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+  const preset = ACCOUNT_PRESETS.find((p) => p.id === presetId) ?? start;
+
+  function applyPreset(next) {
+    setPresetId(next.id);
+    const currency = next.currencies.includes(form.currency) ? form.currency : next.currencies[0];
+    setForm({
+      ...form,
+      kind: next.kind,
+      icon: next.icon,
+      currency,
+      name: next.id === 'custom' ? form.name : (next.names.includes(form.name) ? form.name : (next.names[0] ?? '')),
+    });
+  }
 
   async function submit(e) {
     e.preventDefault();
     try {
-      await api.createAccount({ ...form, initial_balance: Number(form.initial_balance || 0) });
+      const payload = { name: form.name.trim(), currency: form.currency, kind: form.kind, icon: form.icon };
+      if (!payload.name) throw new Error('Escribe un nombre para la cuenta.');
+      if (editing) await api.updateAccount(account.id, payload);
+      else await api.createAccount({ ...payload, initial_balance: Number(form.initial_balance || 0) });
       onDone();
     } catch (err) { setError(err); }
   }
 
   return html`
     <form onSubmit=${submit} class="space-y-4">
-      <h2 class="text-xl font-bold">Nueva cuenta</h2>
-      <${Field} label="Nombre"><input class=${input} required placeholder="Ej. Pago Móvil Bancamiga" value=${form.name} onInput=${set('name')} /><//>
+      <h2 class="text-xl font-bold">${editing ? 'Editar cuenta' : 'Nueva cuenta'}</h2>
+      <div class="grid grid-cols-2 gap-2">
+        ${ACCOUNT_PRESETS.map((p) => html`
+          <button key=${p.id} type="button" onClick=${() => applyPreset(p)}
+            class=${'text-left rounded-2xl border px-3 py-2 ' + (presetId === p.id ? 'border-salmon bg-salmon/20' : 'border-azul-100 dark:border-azul-700')}>
+            <p class="font-medium text-sm">${p.icon} ${p.label}</p>
+            <p class="text-[11px] opacity-60">${p.hint}</p>
+          </button>`)}
+      </div>
+      ${preset.names.length > 1 && html`
+        <div class="flex flex-wrap gap-2">
+          ${preset.names.map((n) => html`
+            <button key=${n} type="button" onClick=${() => setForm({ ...form, name: n })}
+              class=${'px-3 py-1.5 rounded-full text-sm border ' + (form.name === n ? 'bg-sol border-sol text-azul-900 font-semibold' : 'border-azul-100 dark:border-azul-700')}>${n}</button>`)}
+        </div>`}
+      <${Field} label="Nombre">
+        <input class=${input} required maxlength="60" placeholder=${preset.names[0] || 'Ej. Pago Móvil Bancamiga'}
+          value=${form.name} onInput=${(e) => setForm({ ...form, name: e.target.value })} />
+      <//>
       <${Field} label="Moneda">
         <${Segmented} value=${form.currency} onChange=${(v) => setForm({ ...form, currency: v })}
-          options=${Object.keys(CURRENCIES).map((c) => [c, c])} />
+          options=${preset.currencies.map((c) => [c, c])} />
       <//>
-      <${Field} label="Tipo">
-        <${Segmented} value=${form.kind} onChange=${(v) => setForm({ ...form, kind: v })}
-          options=${[['cash', 'Efectivo'], ['bank', 'Banco'], ['digital', 'Digital'], ['crypto', 'Cripto']]} />
-      <//>
-      <${Field} label="Saldo inicial">
-        <input class=${input + ' tabular'} type="number" inputmode="decimal" step="any" value=${form.initial_balance} onInput=${set('initial_balance')} />
-      <//>
+      ${preset.id === 'custom' && html`
+        <${Field} label="Tipo">
+          <${Segmented} value=${form.kind} onChange=${(v) => setForm({ ...form, kind: v, icon: accountIcon({ kind: v }) })}
+            options=${[['cash', 'Efectivo'], ['bank', 'Banco'], ['digital', 'Digital'], ['crypto', 'Cripto']]} />
+        <//>`}
+      ${editing
+        ? html`<p class="text-sm opacity-70">Saldo actual: <b class="tabular">${fmt(account.balance, account.currency)}</b></p>`
+        : html`<${Field} label="Saldo inicial">
+            <input class=${input + ' tabular'} type="number" inputmode="decimal" step="any" value=${form.initial_balance}
+              onInput=${(e) => setForm({ ...form, initial_balance: e.target.value })} />
+          <//>`}
       <${ErrorBox} error=${error} />
-      <button class=${btnPrimary}>Guardar</button>
+      <button class=${btnPrimary}>${editing ? 'Guardar cambios' : 'Crear cuenta'}</button>
       <button type="button" onClick=${onCancel} class="w-full py-2 opacity-70">Cancelar</button>
     </form>`;
+}
+
+function AccountPicker({ label, balances, value, onChange, excludeId }) {
+  const list = balances.filter((a) => a.id !== excludeId);
+  return html`
+    <div class="block space-y-1">
+      <span class="text-sm opacity-70">${label}</span>
+      <div class="space-y-2 max-h-56 overflow-y-auto">
+        ${list.map((a) => html`
+          <button key=${a.id} type="button" onClick=${() => onChange(a.id)}
+            class=${'w-full text-left p-3 rounded-xl border flex items-center gap-3 ' + (value === a.id ? 'border-salmon bg-salmon/20' : 'border-azul-100 dark:border-azul-700')}>
+            <span class="text-xl">${accountIcon(a)}</span>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium truncate">${a.name}</p>
+              <p class="text-xs opacity-60">${a.currency} · ${fmt(a.balance, a.currency)}</p>
+            </div>
+          </button>`)}
+      </div>
+    </div>`;
 }
 
 // ---------------------------------------------------------------------
@@ -228,6 +306,12 @@ function NewTransaction({ balances, rates, onDone }) {
   useEffect(() => {
     if (account) setRateApplied(String(marketRateFor(account.currency, rates) ?? ''));
   }, [accountId, rates]);
+  useEffect(() => {
+    if (type === 'transfer' && toAccountId === accountId) {
+      const other = balances.find((a) => a.id !== accountId);
+      if (other) setToAccountId(other.id);
+    }
+  }, [accountId, type, toAccountId, balances]);
 
   // Monto que se debita de la cuenta cuando se pagó en bolívares.
   const debit = usingVes ? Number(vesAmount) / Number(rateApplied) : Number(amount);
@@ -265,16 +349,19 @@ function NewTransaction({ balances, rates, onDone }) {
     return html`<div class=${card + ' p-5 text-center'}>Crea una cuenta en Inicio para registrar movimientos.</div>`;
   }
 
-  const accountOptions = balances.map((a) => html`<option key=${a.id} value=${a.id}>${a.name} · ${a.currency}</option>`);
+  const actionHint = !account ? ''
+    : type === 'income' ? `El ingreso se registrará en ${account.name} · ${account.currency}`
+    : type === 'expense' ? `El gasto se descontará de ${account.name} · ${account.currency}`
+    : `Sale de ${account.name} · ${account.currency}`;
 
   return html`
     <form onSubmit=${submit} class="space-y-4">
       <${Segmented} value=${type} onChange=${setType}
         options=${[['expense', 'Gasto'], ['income', 'Ingreso'], ['transfer', 'Transferencia']]} />
 
-      <${Field} label=${type === 'transfer' ? 'Desde' : 'Cuenta'}>
-        <select class=${input} value=${accountId} onChange=${(e) => setAccountId(e.target.value)}>${accountOptions}</select>
-      <//>
+      <${AccountPicker} label=${type === 'transfer' ? 'Cuenta de origen' : 'Cuenta'}
+        balances=${balances} value=${accountId} onChange=${setAccountId} />
+      ${account && html`<p class="text-xs opacity-60">${actionHint}</p>`}
 
       ${canPayInVes && html`
         <label class="flex items-center gap-3 ${card} p-3">
@@ -298,13 +385,13 @@ function NewTransaction({ balances, rates, onDone }) {
         <//>`}
 
       ${type === 'transfer' && html`
-        <${Field} label="Hacia">
-          <select class=${input} value=${toAccountId} onChange=${(e) => setToAccountId(e.target.value)}>${accountOptions}</select>
-        <//>
+        <${AccountPicker} label="Cuenta de destino" balances=${balances} value=${toAccountId}
+          onChange=${setToAccountId} excludeId=${accountId} />
+        ${toAccount && html`<p class="text-xs opacity-60">Llega a ${toAccount.name} · ${toAccount.currency}</p>`}
         ${toAccount && account && toAccount.currency !== account.currency && html`
           <${Field} label=${'Recibido (' + toAccount.currency + ')'}>
             <input class=${input + ' tabular'} type="number" inputmode="decimal" step="any"
-              placeholder=${suggestedTo ? suggestedTo.toFixed(2) + ' (a tasa paralelo)' : ''}
+              placeholder=${suggestedTo ? suggestedTo.toFixed(2) + ' (a tasa USDT)' : ''}
               value=${toAmount} onInput=${(e) => setToAmount(e.target.value)} />
           <//>`}`}
 
@@ -525,7 +612,8 @@ function MainApp() {
 
       <main class="flex-1 px-5 pb-28 pt-2">
         ${tab === 'home' && html`<${Home} profile=${profile} balances=${balances} rates=${rates}
-          onAddAccount=${() => setSheet('account')}
+          onAddAccount=${() => setSheet({ mode: 'create' })}
+          onEditAccount=${(a) => setSheet({ mode: 'edit', account: a })}
           onToggleCurrency=${() => saveProfile({ preferred_currency: profile.preferred_currency === 'USD' ? 'VES' : 'USD' })}
           onRefreshRates=${applyLiveRates} ratesBusy=${ratesBusy} ratesNote=${ratesNote} />`}
         ${tab === 'movs' && html`<${Movements} txs=${txs} />`}
@@ -547,10 +635,11 @@ function MainApp() {
         </ul>
       </nav>
 
-      ${sheet === 'account' && html`
+      ${sheet && html`
         <div class="fixed inset-0 z-20 bg-black/40 flex items-end" onClick=${() => setSheet(null)}>
-          <div class="w-full max-w-md mx-auto bg-papel dark:bg-azul-900 rounded-t-3xl p-5 safe-bottom" onClick=${(e) => e.stopPropagation()}>
-            <${NewAccount} onCancel=${() => setSheet(null)} onDone=${() => { setSheet(null); load(); }} />
+          <div class="sheet w-full max-w-md mx-auto bg-papel dark:bg-azul-900 rounded-t-3xl p-5 safe-bottom" onClick=${(e) => e.stopPropagation()}>
+            <${AccountForm} account=${sheet.mode === 'edit' ? sheet.account : null}
+              onCancel=${() => setSheet(null)} onDone=${() => { setSheet(null); load(); }} />
           </div>
         </div>`}
     </div>`;

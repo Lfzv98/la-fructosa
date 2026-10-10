@@ -8,6 +8,27 @@ export const CURRENCIES = {
   EUR:  { label: 'Euro',     symbol: '€',   decimals: 2 },
 };
 
+export const KIND_ICONS = { cash: '💵', bank: '🏦', digital: '📱', crypto: '🟡' };
+
+export const ACCOUNT_PRESETS = [
+  { id: 'zelle', icon: '📱', label: 'Zelle', hint: 'USD', kind: 'digital', currencies: ['USD'], names: ['Zelle'] },
+  { id: 'cash', icon: '💵', label: 'Efectivo', hint: 'USD / VES / EUR', kind: 'cash', currencies: ['USD', 'VES', 'EUR'], names: ['Efectivo'] },
+  { id: 'crypto', icon: '🟡', label: 'USDT / Crypto', hint: 'Binance, Bybit, Wallet', kind: 'crypto', currencies: ['USDT'], names: ['Binance', 'Bybit', 'Wallet'] },
+  { id: 'wire', icon: '🏦', label: 'Wire / Transferencia', hint: 'USD / EUR', kind: 'bank', currencies: ['USD', 'EUR'], names: ['Wire Transfer', 'Transferencia bancaria'] },
+  { id: 'pago_movil', icon: '🇻🇪', label: 'Banco nacional / Pago Móvil', hint: 'VES', kind: 'bank', currencies: ['VES'], names: ['Pago Móvil', 'Banco nacional'] },
+  { id: 'custom', icon: '✏️', label: 'Personalizada', hint: 'Nombre y moneda libres', kind: 'digital', currencies: ['USD', 'VES', 'USDT', 'EUR'], names: [] },
+];
+
+export function accountIcon(acc) {
+  return acc?.icon || KIND_ICONS[acc?.kind] || '💼';
+}
+
+export function presetForAccount(acc) {
+  if (!acc) return ACCOUNT_PRESETS[0];
+  return ACCOUNT_PRESETS.find((p) => p.id !== 'custom' && p.kind === acc.kind && p.currencies.includes(acc.currency))
+    ?? ACCOUNT_PRESETS.find((p) => p.id === 'custom');
+}
+
 export const RATE_LABELS = {
   BCV_USD:  'Dólar BCV',
   BCV_EUR:  'Euro BCV',
@@ -169,6 +190,21 @@ export function consolidate(balances, target, rates, valuation) {
     if (v == null) missing = true; else total += v;
   }
   return { total, missing };
+}
+
+// Suma nativa por moneda y su equivalente en la moneda preferida.
+export function balanceBreakdown(balances, target, rates, valuation) {
+  const map = new Map();
+  for (const acc of balances) {
+    const native = Number(acc.balance) || 0;
+    const converted = convert(native, acc.currency, target, rates, valuation);
+    const prev = map.get(acc.currency) ?? { currency: acc.currency, native: 0, converted: 0, missing: false };
+    prev.native += native;
+    if (converted == null) prev.missing = true;
+    else prev.converted += converted;
+    map.set(acc.currency, prev);
+  }
+  return [...map.values()];
 }
 
 // Tasa de mercado con la que realmente se consiguen bolívares desde una cuenta.

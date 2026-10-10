@@ -27,6 +27,10 @@ const real = {
   async createAccount(acc) {
     return unwrap(await supabase.from('accounts').insert(acc).select().single());
   },
+  async updateAccount(id, patch) {
+    const { data: { user } } = await supabase.auth.getUser();
+    return unwrap(await supabase.from('accounts').update(patch).eq('id', id).eq('user_id', user.id).select().single());
+  },
   async listTransactions(limit = 100) {
     return unwrap(await supabase.from('transactions')
       .select('*, account:accounts!transactions_account_id_user_id_fkey(name,currency), to_account:accounts!transactions_to_account_id_user_id_fkey(name,currency)')
@@ -56,10 +60,10 @@ const demoState = {
     { rate_type: 'USDT', rate: 249.9, rate_date: today, source: 'demo' },
   ],
   accounts: [
-    { id: 'a1', name: 'Efectivo', currency: 'USD', kind: 'cash', initial_balance: 320, sort_order: 0 },
-    { id: 'a2', name: 'Zelle', currency: 'USD', kind: 'digital', initial_balance: 850, sort_order: 1 },
-    { id: 'a3', name: 'Bancamiga', currency: 'VES', kind: 'bank', initial_balance: 18500, sort_order: 2 },
-    { id: 'a4', name: 'Binance', currency: 'USDT', kind: 'crypto', initial_balance: 410, sort_order: 3 },
+    { id: 'a1', name: 'Efectivo', currency: 'USD', kind: 'cash', icon: '💵', initial_balance: 320, sort_order: 0 },
+    { id: 'a2', name: 'Zelle', currency: 'USD', kind: 'digital', icon: '📱', initial_balance: 850, sort_order: 1 },
+    { id: 'a3', name: 'Pago Móvil', currency: 'VES', kind: 'bank', icon: '🇻🇪', initial_balance: 18500, sort_order: 2 },
+    { id: 'a4', name: 'Binance', currency: 'USDT', kind: 'crypto', icon: '🟡', initial_balance: 410, sort_order: 3 },
   ],
   txs: [
     { id: 't1', type: 'expense', account_id: 'a1', amount: 14.26, category: 'Comida', description: 'Arepera',
@@ -86,6 +90,12 @@ const demo = {
     });
   },
   async createAccount(acc) { const a = { id: uid(), sort_order: 99, ...acc }; demoState.accounts.push(a); return a; },
+  async updateAccount(id, patch) {
+    const a = demoState.accounts.find((x) => x.id === id);
+    if (!a) throw new Error('Cuenta no encontrada');
+    Object.assign(a, patch);
+    return { ...a };
+  },
   async listTransactions() {
     return [...demoState.txs]
       .sort((x, y) => (y.occurred_on + y.created_at).localeCompare(x.occurred_on + x.created_at))
