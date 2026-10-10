@@ -68,55 +68,104 @@ function AuthScreen() {
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [name, setName] = useState('');
-  const [region, setRegion] = useState('VE');
+  const [region, setRegion] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
+  const canSubmit = Boolean(region) && !busy;
+
+  async function persistRegion(id) {
+    try { await api.updateProfile(patchForRegion(id)); } catch { /* el trigger de alta ya guardó la región */ }
+  }
 
   async function submit(e) {
     e.preventDefault();
+    if (!region) {
+      setError(new Error('Elige tu región y moneda base para continuar.'));
+      return;
+    }
     setBusy(true); setError(null); setNotice(null);
     try {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        await persistRegion(region);
       } else {
         const { data, error } = await supabase.auth.signUp({
           email, password, options: { data: { display_name: name, region } },
         });
         if (error) throw error;
-        if (!data.session) setNotice('Te enviamos un correo para confirmar tu cuenta.');
+        if (data.session) await persistRegion(region);
+        else setNotice('Te enviamos un correo para confirmar tu cuenta.');
       }
     } catch (err) { setError(err); } finally { setBusy(false); }
   }
 
   return html`
-    <main class="min-h-screen safe-top px-6 flex flex-col justify-center max-w-sm mx-auto">
-      <div class="text-center mb-8">
-        <img src="./icons/icon-192.png" alt="" class="w-20 h-20 rounded-2xl mx-auto shadow" />
-        <h1 class="text-3xl font-bold mt-4">La Fructosa</h1>
-        <p class="opacity-70 mt-1">Tus cuentas, solo tuyas.</p>
-      </div>
-      <form onSubmit=${submit} class="space-y-4">
-        <${Segmented} value=${mode} onChange=${setMode} options=${[['login', 'Entrar'], ['signup', 'Crear cuenta']]} />
-        ${mode === 'signup' && html`
-          <${Field} label="Nombre"><input class=${input} value=${name} onInput=${(e) => setName(e.target.value)} autocomplete="name" /><//>
+    <main class="min-h-screen safe-top safe-bottom px-5 flex flex-col justify-center bg-azul-50 dark:bg-azul-900">
+      <div class="w-full max-w-sm mx-auto">
+        <header class="text-center mb-7">
+          <img src="./icons/icon-192.png" alt="La Fructosa" class="w-16 h-16 rounded-2xl mx-auto shadow-sm" />
+          <h1 class="text-3xl font-bold tracking-tight mt-4">La Fructosa</h1>
+          <p class="text-sm opacity-50 mt-1">Finanzas Familiares</p>
+        </header>
+
+        <form onSubmit=${submit} class=${card + ' p-5 space-y-4'}>
           <div class="space-y-2">
-            <p class="text-sm opacity-70">Región y moneda base</p>
-            <${RegionPicker} value=${region} onChange=${setRegion} />
-          </div>`}
-        <${Field} label="Correo">
-          <input class=${input} type="email" required value=${email} onInput=${(e) => setEmail(e.target.value)} autocomplete="email" />
-        <//>
-        <${Field} label="Contraseña">
-          <input class=${input} type="password" required minlength="8" value=${password}
-            onInput=${(e) => setPassword(e.target.value)} autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} />
-        <//>
-        <${ErrorBox} error=${error} />
-        ${notice && html`<p class="text-sm bg-sol-100 text-azul-900 rounded-lg p-2">${notice}</p>`}
-        <button class=${btnPrimary} disabled=${busy}>${busy ? '…' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}</button>
-      </form>
+            <p class="text-sm font-medium">Región y moneda base <span class="text-salmon-700">*</span></p>
+            <div class="space-y-2" role="radiogroup" aria-label="Región y moneda base">
+              ${Object.values(REGIONS).map((r) => html`
+                <button key=${r.id} type="button" role="radio" aria-checked=${region === r.id}
+                  onClick=${() => { setRegion(r.id); setError(null); }}
+                  class=${'w-full text-left rounded-2xl border px-3.5 py-3 flex items-center gap-3 min-h-[52px] ' + (region === r.id ? 'border-salmon bg-salmon/25 shadow-sm' : 'border-azul-100 dark:border-azul-700')}>
+                  <span class="text-xl leading-none" aria-hidden="true">${r.flag}</span>
+                  <span class="text-sm font-medium">${r.cover}</span>
+                </button>`)}
+            </div>
+          </div>
+
+          ${mode === 'signup' && html`
+            <${Field} label="Nombre">
+              <input class=${input} value=${name} onInput=${(e) => setName(e.target.value)} autocomplete="name" placeholder="Cómo te llamamos" />
+            <//>`}
+
+          <${Field} label="Correo electrónico">
+            <input class=${input} type="email" required value=${email} placeholder="tu@correo.com"
+              onInput=${(e) => setEmail(e.target.value)} autocomplete="email" />
+          <//>
+
+          <${Field} label="Contraseña">
+            <div class="relative">
+              <input class=${input + ' pr-12'} type=${showPass ? 'text' : 'password'} required minlength="8"
+                value=${password} placeholder="Mínimo 8 caracteres"
+                onInput=${(e) => setPassword(e.target.value)}
+                autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} />
+              <button type="button" onClick=${() => setShowPass((v) => !v)}
+                class="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 grid place-items-center rounded-xl text-lg"
+                aria-label=${showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
+                ${showPass ? '🙈' : '👁️'}
+              </button>
+            </div>
+          <//>
+
+          <${ErrorBox} error=${error} />
+          ${notice && html`<p class="text-sm bg-sol-100 text-azul-900 rounded-xl p-2">${notice}</p>`}
+
+          <button class=${btnPrimary} disabled=${!canSubmit}>
+            ${busy ? '…' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+          </button>
+        </form>
+
+        <p class="text-center text-sm mt-5 opacity-70">
+          ${mode === 'login' ? '¿Eres nuevo? ' : '¿Ya tienes cuenta? '}
+          <button type="button" class="font-semibold text-salmon-700 dark:text-salmon-200 underline-offset-2"
+            onClick=${() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null); setNotice(null); }}>
+            ${mode === 'login' ? 'Crear cuenta' : 'Iniciar sesión'}
+          </button>
+        </p>
+      </div>
     </main>`;
 }
 
