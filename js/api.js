@@ -20,6 +20,19 @@ function computeBalance(account, txs) {
   return balance;
 }
 
+function attachAccounts(txs, accounts) {
+  const byId = Object.fromEntries((accounts || []).map((a) => [a.id, a]));
+  return (txs || []).map((t) => {
+    const from = byId[t.account_id];
+    const to = t.to_account_id ? byId[t.to_account_id] : null;
+    return {
+      ...t,
+      account: from ? { name: from.name, currency: from.currency } : null,
+      to_account: to ? { name: to.name, currency: to.currency } : null,
+    };
+  });
+}
+
 const real = {
   async getProfile() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -30,10 +43,12 @@ const real = {
     return normalizeProfile(unwrap(await supabase.from('profiles').update(patch).eq('id', user.id).select().single()));
   },
   async listBalances() {
-    const accounts = unwrap(await supabase.from('accounts').select('*')
-      .eq('archived', false).order('sort_order').order('name'));
-    const txs = unwrap(await supabase.from('transactions')
-      .select('type, account_id, amount, to_account_id, to_amount'));
+    const [accRes, txRes] = await Promise.all([
+      supabase.from('accounts').select('*').eq('archived', false).order('sort_order').order('name'),
+      supabase.from('transactions').select('type, account_id, amount, to_account_id, to_amount'),
+    ]);
+    const accounts = unwrap(accRes) || [];
+    const txs = txRes.error ? [] : (txRes.data || []);
     return accounts.map((a) => ({ ...a, balance: computeBalance(a, txs) }));
   },
   async createAccount(acc) {
@@ -44,14 +59,17 @@ const real = {
     return unwrap(await supabase.from('accounts').update(patch).eq('id', id).eq('user_id', user.id).select().single());
   },
   async listTransactions({ limit = 400, from, to, accountId } = {}) {
-    let q = supabase.from('transactions')
-      .select('*, account:accounts!transactions_account_id_user_id_fkey(name,currency), to_account:accounts!transactions_to_account_id_user_id_fkey(name,currency)')
+    let q = supabase.from('transactions').select('*')
       .order('occurred_on', { ascending: false }).order('created_at', { ascending: false })
       .limit(limit);
     if (from) q = q.gte('occurred_on', from);
     if (to) q = q.lte('occurred_on', to);
     if (accountId) q = q.or(`account_id.eq.${accountId},to_account_id.eq.${accountId}`);
-    return unwrap(await q);
+    const [txRes, accRes] = await Promise.all([
+      q,
+      supabase.from('accounts').select('*'),
+    ]);
+    return attachAccounts(unwrap(txRes), accRes.error ? [] : (accRes.data || []));
   },
   async createTransaction(tx) {
     return unwrap(await supabase.from('transactions').insert(tx).select().single());

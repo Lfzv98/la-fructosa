@@ -6,7 +6,7 @@ import { api, isDemo } from './api.js';
 import {
   CURRENCIES, RATE_LABELS, CATEGORIES, LIVE_RATE_KEYS, LIVE_RATES_NOTE,
   ACCOUNT_PRESETS, accountIcon, presetForAccount, REGIONS, regionOf,
-  presetsForRegion, currenciesForRegion, patchForRegion,
+  presetsForRegion, currenciesForRegion, patchForRegion, normalizeProfile,
   consolidate, convert, balanceBreakdown, spreadCalc, marketRateFor, fmt, fmtRate,
   monthBounds, yearBounds, spentInCategory, budgetTone, recurringStatus,
   transactionsToCsv, downloadCsv,
@@ -1225,27 +1225,35 @@ function MainApp() {
   }, []);
 
   const load = useCallback(async () => {
+    const [pRes, bRes, tRes] = await Promise.allSettled([
+      api.getProfile(), api.listBalances(), api.listTransactions(),
+    ]);
+    const notices = [];
+    if (pRes.status === 'fulfilled') setProfile(pRes.value);
+    else {
+      notices.push(pRes.reason);
+      setProfile((prev) => prev || normalizeProfile({ display_name: '', preferred_currency: 'USD', region: 'VE' }));
+    }
+    if (bRes.status === 'fulfilled') setBalances(bRes.value);
+    else notices.push(bRes.reason);
+    if (tRes.status === 'fulfilled') setTxs(tRes.value);
+    else notices.push(tRes.reason);
     try {
-      const [p, b, t] = await Promise.all([
-        api.getProfile(), api.listBalances(), api.listTransactions(),
-      ]);
-      setProfile(p); setBalances(b); setTxs(t);
-      try {
-        const [bu, rec] = await Promise.all([api.listBudgets(), api.listRecurring()]);
-        setBudgets(bu); setRecurring(rec);
-      } catch {
-        setBudgets([]); setRecurring([]);
-      }
-      await applyLiveRates();
-    } catch (err) { setError(err); }
+      const [bu, rec] = await Promise.all([api.listBudgets(), api.listRecurring()]);
+      setBudgets(bu); setRecurring(rec);
+    } catch {
+      setBudgets([]); setRecurring([]);
+    }
+    await applyLiveRates();
+    setError(notices[0] ? (notices[0].message ? notices[0] : new Error(String(notices[0]))) : null);
   }, [applyLiveRates]);
   useEffect(() => { load(); }, [load]);
 
   async function saveProfile(patch) {
-    setProfile(await api.updateProfile(patch));
+    try { setProfile(await api.updateProfile(patch)); }
+    catch (err) { setError(err); }
   }
 
-  if (error) return html`<main class="p-6"><${ErrorBox} error=${error} /></main>`;
   if (!profile) return html`<main class="min-h-screen grid place-items-center opacity-60">Cargando…</main>`;
 
   const title = TABS.find(([k]) => k === tab)[1];
@@ -1266,6 +1274,11 @@ function MainApp() {
       </header>
 
       <main class="flex-1 px-5 pb-28 pt-2">
+        ${error && html`
+          <div class="mb-3 flex items-start gap-2">
+            <div class="flex-1"><${ErrorBox} error=${error} /></div>
+            <button type="button" class="text-xs opacity-60 pt-2" onClick=${() => setError(null)}>Cerrar</button>
+          </div>`}
         ${tab === 'home' && html`<${Home} profile=${profile} balances=${balances} rates=${rates}
           onAddAccount=${() => setSheet({ mode: 'create' })}
           onEditAccount=${(a) => setSheet({ mode: 'edit', account: a })}
