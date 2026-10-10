@@ -15,9 +15,12 @@ const todayISO = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Ameri
 // ---------------------------------------------------------------------
 // UI básicos
 // ---------------------------------------------------------------------
-const card = 'rounded-2xl bg-white/80 dark:bg-hoja-900/60 border border-hoja-100 dark:border-hoja-900 shadow-sm';
-const input = 'w-full rounded-xl border border-hoja-100 dark:border-hoja-700 bg-white dark:bg-hoja-900 px-3 py-3 text-base outline-none focus:ring-2 focus:ring-mango';
-const btnPrimary = 'w-full rounded-xl bg-hoja-700 text-crema font-semibold py-3 active:scale-[.99] disabled:opacity-50';
+const card = 'rounded-2xl bg-white/85 dark:bg-azul-800/55 border border-azul-100 dark:border-azul-700 shadow-sm';
+const accountCard = 'rounded-2xl bg-azul-100/90 dark:bg-azul-800/70 border border-azul-200 dark:border-azul-700 shadow-sm';
+const rateCard = 'rounded-2xl bg-sol-100/90 dark:bg-sol-900/45 border border-sol-200/80 dark:border-sol-800 shadow-sm';
+const input = 'w-full rounded-xl border border-azul-100 dark:border-azul-700 bg-white dark:bg-azul-900 px-3 py-3 text-base outline-none focus:ring-2 focus:ring-salmon';
+const btnPrimary = 'w-full rounded-xl bg-salmon text-azul-900 font-semibold py-3 active:scale-[.99] disabled:opacity-50 shadow-sm';
+const currencyBadge = 'inline-flex items-center rounded-full bg-sol text-azul-900 text-[10px] font-bold px-2 py-0.5';
 
 function Field({ label, children }) {
   return html`<label class="block space-y-1"><span class="text-sm opacity-70">${label}</span>${children}</label>`;
@@ -25,10 +28,10 @@ function Field({ label, children }) {
 
 function Segmented({ value, onChange, options }) {
   return html`
-    <div class="grid gap-1 p-1 rounded-xl bg-hoja-50 dark:bg-hoja-900" style=${{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
+    <div class="grid gap-1 p-1 rounded-xl bg-azul-50 dark:bg-azul-900" style=${{ gridTemplateColumns: `repeat(${options.length}, 1fr)` }}>
       ${options.map(([v, label]) => html`
         <button key=${v} type="button" onClick=${() => onChange(v)}
-          class=${'py-2 rounded-lg text-sm font-medium ' + (value === v ? 'bg-white dark:bg-hoja-700 shadow' : 'opacity-60')}>
+          class=${'py-2 rounded-lg text-sm font-medium ' + (value === v ? 'bg-white dark:bg-azul-700 text-azul-900 dark:text-papel shadow' : 'opacity-60')}>
           ${label}
         </button>`)}
     </div>`;
@@ -36,7 +39,7 @@ function Segmented({ value, onChange, options }) {
 
 function ErrorBox({ error }) {
   if (!error) return null;
-  return html`<p class="text-sm text-arcilla bg-arcilla/10 rounded-lg p-2">${error.message ?? String(error)}</p>`;
+  return html`<p class="text-sm text-salmon-800 dark:text-salmon-100 bg-salmon-100/80 dark:bg-salmon-900/50 rounded-lg p-2">${error.message ?? String(error)}</p>`;
 }
 
 // ---------------------------------------------------------------------
@@ -87,7 +90,7 @@ function AuthScreen() {
             onInput=${(e) => setPassword(e.target.value)} autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} />
         <//>
         <${ErrorBox} error=${error} />
-        ${notice && html`<p class="text-sm bg-mango-100 text-hoja-900 rounded-lg p-2">${notice}</p>`}
+        ${notice && html`<p class="text-sm bg-sol-100 text-azul-900 rounded-lg p-2">${notice}</p>`}
         <button class=${btnPrimary} disabled=${busy}>${busy ? '…' : mode === 'login' ? 'Entrar' : 'Crear cuenta'}</button>
       </form>
     </main>`;
@@ -103,32 +106,32 @@ function Home({ profile, balances, rates, onAddAccount, onToggleCurrency }) {
   const { total, missing } = consolidate(balances, target, rates, profile.valuation_rate);
   return html`
     <section class="space-y-4">
-      <div class="rounded-3xl bg-hoja-700 text-crema p-5 shadow-lg">
+      <div class="rounded-3xl bg-azul-200 dark:bg-azul-800 text-azul-900 dark:text-papel p-5 shadow-lg">
         <div class="flex items-center justify-between">
           <span class="text-sm opacity-80">Saldo total</span>
-          <button onClick=${onToggleCurrency} class="text-xs font-semibold rounded-full bg-crema/15 px-3 py-1">
+          <button onClick=${onToggleCurrency} class=${currencyBadge + ' text-xs px-3 py-1'}>
             ${target} · ${RATE_LABELS[profile.valuation_rate]}
           </button>
         </div>
         <p class="text-4xl font-bold mt-2 tabular">${fmt(total, target)}</p>
-        ${missing && html`<p class="text-xs text-mango mt-1">Faltan tasas para convertir algunas cuentas.</p>`}
+        ${missing && html`<p class="text-xs mt-2 rounded-lg bg-sol-100 text-azul-900 px-2 py-1">Faltan tasas para convertir algunas cuentas.</p>`}
       </div>
 
       <${RatesStrip} rates=${rates} />
 
       <div class="flex items-center justify-between pt-2">
         <h2 class="font-semibold">Cuentas</h2>
-        <button onClick=${onAddAccount} class="text-sm font-semibold text-hoja-600 dark:text-mango">+ Nueva</button>
+        <button onClick=${onAddAccount} class="text-sm font-semibold text-salmon-700 dark:text-salmon-200">+ Nueva</button>
       </div>
       ${balances.length === 0 && html`
         <div class=${card + ' p-5 text-center opacity-80'}>Crea tu primera cuenta: Efectivo USD, Zelle, Pago Móvil, Binance…</div>`}
       <ul class="space-y-2">
         ${balances.map((a) => html`
-          <li key=${a.id} class=${card + ' p-4 flex items-center gap-3'}>
+          <li key=${a.id} class=${accountCard + ' p-4 flex items-center gap-3'}>
             <span class="text-2xl">${KIND_ICON[a.kind] ?? '💼'}</span>
             <div class="flex-1 min-w-0">
               <p class="font-medium truncate">${a.name}</p>
-              <p class="text-xs opacity-60">${a.currency}</p>
+              <p class=${currencyBadge + ' mt-1'}>${a.currency}</p>
             </div>
             <div class="text-right">
               <p class="font-semibold tabular">${fmt(a.balance, a.currency)}</p>
@@ -144,7 +147,7 @@ function RatesStrip({ rates }) {
   return html`
     <div class="grid grid-cols-4 gap-2 text-center">
       ${['BCV_USD', 'PARALELO', 'USDT', 'BCV_EUR'].map((k) => html`
-        <div key=${k} class=${card + ' py-2 px-1'}>
+        <div key=${k} class=${rateCard + ' py-2 px-1'}>
           <p class="text-[10px] uppercase tracking-wide opacity-60">${RATE_LABELS[k].replace('Dólar ', '')}</p>
           <p class="text-sm font-semibold tabular">${rates[k] ? fmtRate(rates[k]) : '—'}</p>
         </div>`)}
@@ -265,7 +268,7 @@ function NewTransaction({ balances, rates, onDone }) {
 
       ${canPayInVes && html`
         <label class="flex items-center gap-3 ${card} p-3">
-          <input type="checkbox" class="w-5 h-5 accent-hoja-700" checked=${paidInVes} onChange=${(e) => setPaidInVes(e.target.checked)} />
+          <input type="checkbox" class="w-5 h-5 accent-salmon" checked=${paidInVes} onChange=${(e) => setPaidInVes(e.target.checked)} />
           <span class="text-sm">${type === 'expense' ? 'Pagué' : 'Recibí'} en bolívares</span>
         </label>`}
 
@@ -298,7 +301,7 @@ function NewTransaction({ balances, rates, onDone }) {
       <div class="flex flex-wrap gap-2">
         ${CATEGORIES[type].map((c) => html`
           <button key=${c} type="button" onClick=${() => setCategory(c)}
-            class=${'px-3 py-1.5 rounded-full text-sm border ' + (category === c ? 'bg-mango border-mango text-hoja-900 font-semibold' : 'border-hoja-100 dark:border-hoja-700')}>${c}</button>`)}
+            class=${'px-3 py-1.5 rounded-full text-sm border ' + (category === c ? 'bg-salmon border-salmon text-azul-900 font-semibold' : 'border-azul-100 dark:border-azul-700')}>${c}</button>`)}
       </div>
 
       <div class="grid grid-cols-[1fr_auto] gap-3">
@@ -324,7 +327,7 @@ function SpreadCard({ spread, debit, currency }) {
       <div class="flex justify-between"><span class="opacity-70">Precio a tasa ${marketLabel} (${fmtRate(spread.market)})</span><span class="tabular">${fmt(spread.usdAtMarket)}</span></div>
       <div class="flex justify-between"><span class="opacity-70">Brecha cambiaria</span>
         <span class="tabular">${fmt(Math.abs(spread.spread))} (${Math.abs(spread.spreadPct).toFixed(1)}%)</span></div>
-      <div class=${'flex justify-between rounded-lg px-2 py-1 ' + (overpaid ? 'bg-arcilla/10 text-arcilla' : 'bg-hoja-50 dark:bg-hoja-900')}>
+      <div class=${'flex justify-between rounded-lg px-2 py-1 ' + (overpaid ? 'bg-salmon-100 text-salmon-800 dark:bg-salmon-900/50 dark:text-salmon-100' : 'bg-azul-50 dark:bg-azul-900')}>
         <span>${overpaid ? 'Pagaste de más vs. BCV' : 'Ahorro vs. precio BCV'}</span>
         <b class="tabular">${fmt(Math.abs(vsBcv), currency)}</b>
       </div>
@@ -347,9 +350,9 @@ function Movements({ txs }) {
       ${groups.map(([day, list]) => html`
         <div key=${day}>
           <h3 class="text-xs uppercase tracking-wide opacity-60 mb-2">${new Date(day + 'T12:00').toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
-          <ul class=${card + ' divide-y divide-hoja-100 dark:divide-hoja-900'}>
+          <ul class=${card + ' divide-y divide-azul-100 dark:divide-azul-800 overflow-hidden'}>
             ${list.map((t) => html`
-              <li key=${t.id} class="p-3 flex items-center gap-3">
+              <li key=${t.id} class=${'p-3 flex items-center gap-3 ' + (t.type === 'expense' ? 'bg-salmon-50/80 dark:bg-salmon-900/25' : '')}>
                 <span class="text-xl">${t.type === 'income' ? '⬇️' : t.type === 'expense' ? '⬆️' : '🔁'}</span>
                 <div class="flex-1 min-w-0">
                   <p class="font-medium truncate">${t.description || t.category}</p>
@@ -359,7 +362,7 @@ function Movements({ txs }) {
                   </p>
                 </div>
                 <div class="text-right">
-                  <p class=${'font-semibold tabular ' + (t.type === 'income' ? 'text-hoja-600 dark:text-mango' : '')}>
+                  <p class=${'font-semibold tabular ' + (t.type === 'income' ? 'text-azul-600 dark:text-azul-200' : t.type === 'expense' ? 'text-salmon-700 dark:text-salmon-200' : '')}>
                     ${t.type === 'income' ? '+' : '−'}${fmt(t.amount, t.account?.currency)}
                   </p>
                   ${t.spread_usd != null && html`<p class="text-[11px] opacity-60 tabular">brecha ${fmt(Math.abs(t.spread_usd))}</p>`}
@@ -382,7 +385,7 @@ function Rates({ rows, rates }) {
         ${['BCV_USD', 'PARALELO', 'USDT', 'BCV_EUR'].map((k) => {
           const r = rows.find((x) => x.rate_type === k);
           return html`
-            <div key=${k} class=${card + ' p-4'}>
+            <div key=${k} class=${rateCard + ' p-4'}>
               <p class="text-xs opacity-60">${RATE_LABELS[k]}</p>
               <p class="text-2xl font-bold tabular">${r ? fmtRate(r.rate) : '—'}</p>
               <p class="text-[11px] opacity-50">${r ? `${r.rate_date} · ${r.source ?? ''}` : 'sin datos'}</p>
@@ -390,7 +393,7 @@ function Rates({ rows, rates }) {
         })}
       </div>
       ${gap != null && html`
-        <div class="rounded-2xl bg-mango-100 text-hoja-900 p-4">
+        <div class="rounded-2xl bg-sol-100 text-azul-900 p-4">
           <p class="text-sm">Brecha BCV vs. Paralelo</p>
           <p class="text-3xl font-bold tabular">${gap.toFixed(1)}%</p>
         </div>`}
@@ -424,7 +427,7 @@ function Settings({ profile, onSave }) {
         <//>
       </div>
       ${!isDemo && html`
-        <button class="w-full rounded-xl border border-arcilla text-arcilla py-3 font-semibold"
+        <button class="w-full rounded-xl border border-salmon-600 text-salmon-700 dark:text-salmon-200 dark:border-salmon-300 py-3 font-semibold"
           onClick=${() => supabase.auth.signOut()}>Cerrar sesión</button>`}
     </section>`;
 }
@@ -476,7 +479,7 @@ function MainApp() {
           <p class="text-xs opacity-60">${tab === 'home' ? `Hola, ${profile.display_name ?? ''}` : 'La Fructosa'}</p>
           <h1 class="text-2xl font-bold">${tab === 'home' ? 'La Fructosa' : title}</h1>
         </div>
-        ${isDemo && html`<span class="text-[10px] font-bold uppercase bg-mango text-hoja-900 rounded-full px-2 py-1">Demo</span>`}
+        ${isDemo && html`<span class="text-[10px] font-bold uppercase bg-sol text-azul-900 rounded-full px-2 py-1">Demo</span>`}
       </header>
 
       <main class="flex-1 px-5 pb-28 pt-2">
@@ -489,12 +492,12 @@ function MainApp() {
         ${tab === 'settings' && html`<${Settings} profile=${profile} onSave=${saveProfile} />`}
       </main>
 
-      <nav class="fixed bottom-0 inset-x-0 safe-bottom bg-crema/95 dark:bg-[#0F1A14]/95 backdrop-blur border-t border-hoja-100 dark:border-hoja-900">
+      <nav class="fixed bottom-0 inset-x-0 safe-bottom bg-azul-50/95 dark:bg-azul-900/95 backdrop-blur border-t border-azul-100 dark:border-azul-800">
         <ul class="max-w-md mx-auto grid grid-cols-5">
           ${TABS.map(([k, label, icon]) => html`
             <li key=${k}>
-              <button onClick=${() => setTab(k)} class=${'w-full pt-2 pb-1 flex flex-col items-center text-[11px] ' + (tab === k ? 'font-semibold' : 'opacity-50')}>
-                <span class=${k === 'new' ? 'text-xl grid place-items-center w-10 h-10 -mt-1 rounded-full bg-mango' : 'text-xl'}>${icon}</span>
+              <button onClick=${() => setTab(k)} class=${'w-full pt-2 pb-1 flex flex-col items-center text-[11px] ' + (tab === k ? 'font-semibold text-azul-700 dark:text-azul-200' : 'opacity-50')}>
+                <span class=${k === 'new' ? 'text-xl grid place-items-center w-10 h-10 -mt-1 rounded-full bg-salmon text-azul-900' : 'text-xl'}>${icon}</span>
                 ${label}
               </button>
             </li>`)}
@@ -503,7 +506,7 @@ function MainApp() {
 
       ${sheet === 'account' && html`
         <div class="fixed inset-0 z-20 bg-black/40 flex items-end" onClick=${() => setSheet(null)}>
-          <div class="w-full max-w-md mx-auto bg-crema dark:bg-[#0F1A14] rounded-t-3xl p-5 safe-bottom" onClick=${(e) => e.stopPropagation()}>
+          <div class="w-full max-w-md mx-auto bg-papel dark:bg-azul-900 rounded-t-3xl p-5 safe-bottom" onClick=${(e) => e.stopPropagation()}>
             <${NewAccount} onCancel=${() => setSheet(null)} onDone=${() => { setSheet(null); load(); }} />
           </div>
         </div>`}

@@ -8,7 +8,8 @@
 
   <!-- PWA -->
   <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#1F4D3A" />
+  <meta name="theme-color" content="#A0C4FF" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#152033" media="(prefers-color-scheme: dark)" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
 
   <!-- iOS: pantalla completa al instalar desde Safari > Compartir > Agregar a inicio -->
@@ -26,10 +27,42 @@
       theme: {
         extend: {
           colors: {
-            hoja:   { DEFAULT: '#1F4D3A', 50: '#EEF5F1', 100: '#D5E7DD', 600: '#27624A', 700: '#1F4D3A', 900: '#12301F' },
-            mango:  { DEFAULT: '#F2A541', 100: '#FDEBD0', 600: '#D98A1F' },
-            crema:  { DEFAULT: '#FAF3E0' },
-            arcilla:{ DEFAULT: '#C0583A' },
+            azul: {
+              DEFAULT: '#A0C4FF',
+              50: '#F4F8FF',
+              100: '#D6E8FF',
+              200: '#BEE3F8',
+              300: '#A0C4FF',
+              400: '#7AABF5',
+              500: '#5B8FD4',
+              600: '#3D6BB3',
+              700: '#2C528A',
+              800: '#1E3A5F',
+              900: '#152033',
+            },
+            sol: {
+              DEFAULT: '#FDFFB6',
+              50: '#FFFEF2',
+              100: '#FEFCBF',
+              200: '#FDFFB6',
+              300: '#F5F08A',
+              600: '#8A7E1F',
+              700: '#5C5414',
+              800: '#3D3810',
+              900: '#2E2B0E',
+            },
+            salmon: {
+              DEFAULT: '#FFADAD',
+              50: '#FFF4F1',
+              100: '#FFD6A5',
+              200: '#FFADAD',
+              300: '#FF8A8A',
+              600: '#D15C5C',
+              700: '#B04343',
+              800: '#7A2E2E',
+              900: '#4A1F1F',
+            },
+            papel: { DEFAULT: '#F7FAFF' },
           },
           fontFamily: { sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
         },
@@ -37,8 +70,8 @@
     };
   </script>
   <style>
-    html, body { background: #FAF3E0; }
-    @media (prefers-color-scheme: dark) { html, body { background: #0F1A14; } }
+    html, body { background: #F4F8FF; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { html, body { background: #152033; } }
     body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
     .safe-top    { padding-top: env(safe-area-inset-top); }
     .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
@@ -57,7 +90,7 @@
     }
   </script>
 </head>
-<body class="min-h-screen text-hoja-900 dark:text-crema antialiased">
+<body class="min-h-screen text-azul-900 dark:text-papel antialiased">
   <div id="root">
     <!-- Splash mientras cargan los módulos -->
     <div class="min-h-screen grid place-items-center">
