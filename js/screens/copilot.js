@@ -48,7 +48,6 @@ function AiNotice({ onAccept, onDecline }) {
       <p><b>🔒 Qué datos salen de la app</b></p>
       <ul>
         <li>Para responderte, la app envía a <b>Google Gemini</b> un resumen de tus cuentas, saldos y movimientos recientes, junto con lo que escribas o digas.</li>
-        <li>La Fructosa usa el servicio <b>gratuito</b> de Gemini. Con él, Google puede guardar estas conversaciones y personas de Google pueden revisarlas para mejorar sus productos.</li>
         <li>No se envían tu contraseña ni tu correo. Nadie de la familia ve tus datos.</li>
         <li>Tu conversación se guarda en tu cuenta para que la retomes; solo tú la ves y la borras con "Nueva conversación".</li>
       </ul>
