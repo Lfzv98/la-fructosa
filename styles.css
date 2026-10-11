@@ -661,3 +661,111 @@ b.big { font-size: 20px; }
 .ai-notice p { margin: 0; }
 .ai-notice ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .ai-notice .muted { font-size: 13px; }
+
+/* --- Respaldo semanal (3.0) --- */
+.backup-nudge { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; border: 1px solid var(--line); }
+.backup-top { display: flex; gap: 12px; align-items: flex-start; }
+.backup-top small { display: block; margin-top: 2px; font-size: 13px; }
+.backup-ico { flex: none; width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; background: var(--mint); color: var(--ink); }
+.backup-btns { justify-content: flex-end; }
+
+/* --- Capturas en el copiloto (3.0) --- */
+.chat-attach { display: flex; align-items: center; gap: 10px; max-width: 720px; width: calc(100% - 28px); margin: 0 auto 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.chat-attach img { width: 44px; height: 44px; object-fit: cover; border-radius: 10px; }
+.chat-attach small { display: block; font-size: 12px; }
+.msg-img { display: block; max-width: 180px; max-height: 240px; border-radius: 12px; margin-bottom: 6px; object-fit: cover; }
+
+/* --- Movimientos guardados sin conexión (3.0) --- */
+.banner.pending { top: calc(var(--safe-t) + 52px); background: var(--surface-2, #22304d); color: var(--text); border: 1px solid var(--line); font-size: 13px; }
+.tx-pending { font-size: 11px; color: var(--warn); margin-left: 4px; }
+
+/* --- Bloqueo con PIN / Face ID (3.0) --- */
+.lock-host { display: contents; }
+.lock-screen { position: fixed; inset: 0; z-index: 1000; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: calc(var(--safe-t) + 24px) 24px calc(var(--safe-b) + 24px); text-align: center; overflow-y: auto; }
+.lock-logo { width: 72px; height: 72px; border-radius: 20px; }
+.lock-screen h1 { font-size: 22px; font-weight: 800; }
+.pin-dots { display: flex; gap: 14px; justify-content: center; margin: 8px 0 2px; }
+.pin-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--muted); }
+.pin-dots i.on { background: var(--salmon); border-color: var(--salmon); }
+.lock-err { min-height: 20px; margin: 0; }
+.keypad { display: grid; grid-template-columns: repeat(3, 72px); gap: 14px; justify-content: center; }
+.keypad .key { width: 72px; height: 72px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); color: var(--text); font-size: 26px; font-weight: 600; }
+.keypad .key:active { background: var(--surface-2, #22304d); }
+.lock-actions { display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 10px; }
+.lock-setup .keypad { margin: 0 auto; }
+.check-row { display: flex; gap: 10px; align-items: center; font-size: 14px; color: var(--muted); justify-content: center; }
+.row-btns.center { justify-content: center; }
+.lock-err:empty { visibility: hidden; }
+
+/* --- Metas y préstamos (3.0) --- */
+.goal-card { display: flex; flex-direction: column; gap: 10px; }
+.goal-main { display: flex; align-items: center; gap: 12px; text-align: left; width: 100%; background: none; border: 0; color: inherit; padding: 0; }
+.goal-main small { display: block; font-size: 12px; }
+.goal-emoji { width: 42px; height: 42px; border-radius: 14px; display: grid; place-items: center; font-size: 22px; background: var(--surface-2, #22304d); flex: none; }
+.goal-pct { font-weight: 800; font-size: 18px; }
+.goal-foot { font-size: 14px; }
+.emoji-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.emoji-pick .chip { font-size: 18px; padding: 6px 10px; }
+.loan-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.loan-sum .card { display: flex; flex-direction: column; gap: 4px; }
+.loan-sum b { font-size: 20px; font-weight: 800; }
+.loan-row { display: flex; align-items: center; gap: 8px; padding-right: 12px; }
+.loan-row .tx-row { flex: 1; min-width: 0; }
+.loan-ico { font-weight: 800; font-size: 18px; }
+.loan-ico.lent { background: color-mix(in srgb, var(--inc) 25%, transparent); color: var(--inc); }
+.loan-ico.borrowed { background: color-mix(in srgb, var(--exp) 25%, transparent); color: var(--exp); }
+.loan-pay { flex: none; }
+
+/* --- Aviso de tasas desactualizadas (3.0) --- */
+.callout.warn { background: rgba(255, 227, 138, .12); color: #FFE9A8; }
+.rates-stale-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; line-height: 1.4; }
+
+/* =====================================================================
+   Modo claro (3.0) · Ajustes → Apariencia. El oscuro sigue siendo el predeterminado.
+   ===================================================================== */
+:root[data-theme="light"] {
+  --bg: #F3F6FB;
+  --bg-2: #EAEFF7;
+  --surface: #FFFFFF;
+  --surface-2: #EEF2F9;
+  --surface-3: #DFE6F2;
+  --line: rgba(23, 33, 58, 0.10);
+  --line-2: rgba(23, 33, 58, 0.18);
+  --text: #17213A;
+  --muted: #56658A;
+  --faint: #8794AE;
+  --inc: #1E8545;
+  --exp: #C23B47;
+  --warn: #F4CF5D;
+  --shadow: 0 10px 30px rgba(23, 33, 58, 0.12);
+  color-scheme: light;
+}
+:root[data-theme="light"] a, :root[data-theme="light"] .link { color: #2E5DB0; }
+:root[data-theme="light"] .tip p,
+:root[data-theme="light"] .prose p,
+:root[data-theme="light"] .tour-card p { color: var(--text); }
+:root[data-theme="light"] .form-error,
+:root[data-theme="light"] .callout.bad,
+:root[data-theme="light"] .spread-row.verdict.bad { color: #A12C36; }
+:root[data-theme="light"] .callout.good,
+:root[data-theme="light"] .spread-row.verdict.good { color: #1E6B39; }
+:root[data-theme="light"] .callout.warn,
+:root[data-theme="light"] .ai-card.warn { color: #7A5A00; }
+:root[data-theme="light"] .tabbar,
+:root[data-theme="light"] .chat-input { background: rgba(255, 255, 255, .92); }
+:root[data-theme="light"] .sheet-backdrop { background: rgba(23, 33, 58, .35); }
+:root[data-theme="light"] .tour-dim { background: rgba(23, 33, 58, .55); }
+:root[data-theme="light"] .tour-hole { box-shadow: 0 0 0 9999px rgba(23, 33, 58, .55), 0 0 0 2px var(--blue); }
+:root[data-theme="light"] .seg button.on { box-shadow: 0 1px 3px rgba(23, 33, 58, .15); background: var(--surface); }
+:root[data-theme="light"] .tip { background: linear-gradient(135deg, #FFFBE0, #FFF0EE); border-color: #F3E7A6; }
+:root[data-theme="light"] .toast { background: #17213A; color: #fff; }
+:root[data-theme="light"] .toast.bad { background: #A12C36; color: #fff; }
+:root[data-theme="light"] .toast button { color: #A0C4FF; }
+:root[data-theme="light"] .insight { background: rgba(255, 255, 255, .96); box-shadow: 0 12px 30px rgba(23, 33, 58, .14); }
+:root[data-theme="light"] .amount-input { color: #D24F5B; }
+:root[data-theme="light"] .amount-box.t-income .amount-input { color: var(--inc); }
+:root[data-theme="light"] .amount-box.t-transfer .amount-input { color: #2E5DB0; }
+:root[data-theme="light"] .banner.offline { background: #F4CF5D; }
+.loan-sum .pos, .loan-row .pos { color: var(--inc); }
+.loan-sum .neg, .loan-row .neg { color: var(--exp); }

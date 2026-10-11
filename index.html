@@ -22,6 +22,20 @@
 
   <!-- Estilos propios (sin Tailwind CDN): carga instantánea y funciona sin conexión -->
   <link rel="stylesheet" href="./styles.css" />
+  <!-- Tema (oscuro / claro / automático) antes de pintar, para que no parpadee -->
+  <script>
+    (function () {
+      try {
+        var t = JSON.parse(localStorage.getItem('fructosa-pref-theme') || '"dark"');
+        var light = t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+        if (light) {
+          document.documentElement.dataset.theme = 'light';
+          document.querySelector('meta[name="theme-color"]').content = '#F3F6FB';
+          document.querySelector('meta[name="color-scheme"]').content = 'light';
+        }
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- Librerías como módulos ES con versión fija (sin build step) -->
   <script type="importmap">

@@ -3,8 +3,9 @@ import { useMemo } from 'react';
 import { html, Icon, Money, SectionTitle, Empty, Progress, SwipeBanner, toast } from '../ui.js';
 import { useData, usePref } from '../store.js';
 import { Learn, pickTip, pickInsights } from '../learn.js';
-import { AccountRow, TxRow, go, recurringStatus, dueLabel } from './common.js';
+import { AccountRow, TxRow, go, recurringStatus, dueLabel, RatesStale } from './common.js';
 import { payRecurring } from './recurring.js';
+import { BackupReminder } from '../backup.js';
 import { REGIONS, RATE_LABELS, convert, fmtRate, fmtPct, todayISO, monthKey, monthLabel, daysInMonth, consolidate } from '../money.js';
 
 // Una vez descartado un consejo, no sale otro hasta la próxima vez que abras la app.
@@ -111,6 +112,9 @@ export function Home() {
       ${gap != null && html`<div class="rate-gap"><small>Brecha</small><b>${fmtPct(gap)}</b></div>`}
       ${rateMeta.BCV_USD && rateMeta.BCV_USD.rate_date < todayISO() && html`<span class="rate-stale">Tasas del ${rateMeta.BCV_USD.rate_date.slice(8)}/${rateMeta.BCV_USD.rate_date.slice(5, 7)}</span>`}
     </button>`}
+
+    ${region.rates && html`<${RatesStale} rateMeta=${rateMeta} onRetry=${() => actions.refreshRates()} />`}
+    <${BackupReminder} d=${d} />
 
     <div class="tip">
       <span class="tip-emoji">${tip.emoji}</span>

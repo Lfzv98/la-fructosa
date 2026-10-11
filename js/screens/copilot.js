@@ -4,11 +4,11 @@ import { html, Icon, Sheet, Field, toast, confirmDialog, errorText, vibrate } fr
 import { api } from '../api.js';
 import { useData, usePref } from '../store.js';
 import { go } from './common.js';
-import { categoryMeta, fmt, fmtRate } from '../money.js';
+import { categoryMeta, fmt, fmtRate, todayISO } from '../money.js';
 import {
   PROVIDERS, SHARED_AI, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, resolveAi, systemPrompt, withGuard, parseReply,
   runCalc, resolveTx, streamChat, testConnection, AI_INTRO, userFirstName, normalizeKey, keyLooksOdd,
-  getSpeechRecognition, VoiceSession, speakReply, stopSpeech, cleanSpeechText,
+  getSpeechRecognition, VoiceSession, speakReply, stopSpeech, cleanSpeechText, prepareImage, proxySupportsImages,
 } from '../ai.js';
 
 // La conversación se guarda en la cuenta (tabla ai_chats, migración 005) y en este dispositivo,
@@ -19,9 +19,9 @@ let uid = 0;
 const MAX_SAVED = 60; // últimos mensajes que se guardan
 
 // Solo lo necesario para volver a mostrarla: sin audio, sin errores ni estados a medias.
-const slim = (list) => list.filter((m) => m.text && !m.error).slice(-MAX_SAVED).map((m) => {
+const slim = (list) => list.filter((m) => (m.text || m.image) && !m.error).slice(-MAX_SAVED).map((m) => {
   const blocks = m.blocks && Object.fromEntries(Object.entries(m.blocks).filter(([, v]) => v && v !== 'saving'));
-  return { role: m.role, text: m.text, ...(m.isVoice ? { isVoice: true } : {}), ...(blocks && Object.keys(blocks).length ? { blocks } : {}) };
+  return { role: m.role, text: m.text || '📷 Captura enviada', ...(m.isVoice ? { isVoice: true } : {}), ...(blocks && Object.keys(blocks).length ? { blocks } : {}) };
 });
 const revive = (list) => (Array.isArray(list) ? list : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string')
   .map((m) => ({ ...m, id: ++uid }));
@@ -30,23 +30,29 @@ const readLocalChat = (id) => { try { return JSON.parse(localStorage.getItem(CHA
 const writeLocalChat = (id, messages) => { try { localStorage.setItem(CHAT_KEY(id), JSON.stringify({ at: new Date().toISOString(), messages })); } catch { /* sin espacio */ } };
 const clearLocalChat = (id) => { try { localStorage.removeItem(CHAT_KEY(id)); } catch { /* nada */ } };
 
-// Aviso de uso de Fructosa: se muestra la primera vez que cada persona abre el chat (se recuerda por usuario).
-const NOTICE_KEY = (id) => 'fructosa-ai-aviso-' + (id || 'anon');
+// Aviso de uso y privacidad de Fructosa. Hasta que cada persona lo acepta (se recuerda por usuario
+// en este dispositivo), el chat no envía nada a Google. v2: incluye qué pasa con la clave gratis de Gemini.
+const NOTICE_KEY = (id) => 'fructosa-ai-consent-v2-' + (id || 'anon');
 const noticeSeen = (id) => { try { return localStorage.getItem(NOTICE_KEY(id)) === '1'; } catch { return false; } };
 const markNoticeSeen = (id) => { try { localStorage.setItem(NOTICE_KEY(id), '1'); } catch { /* nada */ } };
 
-function AiNotice({ onClose }) {
-  return html`<${Sheet} title="Fructosa es solo para tus finanzas" onClose=${onClose}
-    footer=${(close) => html`<button class="btn primary block" onClick=${close}>Entendido</button>`}>
+function AiNotice({ onAccept, onDecline }) {
+  const accepted = useRef(false);
+  return html`<${Sheet} title="Antes de hablar con Fructosa" onClose=${() => (accepted.current ? onAccept() : onDecline())}
+    footer=${(close) => html`<div class="stack sm">
+      <button class="btn primary block" onClick=${() => { accepted.current = true; close(); }}>Acepto, quiero usar a Fructosa</button>
+      <button class="btn ghost block" onClick=${close}>Ahora no</button>
+    </div>`}>
     <div class="ai-notice">
-      <p>Fructosa es tu asistente personal dentro de La App. Está hecha para una sola cosa: ayudarte con tu dinero, usando la información que tienes en la app.</p>
+      <p>Fructosa es tu asistente para una sola cosa: tu dinero. Te ayuda con tus cuentas, saldos, movimientos, tasas, presupuestos y pagos fijos. Cualquier otro tema queda fuera de su alcance.</p>
+      <p><b>🔒 Qué datos salen de la app</b></p>
       <ul>
-        <li>Tus cuentas, saldos y movimientos</li>
-        <li>Tasas de cambio y conversiones</li>
-        <li>Presupuestos, pagos fijos y consejos para ahorrar</li>
+        <li>Para responderte, la app envía a <b>Google Gemini</b> un resumen de tus cuentas, saldos y movimientos recientes, junto con lo que escribas o digas.</li>
+        <li>La Fructosa usa el servicio <b>gratuito</b> de Gemini. Con él, Google puede guardar estas conversaciones y personas de Google pueden revisarlas para mejorar sus productos.</li>
+        <li>No se envían tu contraseña ni tu correo. Nadie de la familia ve tus datos.</li>
+        <li>Tu conversación se guarda en tu cuenta para que la retomes; solo tú la ves y la borras con "Nueva conversación".</li>
       </ul>
-      <p>Cualquier otro tema queda fuera de su alcance.</p>
-      <p class="muted">🔒 Para responderte, Fructosa lee un resumen de tus datos. Tu conversación se guarda en tu cuenta para que la retomes cuando quieras; solo tú la ves y puedes borrarla al empezar una nueva.</p>
+      <p class="muted">Si prefieres que tus datos no salgan de la app, toca "Ahora no": el resto de La Fructosa funciona igual.</p>
     </div>
   <//>`;
 }
@@ -149,7 +155,7 @@ function TxCard({ spec, d, state, onConfirm, onDismiss }) {
     <small class="muted">${p.kind === 'expense' ? '💸 Gasto propuesto' : '💰 Ingreso propuesto'}</small>
     <div class="ai-tx">
       <span class="tx-ico" style=${{ '--cat': meta.color }}>${meta.emoji}</span>
-      <span class="grow"><b>${p.description || p.category}</b><small class="muted">${p.category} · ${p.account}</small></span>
+      <span class="grow"><b>${p.description || p.category}</b><small class="muted">${p.category} · ${p.account}${p.date && p.date !== todayISO() ? ' · ' + p.date.slice(8) + '/' + p.date.slice(5, 7) : ''}</small></span>
       <b class=${'num ' + (p.kind === 'expense' ? 'neg' : 'pos')}>${p.kind === 'expense' ? '−' : '+'}${fmt(p.amount, p.currency)}</b>
     </div>
     ${p.converted && html`<small class="muted">Equivale a ${fmt(p.fromAmount, p.fromCurrency)} con las tasas activas.</small>`}
@@ -166,7 +172,8 @@ function Bubble({ m, d, onBlock, speaking, onToggleSpeak }) {
   if (m.role === 'user') {
     return html`<div class="msg user">
       ${m.audio && html`<div class="msg-voice-tag"><${Icon} name="mic" size=${13} /> <span>Voz</span></div>`}
-      <${Rich} text=${m.text || (m.audio ? '🎤 Mensaje de voz' : '')} />
+      ${m.image?.preview && html`<img class="msg-img" src=${m.image.preview} alt="Captura enviada" />`}
+      ${(m.text || !m.image) && html`<${Rich} text=${m.text || (m.audio ? '🎤 Mensaje de voz' : '')} />`}
     </div>`;
   }
   const parts = parseReply(m.text || '');
@@ -203,6 +210,8 @@ export function Copilot() {
   const [synced, setSynced] = useState(null);
   const setMsgs = (fn) => setMsgsRaw((cur) => { const next = typeof fn === 'function' ? fn(cur) : fn; CHAT = next; return next; });
   const [input, setInput] = useState('');
+  const [image, setImage] = useState(null); // captura lista para enviar { mimeType, data, preview }
+  const fileRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [cfg, setCfg] = useState(loadAiConfig);
   const [setup, setSetup] = useState(false);
@@ -283,16 +292,23 @@ export function Copilot() {
     const q = isObj ? String(payload.text || '').trim() : String(payload ?? input).trim();
     const audio = isObj ? payload.audio : null;
     const isVoice = Boolean(isObj ? payload.isVoice || payload.audio : false);
+    const img = !isObj || !payload.audio ? image : null;
 
-    if ((!q && !audio) || busy) return;
+    if ((!q && !audio && !img) || busy) return;
     if (recognizerRef.current) {
       try { recognizerRef.current.stop(); } catch {}
       recognizerRef.current = null;
       setListening(false);
     }
+    // Sin aceptar el aviso de privacidad no se envía nada.
+    if (!noticeSeen(profile.id)) { setNotice(true); return; }
     // Fuente de la clave: personal → proxy seguro → clave global. Sin ninguna, se ofrece conectar la propia.
     const { config, source } = await resolveAi(() => api.auth.accessToken());
     if (!source) { setSetup(true); return; }
+    if (img && !(await proxySupportsImages(config))) {
+      toast('Para leer capturas, actualiza Fructosa en el servidor (ai-proxy). Mientras, escribe el monto.', { tone: 'bad' });
+      return;
+    }
 
     stopSpeech();
     setSpeakingId(null);
@@ -300,13 +316,16 @@ export function Copilot() {
     // Primera respuesta de la conversación: la app pone el saludo con el nombre de la persona.
     const first = !msgs.some((m) => m.role === 'assistant' && m.text && !m.error);
     const greeting = first ? AI_INTRO(userFirstName(profile)) + '\n\n' : '';
-    const user = { id: ++uid, role: 'user', text: q, audio, isVoice };
+    const user = { id: ++uid, role: 'user', text: q, audio, isVoice, ...(img ? { image: img } : {}) };
     const bot = { id: ++uid, role: 'assistant', text: greeting, isVoice };
-    const history = [...msgs, user].filter((m) => (m.text || m.audio) && !m.error).slice(-14).map((m) => ({ role: m.role, text: m.text, audio: m.audio }));
+    // Solo el mensaje nuevo lleva la imagen; las capturas anteriores viajan como texto.
+    const history = [...msgs, user].filter((m) => (m.text || m.audio || m.image) && !m.error).slice(-14)
+      .map((m) => ({ role: m.role, text: m.text || (m.image && m !== user ? '📷 Captura enviada' : ''), audio: m.audio, ...(m === user && img ? { image: img } : {}) }));
     while (history.length && history[0].role !== 'user') history.shift();
 
     setMsgs([...msgs, user, bot]);
     setInput('');
+    if (img) setImage(null);
     setBusy(true);
 
     const c = new AbortController();
@@ -508,7 +527,7 @@ export function Copilot() {
       ${!msgs.length && html`<div class="chat-empty">
         <div class="chat-spark"><${Icon} name="sparkle" size=${30} /></div>
         <h2>Hola${profile.display_name ? ', ' + profile.display_name : ''} 👋</h2>
-        <p>Soy Fructosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento.</p>
+        <p>Soy Fructosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento. Con 📷 leo tus capturas de Pago Móvil y recibos.</p>
         ${!ready && html`<button class="btn primary" onClick=${() => setSetup(true)}><${Icon} name="lock" size=${16} /> Conectar mi IA</button>`}
         <p class="chat-note">🔒 Para responderte se analiza un resumen de tus cuentas, tasas y últimos movimientos. Tu conversación se guarda en tu cuenta y solo tú la ves.</p>
         <div class="chat-sugg">${suggestions.map((s) => html`<button key=${s} class="chip" onClick=${() => send(s)}>${s}</button>`)}</div>
@@ -516,9 +535,21 @@ export function Copilot() {
       ${msgs.map((m) => html`<${Bubble} key=${m.id} m=${m} d=${d} onBlock=${onBlock} speaking=${speakingId === m.id} onToggleSpeak=${onToggleSpeak} />`)}
     </div>
 
+    ${image && html`<div class="chat-attach">
+      <img src=${image.preview} alt="Captura lista para enviar" />
+      <span class="grow"><b>Captura lista</b><small class="muted">Escribe algo si quieres y toca enviar</small></span>
+      <button type="button" class="icon-btn sm" onClick=${() => setImage(null)} aria-label="Quitar captura"><${Icon} name="x" size=${18} /></button>
+    </div>`}
     <form class="chat-input" onSubmit=${(e) => { e.preventDefault(); send(); }}>
+      <input ref=${fileRef} type="file" accept="image/*" hidden onChange=${async (e) => {
+        const f = e.target.files?.[0]; e.target.value = '';
+        if (!f) return;
+        try { setImage(await prepareImage(f)); box.current?.focus(); } catch (err) { toast(errorText(err), { tone: 'bad' }); }
+      }} />
+      <button type="button" class="icon-btn mic" onClick=${() => fileRef.current?.click()} disabled=${busy}
+        aria-label="Adjuntar captura de Pago Móvil o recibo" title="Leer una captura de Pago Móvil o un recibo"><${Icon} name="camera" size=${19} /></button>
       <textarea ref=${box} rows="1" class="input"
-        placeholder=${listening ? "Escuchando tu voz… habla ahora" : "Pregunta o habla con Fructosa…"}
+        placeholder=${listening ? "Escuchando tu voz… habla ahora" : "Escribe a Fructosa…"}
         value=${input} maxLength="600"
         onInput=${(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
         onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}></textarea>
@@ -529,10 +560,11 @@ export function Copilot() {
       </button>
       ${busy
         ? html`<button type="button" class="icon-btn send stop" onClick=${() => { ctl.current?.abort(); stopSpeech(); }} aria-label="Detener"><${Icon} name="x" size=${20} /></button>`
-        : html`<button type="submit" class="icon-btn send" disabled=${!input.trim()} aria-label="Enviar a Gemini"><${Icon} name="send" size=${19} /></button>`}
+        : html`<button type="submit" class="icon-btn send" disabled=${!input.trim() && !image} aria-label="Enviar a Gemini"><${Icon} name="send" size=${19} /></button>`}
     </form>
 
-    ${notice && html`<${AiNotice} onClose=${() => { markNoticeSeen(profile.id); setNotice(false); }} />`}
+    ${notice && html`<${AiNotice} onAccept=${() => { markNoticeSeen(profile.id); setNotice(false); }}
+      onDecline=${() => { setNotice(false); toast('Fructosa queda en pausa. Puedes aceptarlo cuando quieras.'); }} />`}
     ${setup && html`<${Sheet} title=${SHARED_AI ? 'Copiloto IA · opcional' : 'Copiloto IA'} onClose=${() => setSetup(false)}>
       ${(close) => html`<${AiSettings} onSaved=${(c) => { setCfg(c); if (aiReady(c)) close(); }} />`}
     <//>`}

@@ -18,6 +18,8 @@ import { Tour, useTour } from './tour.js';
 import { LearnPage } from './screens/learn.js';
 import { TxForm } from './screens/txform.js';
 import { Copilot } from './screens/copilot.js';
+import { AppLock, clearLock } from './lock.js';
+import { Goals, Loans } from './screens/goals.js';
 
 // ---------------------------------------------------------------------
 // Rutas por hash (#/movimientos): funcionan en GitHub Pages y con "atrás".
@@ -45,7 +47,7 @@ const TABS = [
   ['analisis', 'pie', 'Análisis'],
   ['mas', 'grid', 'Más'],
 ];
-const TAB_OF = { cuentas: 'mas', cuenta: 'mas', presupuestos: 'mas', fijos: 'mas', tasas: 'mas', ajustes: 'mas', aprende: 'mas' };
+const TAB_OF = { cuentas: 'mas', cuenta: 'mas', presupuestos: 'mas', fijos: 'mas', tasas: 'mas', ajustes: 'mas', aprende: 'mas', metas: 'mas', prestamos: 'mas' };
 
 function TabBar({ current, onNew }) {
   return html`<nav class="tabbar" aria-label="Navegación principal"><ul>
@@ -65,6 +67,8 @@ function Screen({ route }) {
     case 'cuenta': return html`<${AccountDetail} id=${route.param} />`;
     case 'presupuestos': return html`<${Budgets} />`;
     case 'fijos': return html`<${Recurring} />`;
+    case 'metas': return html`<${Goals} />`;
+    case 'prestamos': return html`<${Loans} />`;
     case 'tasas': return html`<${Rates} />`;
     case 'analisis': return html`<${Insights} />`;
     case 'mas': return html`<${More} />`;
@@ -103,6 +107,7 @@ function Shell({ recovery, clearRecovery }) {
   const showOnboard = !onboarded && !hasUserData;
 
   return html`<div class="app">
+    ${d.pending > 0 && html`<div class="banner pending" role="status">⏳ ${d.pending === 1 ? '1 movimiento por subir' : d.pending + ' movimientos por subir'}</div>`}
     ${isDemo && html`<div class="demo-badge" title="Datos de ejemplo guardados solo en este navegador">DEMO</div>`}
     <main class="main" key=${route.key}><${Screen} route=${route} /></main>
     ${['inicio', 'analisis'].includes(route.name) && html`<a class="ai-fab" data-tour="copilot" href="#/copiloto" aria-label="Abrir Copiloto IA"><${Icon} name="sparkle" size=${20} /><span>Copiloto IA</span></a>`}
@@ -144,7 +149,7 @@ function App() {
   useEffect(() => {
     let sub;
     api.auth.session().then(setSession).catch(() => setSession(null));
-    api.auth.onChange((s, ev) => { setSession(s); if (ev === 'PASSWORD_RECOVERY') setRecovery(true); }).then((x) => { sub = x; });
+    api.auth.onChange((s, ev) => { setSession(s); if (ev === 'PASSWORD_RECOVERY') setRecovery(true); }).then((x) => { sub = x; }).catch(() => {});
     return () => sub?.unsubscribe();
   }, []);
 
@@ -154,7 +159,11 @@ function App() {
 
   return html`<${React.Fragment}>
     ${session === undefined ? html`<main class="center-screen"><${Spinner} /></main>`
-      : session ? html`<${DataProvider} key=${session.user.id}><${Shell} recovery=${recovery} clearRecovery=${() => setRecovery(false)} /><//>`
+      : session ? html`<${DataProvider} key=${session.user.id} uid=${session.user.id}>
+          <${AppLock} uid=${session.user.id} onSignOut=${() => { clearLock(session.user.id); api.auth.signOut(); }}>
+            <${Shell} recovery=${recovery} clearRecovery=${() => setRecovery(false)} />
+          <//>
+        <//>`
       : html`<${AuthScreen} onSession=${adoptSession} />`}
     <${UpdateBanner} />
     <${ToastHost} />

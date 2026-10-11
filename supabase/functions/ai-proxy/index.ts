@@ -35,7 +35,8 @@ const MODELS = (Deno.env.get('AI_MODEL') || (UP === UPSTREAMS.gemini ? GEMINI_MO
 const ORIGINS = (Deno.env.get('AI_ALLOWED_ORIGINS') ?? 'https://lfzv98.github.io,http://localhost:8000,http://127.0.0.1:8000')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
-const MAX_BODY = 90_000;           // bytes de la petición
+const MAX_BODY = 2_000_000;        // bytes de la petición (una captura comprimida ocupa ~0,2–1,2 MB)
+const MAX_IMAGE = 1_500_000;       // caracteres base64 de la imagen (solo una por petición, del usuario)
 const MAX_MESSAGES = 30;
 const MAX_CHARS = 40_000;          // por mensaje (el prompt con datos es largo)
 const MAX_TOKENS = 2048;           // respuesta (en Gemini 3 incluye el "pensamiento": con 700 se quedaba sin texto)
@@ -62,13 +63,15 @@ Deno.serve(async (req) => {
   const cors = {
     'Access-Control-Allow-Origin': ORIGINS.includes(origin) ? origin : ORIGINS[0] ?? '',
     'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Vary': 'Origin',
   };
   const reply = (status: number, message: string) =>
     new Response(JSON.stringify({ error: { message } }), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  // GET: la app pregunta qué sabe hacer esta versión (v2 = lee capturas y recibos).
+  if (req.method === 'GET') return new Response(JSON.stringify({ ok: true, v: 2, images: true }), { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
   if (req.method !== 'POST') return reply(405, 'Método no permitido');
   if (!KEY) return reply(503, 'El copiloto no está configurado en el servidor');
   if (origin && !ORIGINS.includes(origin)) return reply(403, 'Origen no permitido');
@@ -90,9 +93,28 @@ Deno.serve(async (req) => {
   try { body = JSON.parse(raw); } catch { return reply(400, 'JSON no válido'); }
   if (!Array.isArray(body.messages) || !body.messages.length) return reply(400, 'Faltan mensajes');
 
-  const messages = body.messages.slice(-MAX_MESSAGES)
-    .filter((m) => m && ['system', 'user', 'assistant'].includes(String(m.role)) && typeof m.content === 'string')
-    .map((m) => ({ role: String(m.role), content: String(m.content).slice(0, MAX_CHARS) }));
+  // Contenido: texto, o (solo del usuario) texto + UNA imagen en base64 (captura de Pago Móvil, recibo…).
+  type Part = { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } };
+  let imageUsed = false;
+  const clean = (role: string, content: unknown): string | Part[] | null => {
+    if (typeof content === 'string') return content.slice(0, MAX_CHARS);
+    if (!Array.isArray(content) || role !== 'user') return null;
+    const parts: Part[] = [];
+    for (const p of content as { type?: string; text?: unknown; image_url?: { url?: unknown } }[]) {
+      if (p?.type === 'text' && typeof p.text === 'string') parts.push({ type: 'text', text: p.text.slice(0, MAX_CHARS) });
+      const url = p?.type === 'image_url' ? String(p.image_url?.url ?? '') : '';
+      if (url && !imageUsed && url.length <= MAX_IMAGE && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(url)) {
+        parts.push({ type: 'image_url', image_url: { url } });
+        imageUsed = true;
+      }
+    }
+    return parts.length ? parts : null;
+  };
+  const messages = body.messages.slice(-MAX_MESSAGES).reverse() // la imagen permitida es la del último mensaje
+    .filter((m) => m && ['system', 'user', 'assistant'].includes(String(m.role)))
+    .map((m) => ({ role: String(m.role), content: clean(String(m.role), m.content) }))
+    .filter((m) => m.content !== null)
+    .reverse();
   if (!messages.length) return reply(400, 'Mensajes no válidos');
 
   // 4. Proveedor (la clave solo viaja de servidor a servidor). Prueba los modelos en orden.

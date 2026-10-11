@@ -13,7 +13,8 @@ export const isDemo = !isConfigured || new URLSearchParams(location.search).has(
 export const TABLES = ['accounts', 'transactions', 'budgets', 'recurring_expenses'];
 
 let sbPromise;
-const sb = () => (sbPromise ??= import('./supabase.js').then((m) => m.supabase));
+// Si la carga falla (p. ej. sin internet), se reintenta en la próxima llamada.
+const sb = () => (sbPromise ??= import('./supabase.js').then((m) => m.supabase, (e) => { sbPromise = null; throw e; }));
 
 function unwrap({ data, error }) {
   if (error) throw error;
@@ -48,6 +49,18 @@ const clearFallback = (id) => { try { localStorage.removeItem(FB_KEY(id)); } cat
 const PROFILE_KEYS = ['username', 'region', 'preferred_currency'];
 const pickProfile = (o = {}) => Object.fromEntries(PROFILE_KEYS.filter((k) => o[k]).map((k) => [k, o[k]]));
 
+// Supabase entrega como máximo 1.000 filas por consulta (Settings > API > Max rows).
+// Pedimos por páginas hasta traerlas todas: los saldos se calculan con TODO el historial.
+const PAGE = 1000;
+async function fetchAll(query) {
+  const out = [];
+  for (;;) {
+    const rows = unwrap(await query().range(out.length, out.length + PAGE - 1));
+    if (!rows.length) return out; // termina en la primera página vacía (vale aunque el tope sea menor)
+    out.push(...rows);
+  }
+}
+
 const daysAgo = (n) => { const d = new Date(todayISO() + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 
 function ratesFromRows(rows) {
@@ -66,20 +79,56 @@ function ratesFromRows(rows) {
   return { rates: out, meta };
 }
 
+// Entrar con usuario vía Edge Function. Devuelve { access_token, refresh_token }, lanza el error
+// de credenciales, o null si la función no existe todavía (404/401), falla (5xx) o no hay red hacia ella.
+async function loginWithUsername(username, password) {
+  let res;
+  try {
+    res = await fetch(config.SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: config.SUPABASE_ANON_KEY },
+      body: JSON.stringify({ login: username, password }),
+    });
+  } catch { return null; }
+  if (res.status === 404 || res.status === 401 || res.status >= 500) return null;
+  const body = await res.json().catch(() => ({}));
+  if (res.ok && body.access_token) return body;
+  throw new Error(body?.error?.message || 'Invalid login credentials');
+}
+
 // ---------------------------------------------------------------------
 // Supabase real
 // ---------------------------------------------------------------------
 const real = {
   auth: {
-    async session() { const c = await sb(); return (await c.auth.getSession()).data.session; },
+    async session() {
+      // Sin internet: el módulo de Supabase (esm.sh) o la renovación del token pueden fallar.
+      // Si hay una sesión guardada en este teléfono, se abre igual con la última copia de los datos.
+      try {
+        const c = await sb();
+        const s = (await c.auth.getSession()).data.session;
+        if (s || navigator.onLine) return s;
+      } catch (e) { if (navigator.onLine) throw e; }
+      try {
+        const saved = JSON.parse(localStorage.getItem('fructosa-auth'));
+        return saved?.user?.id ? { ...saved, offline: true } : null;
+      } catch { return null; }
+    },
     async onChange(cb) { const c = await sb(); return c.auth.onAuthStateChange((e, s) => cb(s, e)).data.subscription; },
     // JWT de la sesión actual (el copiloto lo usa para identificarse ante el proxy de IA).
     async accessToken() { const c = await sb(); return (await c.auth.getSession()).data.session?.access_token || null; },
-    // Acepta usuario o correo. El usuario se traduce a su correo con una función de la BD.
+    // Acepta usuario o correo. Con usuario, la Edge Function "login" valida todo en el servidor
+    // sin revelar el correo. Si aún no está desplegada, se usa el método anterior (email_for_login).
     async signIn(login, password) {
       const c = await sb();
       let email = login.trim();
       if (!email.includes('@')) {
+        const viaFn = await loginWithUsername(email.toLowerCase(), password);
+        if (viaFn) {
+          const { data, error } = await c.auth.setSession(viaFn);
+          if (error) throw error;
+          return { session: data.session };
+        }
         const { data, error } = await c.rpc('email_for_login', { p_username: email.toLowerCase() });
         if (error) throw error;
         if (!data) throw new Error('Invalid login credentials');
@@ -118,7 +167,15 @@ const real = {
       const c = await sb(); const { error } = await c.auth.updateUser({ password });
       if (error) throw error;
     },
-    async signOut() { const c = await sb(); await c.auth.signOut(); },
+    async signOut() {
+      const c = await sb();
+      const uid = (await c.auth.getSession()).data.session?.user?.id;
+      // Este teléfono deja de recibir los avisos de esta persona (otra podría usarlo después).
+      await import('./push.js').then((m) => m.disablePush()).catch(() => {});
+      await c.auth.signOut();
+      // La copia sin conexión de los datos no se queda en el teléfono al salir.
+      if (uid) import('./offline.js').then((m) => m.snapshot.clear(uid)).catch(() => {});
+    },
   },
 
   async loadAll() {
@@ -131,14 +188,17 @@ const real = {
       return res.data;
     };
 
-    const [profileRes, accounts, transactions, budgets, recurring, rateRows] = await Promise.all([
+    const [profileRes, accounts, transactions, budgets, recurring, rateRows, goals, loans] = await Promise.all([
       c.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       c.from('accounts').select('*').order('created_at').then(unwrap),
-      c.from('transactions').select('*').order('created_at', { ascending: false }).limit(5000).then(unwrap),
+      fetchAll(() => c.from('transactions').select('*').order('created_at', { ascending: false }).order('id')),
       optional('budgets', c.from('budgets').select('*')),
       optional('recurring_expenses', c.from('recurring_expenses').select('*').order('due_day')),
       c.from('exchange_rates').select('rate_type, rate, rate_date, source, fetched_at')
         .gte('rate_date', daysAgo(120)).order('rate_date').then((r) => (r.error ? [] : r.data)),
+      // Metas y préstamos (migración 007): si aún no existen, la app sigue igual.
+      optional('savings_goals', c.from('savings_goals').select('*').order('created_at')),
+      optional('loans', c.from('loans').select('*').order('occurred_on', { ascending: false })),
     ]);
 
     const meta = user.user_metadata || {};
@@ -174,7 +234,7 @@ const real = {
       profile.region = reg;
     }
     const { rates, meta: rateMeta } = ratesFromRows(rateRows);
-    return { profile, accounts, transactions, budgets, recurring, rates, rateMeta, rateHistory: rateRows, missing };
+    return { profile, accounts, transactions, budgets, recurring, goals, loans, rates, rateMeta, rateHistory: rateRows, missing };
   },
 
   async updateProfile(patch) {
@@ -227,6 +287,28 @@ const real = {
   async remove(table, id) {
     const c = await sb();
     unwrap(await c.from(table).delete().eq('id', id));
+  },
+
+  // Avisos push (migración 008): una fila por persona y teléfono. RLS: solo las propias.
+  push: {
+    async save(row) {
+      const c = await sb();
+      const { data: { session } } = await c.auth.getSession();
+      if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+      unwrap(await c.from('push_subscriptions').upsert({ ...row, user_id: session.user.id }, { onConflict: 'user_id,endpoint' }));
+    },
+    async update(endpoint, patch) {
+      const c = await sb();
+      unwrap(await c.from('push_subscriptions').update(patch).eq('endpoint', endpoint));
+    },
+    async get(endpoint) {
+      const c = await sb();
+      return unwrap(await c.from('push_subscriptions').select('prefs').eq('endpoint', endpoint).maybeSingle());
+    },
+    async remove(endpoint) {
+      const c = await sb();
+      unwrap(await c.from('push_subscriptions').delete().eq('endpoint', endpoint));
+    },
   },
 
   // Conversación con Fructosa: una fila por usuario en ai_chats (migración 005). RLS: solo la propia.
@@ -345,6 +427,14 @@ function seedDemo() {
   return {
     profile: { id: 'demo', display_name: 'Luis', username: 'luis', email: 'demo@lafructosa.app', region: 'VE', preferred_currency: 'USD', valuation_rate: 'BCV_USD' },
     accounts, transactions: txs, budgets, recurring_expenses: recurring, rateHistory,
+    savings_goals: [
+      { id: uid(), name: 'Fondo de emergencia', emoji: '🛟', target_amount: 1500, saved_amount: 620, currency: 'USD', target_date: daysAgo(-150), done: false, created_at: iso(60) },
+      { id: uid(), name: 'Viaje a Mérida', emoji: '🏔️', target_amount: 400, saved_amount: 95, currency: 'USD', target_date: daysAgo(-75), done: false, created_at: iso(20) },
+    ],
+    loans: [
+      { id: uid(), person: 'Primo Andrés', direction: 'lent', amount: 50, paid_amount: 20, currency: 'USD', occurred_on: daysAgo(12), due_on: daysAgo(-10), settled: false, note: 'Para el repuesto del carro', created_at: iso(12) },
+      { id: uid(), person: 'Tía Carmen', direction: 'borrowed', amount: 30, paid_amount: 0, currency: 'USD', occurred_on: daysAgo(5), due_on: null, settled: false, note: null, created_at: iso(5) },
+    ],
   };
 }
 
@@ -375,21 +465,21 @@ const demo = {
     const s = state();
     const { rates, meta } = ratesFromRows(s.rateHistory);
     return wait(clone({ profile: s.profile, accounts: s.accounts, transactions: s.transactions, budgets: s.budgets,
-      recurring: s.recurring_expenses, rates, rateMeta: meta, rateHistory: s.rateHistory, missing: [] }));
+      recurring: s.recurring_expenses, goals: s.savings_goals || [], loans: s.loans || [], rates, rateMeta: meta, rateHistory: s.rateHistory, missing: [] }));
   },
   async updateProfile(patch) { Object.assign(state().profile, patch); demoSave(); return wait(clone(state().profile)); },
   async insert(table, row) {
     const r = { id: uid(), created_at: new Date().toISOString(), ...row };
-    state()[table].push(r); demoSave(); return wait(clone(r));
+    (state()[table] ??= []).push(r); demoSave(); return wait(clone(r));
   },
   async update(table, id, patch) {
-    const r = state()[table].find((x) => x.id === id);
+    const r = (state()[table] || []).find((x) => x.id === id);
     if (!r) throw new Error('No encontrado');
     Object.assign(r, patch); demoSave(); return wait(clone(r));
   },
   async remove(table, id) {
     const s = state();
-    s[table] = s[table].filter((x) => x.id !== id);
+    s[table] = (s[table] || []).filter((x) => x.id !== id);
     if (table === 'accounts') s.transactions = s.transactions.filter((t) => t.account_id !== id && t.to_account_id !== id);
     demoSave(); return wait();
   },

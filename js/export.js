@@ -22,14 +22,23 @@ export async function exportCSV(txs, accById, name = 'movimientos') {
   const filename = `la-fructosa-${name}-${todayISO()}.csv`;
   const file = new File([csv], filename, { type: 'text/csv' });
 
-  // En el iPhone instalado como app, compartir es más fiable que descargar.
+  if (!(await saveFile(file))) return;
+  toast(`Exportados ${txs.length} movimientos`);
+}
+
+// Guarda un archivo en el dispositivo. En el iPhone instalado como app, compartir es más fiable
+// que descargar (desde ahí: "Guardar en Archivos"). Devuelve false si la persona canceló.
+export async function saveFile(file) {
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   if (standalone && navigator.canShare?.({ files: [file] })) {
-    try { await navigator.share({ files: [file], title: filename }); return; } catch { /* cancelado */ }
+    try { await navigator.share({ files: [file], title: file.name }); return true; } catch (e) {
+      if (e?.name === 'AbortError') return false;
+      /* si compartir falla, se descarga */
+    }
   }
   const url = URL.createObjectURL(file);
-  const a = Object.assign(document.createElement('a'), { href: url, download: filename });
+  const a = Object.assign(document.createElement('a'), { href: url, download: file.name });
   document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-  toast(`Exportados ${txs.length} movimientos`);
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  return true;
 }

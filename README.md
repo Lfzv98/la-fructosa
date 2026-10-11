@@ -1,4 +1,4 @@
-# La Fructosa 2.1
+# La Fructosa 3.0
 
 PWA de finanzas personales para la familia: cuentas en USD, Bs., USDT y EUR,
 tasas BCV / Paralelo / USDT, calculadora de brecha cambiaria, presupuestos,
@@ -28,6 +28,19 @@ Producción: https://lfzv98.github.io/la-fructosa/ · Demo: agrega `?demo` a la 
 | Tasas | BCV, Paralelo, USDT y Euro con tendencia, calculadora y comparador "¿pago en $ o en Bs.?" |
 | Aprende | Recorrido de bienvenida, glosario y botones ⓘ en cada concepto |
 | Ajustes | Región (VE/US/ES), moneda principal, valoración, ocultar saldos, instalar, cambiar contraseña |
+
+Novedades 2.2: saldos correctos con más de 1.000 movimientos, **respaldo en Excel** (Ajustes → Respaldo,
+con recordatorio semanal en Inicio), aviso de privacidad del copiloto que cada persona acepta antes de usarlo,
+y entrar con usuario sin revelar el correo de nadie (Edge Function `login`).
+
+Novedades 2.3: **registrar sin internet** (el movimiento queda en el teléfono y se sube solo al volver la señal;
+la app también abre sin conexión con la última copia), **bloqueo con PIN y Face ID / huella** (Ajustes → Privacidad)
+y **leer capturas de Pago Móvil o recibos** con el botón 📷 de Fructosa (requiere desplegar de nuevo `ai-proxy`).
+
+Novedades 3.0: **metas de ahorro** y **préstamos** (Más → Metas / Préstamos; migración 007), **avisos al teléfono**
+de pagos fijos por vencer, préstamos y tasas (Ajustes → Avisos; función `send-reminders` + migración 008),
+**modo claro** (Ajustes → Apariencia), aviso cuando las tasas llevan días sin actualizarse y **pruebas automáticas**
+de los cálculos de dinero (`node --test tests/*.test.mjs`, también en GitHub Actions).
 
 Además: navegación por pestañas con botón "atrás" que cierra hojas, modo sin conexión,
 aviso de "versión nueva", configuración rápida de cuentas al registrarse y región que oculta
@@ -59,6 +72,11 @@ la-fructosa/
     ├── migrations/003_tasas_automaticas.sql  # pg_cron: tasas 2 veces al día
     ├── migrations/004_usuarios.sql    # Usuario único para entrar + país del registro
     ├── migrations/005_conversaciones.sql # Guarda la conversación con Fructosa (RLS por usuario)
+    ├── migrations/006_login_seguro.sql   # Cierra email_for_login (correr después de desplegar `login`)
+    ├── migrations/007_metas_prestamos.sql # Metas de ahorro y préstamos (RLS por usuario)
+    ├── migrations/008_avisos.sql          # Suscripciones push + envío diario (pg_cron)
+    ├── functions/login/index.ts          # Entrar con usuario sin exponer correos
+    ├── functions/send-reminders/index.ts # Avisos push diarios (pagos, préstamos, tasas)
     └── functions/update-rates/index.ts       # Edge Function que guarda las tasas
 ```
 
@@ -91,5 +109,8 @@ Mientras tanto la app usa DolarApi en vivo para mostrar tasas si la BD no tiene 
   usar cuentas de otra persona. `exchange_rates` es de solo lectura para usuarios.
 - La anon key es pública por diseño; nunca pongas la service_role key en el frontend.
 - El service worker nunca guarda respuestas de Supabase.
+- Entrar con usuario pasa por la Edge Function `login` (`supabase functions deploy login --no-verify-jwt`);
+  después, `006_login_seguro.sql` quita el acceso público a `email_for_login`.
+- El copiloto pide permiso a cada persona antes de enviar datos a Google Gemini (servicio gratuito).
 
 Al publicar una versión nueva, sube `CACHE_VERSION` en `sw.js`.

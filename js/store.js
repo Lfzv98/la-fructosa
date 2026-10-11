@@ -3,6 +3,8 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo } from './api.js';
 import { fetchLiveRates } from './rates.js';
+import { snapshot, queue, isNetworkError, uuid } from './offline.js';
+import { toast } from './ui.js';
 import { REGIONS, ACCOUNT_TEMPLATES, ACCOUNT_COLORS, KINDS, convert, consolidate, todayISO, monthKey } from './money.js';
 
 const Ctx = createContext(null);
@@ -35,19 +37,44 @@ export function usePref(key, initial) {
   return [v, set];
 }
 
-const TABLE_KEY = { accounts: 'accounts', transactions: 'transactions', budgets: 'budgets', recurring_expenses: 'recurring' };
+const TABLE_KEY = { accounts: 'accounts', transactions: 'transactions', budgets: 'budgets', recurring_expenses: 'recurring', savings_goals: 'goals', loans: 'loans' };
 
-export function DataProvider({ children }) {
+export function DataProvider({ uid, children }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [live, setLive] = useState(null);
+  const [pending, setPending] = useState(0);   // movimientos guardados sin conexión, por subir
+  const [offline, setOffline] = useState(false); // mostrando la última copia guardada
   const dataRef = useRef(null);
   dataRef.current = data;
+  const useOffline = !isDemo && Boolean(uid);
+
+  // Agrega a la lista los movimientos que siguen en la cola (no están aún en la BD).
+  const withQueued = async (next) => {
+    if (!useOffline) return next;
+    const q = await queue.read(uid);
+    setPending(q.length);
+    const have = new Set(next.transactions.map((t) => t.id));
+    const extra = q.filter((it) => it.table === 'transactions' && !have.has(it.row.id)).map((it) => it.row);
+    return extra.length ? { ...next, transactions: [...extra, ...next.transactions] } : next;
+  };
 
   const reload = useCallback(async () => {
     setError(null);
     try {
-      const next = await api.loadAll();
+      let next;
+      try {
+        next = await api.loadAll();
+        setOffline(false);
+        if (useOffline) snapshot.write(uid, next);
+      } catch (e) {
+        // Sin internet: se abre con la última copia guardada en este teléfono.
+        const snap = useOffline && isNetworkError(e) ? await snapshot.read(uid) : null;
+        if (!snap?.data) throw e;
+        next = { ...snap.data, savedAt: snap.at };
+        setOffline(true);
+      }
+      next = await withQueued(next);
       setData((prev) => {
         if (prev?.profile) {
           const u = prev.profile.username || next.profile?.username;
@@ -59,6 +86,49 @@ export function DataProvider({ children }) {
     } catch (e) { setError(e); }
   }, []);
   useEffect(() => { reload(); }, [reload]);
+
+  // Sube la cola en orden. Si un movimiento ya llegó (id repetido), cuenta como subido.
+  const flushing = useRef(false);
+  const flush = useCallback(async () => {
+    if (!useOffline || flushing.current || !navigator.onLine) return;
+    flushing.current = true;
+    try {
+      let q = await queue.read(uid);
+      if (!q.length) return;
+      let synced = 0;
+      while (q.length) {
+        const { table, row } = q[0];
+        const { pending: _p, ...clean } = row;
+        try {
+          const saved = await api.insert(table, clean);
+          upsertLocal(table, { ...saved, pending: false });
+          synced++;
+        } catch (e) {
+          if (isNetworkError(e)) break;
+          if (e?.code === '23505' || /duplicate/i.test(e?.message || '')) { synced++; upsertLocal(table, { ...row, pending: false }); }
+          else { dropLocal(table, row.id); toast('No se pudo subir un movimiento guardado sin conexión: ' + (e?.message || e), { tone: 'bad' }); }
+        }
+        q = q.slice(1);
+        await queue.write(uid, q);
+      }
+      setPending(q.length);
+      if (synced) {
+        toast(synced === 1 ? '✓ Se subió 1 movimiento guardado sin conexión' : `✓ Se subieron ${synced} movimientos guardados sin conexión`);
+        if (useOffline && dataRef.current) snapshot.write(uid, dataRef.current);
+      }
+    } finally { flushing.current = false; }
+  }, [uid]);
+
+  // Al volver la señal: subir la cola y refrescar los datos.
+  useEffect(() => {
+    if (!useOffline) return;
+    const back = () => { flush().then(() => { if (dataRef.current?.savedAt || offline) reload(); }); };
+    const vis = () => { if (document.visibilityState === 'visible') flush(); };
+    addEventListener('online', back);
+    document.addEventListener('visibilitychange', vis);
+    return () => { removeEventListener('online', back); document.removeEventListener('visibilitychange', vis); };
+  }, [flush, reload, offline]);
+  useEffect(() => { if (data && pending) flush(); }, [Boolean(data)]);
 
   const refreshRates = useCallback(async () => {
     try {
@@ -161,18 +231,20 @@ export function DataProvider({ children }) {
     };
 
     return { profile, region, accountTemplates, rates, rateMeta, ratesOn, accounts, active, accById, txs, total, target, val, monthStats,
-      budgets: data.budgets, recurring: data.recurring, rateHistory: data.rateHistory, missing: data.missing };
+      budgets: data.budgets, recurring: data.recurring, goals: data.goals || [], loans: data.loans || [],
+      rateHistory: data.rateHistory, missing: data.missing || [], savedAt: data.savedAt };
   }, [data, live]);
 
   // Mutaciones: escriben en la BD y actualizan el estado local sin recargar todo.
   const upsertLocal = (table, row) => setData((d) => {
     const key = TABLE_KEY[table];
+    if (!d[key]) d = { ...d, [key]: [] };
     const list = d[key].some((x) => x.id === row.id) ? d[key].map((x) => (x.id === row.id ? { ...x, ...row } : x)) : [...d[key], row];
     return { ...d, [key]: list };
   });
   const dropLocal = (table, id) => setData((d) => {
     const key = TABLE_KEY[table];
-    const next = { ...d, [key]: d[key].filter((x) => x.id !== id) };
+    const next = { ...d, [key]: (d[key] || []).filter((x) => x.id !== id) };
     if (table === 'accounts') next.transactions = d.transactions.filter((t) => t.account_id !== id && t.to_account_id !== id);
     return next;
   });
@@ -181,11 +253,57 @@ export function DataProvider({ children }) {
     reload,
     refreshRates,
     async save(table, row, id) {
+      // Movimientos nuevos: llevan su id desde el teléfono, así se pueden guardar sin conexión
+      // y subir después sin duplicarse.
+      if (useOffline && table === 'transactions' && !id) {
+        const local = { ...row, id: row.id || uuid() };
+        const enqueue = async () => {
+          const q = await queue.read(uid);
+          await queue.write(uid, [...q, { table, row: local }]);
+          setPending(q.length + 1);
+          const shown = { ...local, user_id: uid, created_at: new Date().toISOString(), pending: true };
+          upsertLocal(table, shown);
+          toast('Sin conexión: guardado en el teléfono. Se subirá solo cuando vuelva la señal.');
+          return shown;
+        };
+        if (!navigator.onLine) return enqueue();
+        try {
+          const saved = await api.insert(table, local);
+          upsertLocal(table, saved);
+          return saved;
+        } catch (e) {
+          if (isNetworkError(e)) return enqueue();
+          throw e;
+        }
+      }
+      // Editar un movimiento que aún no se subió: se corrige en la cola.
+      if (useOffline && table === 'transactions' && id) {
+        const q = await queue.read(uid);
+        const i = q.findIndex((it) => it.row.id === id);
+        if (i >= 0) {
+          q[i] = { ...q[i], row: { ...q[i].row, ...row, id } };
+          await queue.write(uid, q);
+          const shown = { ...q[i].row, user_id: uid, pending: true };
+          upsertLocal(table, shown);
+          return shown;
+        }
+      }
       const saved = id ? await api.update(table, id, row) : await api.insert(table, row);
       upsertLocal(table, saved);
       return saved;
     },
     async remove(table, id) {
+      // Un movimiento que aún no se subió se quita de la cola, sin ir a la BD.
+      if (useOffline) {
+        const q = await queue.read(uid);
+        if (q.some((it) => it.row.id === id)) {
+          const rest = q.filter((it) => it.row.id !== id);
+          await queue.write(uid, rest);
+          setPending(rest.length);
+          dropLocal(table, id);
+          return;
+        }
+      }
       await api.remove(table, id);
       dropLocal(table, id);
     },
@@ -222,8 +340,9 @@ export function DataProvider({ children }) {
         throw e;
       }
     },
-  }), [reload, refreshRates]);
+    flush,
+  }), [reload, refreshRates, flush]);
 
-  const value = useMemo(() => ({ ...(derived || {}), ready: Boolean(derived), error, actions }), [derived, error, actions]);
+  const value = useMemo(() => ({ ...(derived || {}), ready: Boolean(derived), error, actions, pending, offline }), [derived, error, actions, pending, offline]);
   return React.createElement(Ctx.Provider, { value }, children);
 }

@@ -4,7 +4,7 @@ import { html, Icon, Segmented, Field, toast } from '../ui.js';
 import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { Sparkline } from '../charts.js';
-import { PageHeader } from './common.js';
+import { PageHeader, RatesStale } from './common.js';
 import { RATE_LABELS, RATE_HELP, fmt, fmtRate, fmtPct, parseAmount, payCompare, todayISO } from '../money.js';
 
 const KEYS = ['BCV_USD', 'PARALELO', 'USDT', 'BCV_EUR'];
@@ -44,6 +44,8 @@ export function Rates() {
   return html`<div class="page">
     <${PageHeader} title="Tasas" sub="Bolívares por cada unidad" back="#/mas"
       actions=${html`<button type="button" class=${'icon-btn' + (refreshing ? ' spin' : '')} onClick=${handleRefresh} disabled=${refreshing} aria-label="Actualizar tasas"><${Icon} name="refresh" /></button>`} />
+
+    <${RatesStale} rateMeta=${rateMeta} onRetry=${handleRefresh} />
 
     ${gap != null && html`<section class="gap-card">
       <div><small>Brecha BCV vs. Paralelo <${Learn} term="brecha" /></small><b>${fmtPct(gap)}</b></div>

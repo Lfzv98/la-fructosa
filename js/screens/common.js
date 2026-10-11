@@ -19,7 +19,7 @@ export function TxRow({ t, accById, showDate = false }) {
     <span class="tx-ico" style=${{ '--cat': meta.color }}>${meta.emoji}</span>
     <span class="tx-main">
       <b>${title}</b>
-      <small>${sub}${t.original_currency === 'VES' ? html` · <span class="num">${fmt(t.original_amount, 'VES', { decimals: 0 })}</span>` : ''}${showDate ? ' · ' + t.date.slice(8) + '/' + t.date.slice(5, 7) : ''}</small>
+      <small>${sub}${t.original_currency === 'VES' ? html` · <span class="num">${fmt(t.original_amount, 'VES', { decimals: 0 })}</span>` : ''}${showDate ? ' · ' + t.date.slice(8) + '/' + t.date.slice(5, 7) : ''}${t.pending ? html`<span class="tx-pending" title="Guardado en el teléfono; se subirá al volver la señal"> ⏳ por subir</span>` : ''}</small>
     </span>
     <span class=${'tx-amt ' + t.type}>
       <${Money} v=${sign ? sign * t.amount : t.amount} c=${acc?.currency || 'USD'} sign=${sign !== 0} />
@@ -67,4 +67,16 @@ export function PageHeader({ title, sub, actions, back }) {
     <div class="page-title"><h1>${title}</h1>${sub && html`<p>${sub}</p>`}</div>
     <div class="page-actions">${actions}</div>
   </header>`;
+}
+
+// Aviso cuando las tasas llevan 2 días o más sin actualizarse (la función automática pudo fallar).
+export function RatesStale({ rateMeta, onRetry }) {
+  const last = ['BCV_USD', 'PARALELO', 'USDT'].map((k) => rateMeta?.[k]?.rate_date).filter(Boolean).sort().pop();
+  if (!last) return null;
+  const days = Math.round((Date.parse(todayISO() + 'T12:00:00Z') - Date.parse(last + 'T12:00:00Z')) / 864e5);
+  if (days < 2) return null;
+  return html`<div class="callout warn rates-stale-note" role="status">
+    ⚠️ Las tasas llevan <b>${days} días</b> sin actualizarse (última: ${last.slice(8)}/${last.slice(5, 7)}). Los montos en bolívares pueden no ser exactos.
+    ${onRetry && html`<button class="btn sm soft" onClick=${onRetry}>Reintentar</button>`}
+  </div>`;
 }

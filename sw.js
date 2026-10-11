@@ -1,6 +1,6 @@
 // La Fructosa · Service Worker
 // Sube CACHE_VERSION en cada despliegue: la app avisará "Hay una versión nueva".
-const CACHE_VERSION = 'fructosa-v13';
+const CACHE_VERSION = 'fructosa-v16';
 
 const APP_SHELL = [
   './',
@@ -18,6 +18,13 @@ const APP_SHELL = [
   './js/tour.js',
   './js/charts.js',
   './js/export.js',
+  './js/xlsx.js',
+  './js/backup.js',
+  './js/offline.js',
+  './js/lock.js',
+  './js/push.js',
+  './js/theme.js',
+  './js/screens/goals.js',
   './js/supabase.js',
   './js/screens/common.js',
   './js/screens/auth.js',
@@ -98,4 +105,28 @@ self.addEventListener('fetch', (event) => {
       }).catch(() => (request.mode === 'navigate' ? caches.match('./index.html') : Response.error()));
     })
   );
+});
+
+// Avisos (push): pagos por vencer, préstamos y tasas. Los envía la función send-reminders.
+self.addEventListener('push', (event) => {
+  let m = {};
+  try { m = event.data ? event.data.json() : {}; } catch { m = { body: event.data && event.data.text() }; }
+  event.waitUntil(self.registration.showNotification(m.title || 'La Fructosa', {
+    body: m.body || '',
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    tag: m.tag,
+    data: { url: m.url || './' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || './', self.registration.scope).href;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const win = wins.find((w) => w.url.startsWith(self.registration.scope));
+    if (win) { await win.focus(); return win.navigate(url).catch(() => {}); }
+    return self.clients.openWindow(url);
+  })());
 });

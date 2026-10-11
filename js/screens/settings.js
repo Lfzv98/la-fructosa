@@ -8,15 +8,22 @@ import { exportCSV } from '../export.js';
 import { api, isDemo } from '../api.js';
 import { REGIONS, RATE_LABELS } from '../money.js';
 import { AiSettings } from './copilot.js';
+import { BackupButton } from '../backup.js';
+import { LockSettings } from '../lock.js';
+import { applyTheme } from '../theme.js';
+import { pushSupport, publicKey, currentSubscription, enablePush, disablePush, updatePushPrefs, DEFAULT_PREFS } from '../push.js';
 
-export const APP_VERSION = '2.1.0';
+export const APP_VERSION = '3.0.0';
 
 export function More() {
-  const { region, txs, accById, recurring, budgets } = useData();
+  const { region, txs, accById, recurring, budgets, goals, loans } = useData();
+  const owed = loans.filter((l) => !l.settled).length;
   const tiles = [
     ['#/cuentas', 'wallet', 'Cuentas', 'Saldos y billeteras', '#A0C4FF'],
     ['#/presupuestos', 'target', 'Presupuestos', `${budgets.length} activos`, '#FFADAD'],
     ['#/fijos', 'repeat', 'Pagos fijos', `${recurring.filter((r) => r.is_active !== false).length} programados`, '#FDFFB6'],
+    ['#/metas', 'flag', 'Metas de ahorro', goals.length ? `${goals.filter((g) => !g.done).length} en curso` : 'Ahorra para algo', '#FFD6A5'],
+    ['#/prestamos', 'hand', 'Préstamos', owed ? `${owed} pendientes` : 'Quién te debe', '#CAFFBF'],
     region.rates && ['#/tasas', 'trend', 'Tasas y calculadora', 'BCV, Paralelo, USDT', '#CAFFBF'],
     ['#/copiloto', 'sparkle', 'Copiloto IA', 'Pregunta por tus finanzas', '#FFC6FF'],
     ['#/aprende', 'book', 'Manual de uso', 'Guía fácil y tour', '#BDB2FF'],
@@ -31,8 +38,11 @@ export function More() {
 }
 
 export function Settings() {
-  const { profile, region, actions } = useData();
+  const d = useData();
+  const { profile, region, actions } = d;
   const [hide, setHide] = usePref('hide', false);
+  const [theme, setTheme] = usePref('theme', 'dark');
+  useEffect(() => { applyTheme(theme); }, [theme]);
   const [name, setName] = useState(profile.display_name || '');
   const [pwd, setPwd] = useState(false);
   const install = useInstall();
@@ -85,6 +95,15 @@ export function Settings() {
       <//>`}
     </section>
 
+    <${PushSettings} region=${region} />
+
+    <${SectionTitle}>Apariencia<//>
+    <section class="card pad stack">
+      <${Field} label="Tema" hint="Automático sigue el modo claro u oscuro de tu teléfono.">
+        <${Segmented} value=${theme} onChange=${setTheme} options=${[['dark', 'Oscuro'], ['light', 'Claro'], ['auto', 'Automático']]} />
+      <//>
+    </section>
+
     <${SectionTitle}>Copiloto IA<//>
     <section class="card pad stack">
       <p class="hint">Conecta tu propia clave de Gemini, Groq o Grok (xAI) para chatear con tus números. <a class="link" href="#/copiloto">Abrir el copiloto</a></p>
@@ -94,8 +113,15 @@ export function Settings() {
     <${SectionTitle}>Privacidad y seguridad<//>
     <section class="card list">
       <${Switch} checked=${hide} onChange=${setHide} label="Ocultar saldos" sub="Útil si usas la app frente a otras personas" />
+      <${LockSettings} uid=${profile.id} label=${profile.username ? '@' + profile.username : profile.display_name} />
       ${!isDemo && html`<button class="menu-row" onClick=${() => setPwd(true)}><${Icon} name="lock" /><span>Cambiar contraseña</span><${Icon} name="right" class="muted" /></button>`}
       <div class="menu-row static"><${Icon} name="info" /><span><b>Tus datos son solo tuyos.</b><small>Cada registro lleva tu identificador y la base de datos (Row Level Security) bloquea cualquier consulta de otra persona, incluso de la familia.</small></span></div>
+    </section>
+
+    <${SectionTitle}>Respaldo<//>
+    <section class="card list">
+      <${BackupButton} d=${d} />
+      <div class="menu-row static"><${Icon} name="info" /><span><b>Guárdalo en una carpeta segura.</b><small>El Excel trae todas tus cuentas, movimientos, presupuestos y pagos fijos. Cada 7 días la app te recuerda descargar uno nuevo.</small></span></div>
     </section>
 
     <${SectionTitle}>App<//>
@@ -108,6 +134,48 @@ export function Settings() {
     <p class="hint center">La Fructosa ${APP_VERSION} ${isDemo ? '· modo demo (datos en este navegador)' : ''}<br/>Hecha con cariño para la familia 🍊</p>
     ${pwd && html`<${PasswordSheet} onClose=${() => setPwd(false)} />`}
   </div>`;
+}
+
+// Avisos al teléfono. Solo aparece cuando el servidor tiene los avisos activados.
+function PushSettings({ region }) {
+  const support = pushSupport();
+  const [ready, setReady] = useState(false);   // el servidor tiene clave VAPID
+  const [sub, setSub] = useState(null);
+  const [prefs, setPrefs] = useState(DEFAULT_PREFS);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (support === 'off') return;
+    publicKey().then((k) => setReady(Boolean(k)));
+    currentSubscription().then(async (s) => {
+      setSub(s);
+      if (s) { const row = await api.push.get(s.endpoint).catch(() => null); if (row?.prefs) setPrefs({ ...DEFAULT_PREFS, ...row.prefs }); }
+    }).catch(() => {});
+  }, []);
+  if (support === 'off' || !ready) return null;
+
+  const turnOn = async () => {
+    setBusy(true);
+    try { setSub(await enablePush(prefs)); toast('Avisos activados en este teléfono'); } catch (e) { toast(errorText(e), { tone: 'bad' }); }
+    setBusy(false);
+  };
+  const turnOff = async () => { setBusy(true); await disablePush(); setSub(null); setBusy(false); toast('Avisos desactivados'); };
+  const setPref = async (k, v) => {
+    const next = { ...prefs, [k]: v };
+    setPrefs(next);
+    try { await updatePushPrefs(next); } catch (e) { toast(errorText(e), { tone: 'bad' }); }
+  };
+
+  return html`<${SectionTitle}>Avisos<//>
+    <section class="card list">
+      ${support === 'install' ? html`<div class="menu-row static"><${Icon} name="bell" /><span><b>Instala la app para recibir avisos</b><small>En iPhone: Safari → Compartir → "Agregar a inicio", ábrela desde ahí y vuelve a esta pantalla.</small></span></div>`
+      : support === 'unsupported' ? html`<div class="menu-row static"><${Icon} name="bell" /><span><b>Este navegador no admite avisos</b><small>Prueba con Chrome o con la app instalada.</small></span></div>`
+      : !sub ? html`<button class="menu-row" disabled=${busy} onClick=${turnOn}><${Icon} name="bell" /><span>Activar avisos en este teléfono<small>Pagos fijos que vencen, préstamos y más. Llegan a las 8:30 a. m.</small></span><${Icon} name="right" class="muted" /></button>`
+      : html`
+        <${Switch} checked=${prefs.bills} onChange=${(v) => setPref('bills', v)} label="Pagos fijos por vencer" sub="El día antes y el mismo día, si aún no los pagaste" />
+        <${Switch} checked=${prefs.loans} onChange=${(v) => setPref('loans', v)} label="Préstamos que vencen" sub="El día que vence lo que te deben o debes" />
+        ${region.rates && html`<${Switch} checked=${prefs.rates} onChange=${(v) => setPref('rates', v)} label="Tasas del día" sub="BCV, Paralelo, USDT y la brecha cada mañana" />`}
+        <button class="menu-row danger-text" disabled=${busy} onClick=${turnOff}><${Icon} name="bell" /><span>Desactivar avisos en este teléfono</span></button>`}
+    </section>`;
 }
 
 export function PasswordSheet({ onClose, title = 'Cambiar contraseña' }) {
