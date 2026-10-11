@@ -7,7 +7,7 @@ import { go } from './common.js';
 import { categoryMeta, fmt, fmtRate } from '../money.js';
 import {
   PROVIDERS, SHARED_AI, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, resolveAi, systemPrompt, withGuard, parseReply,
-  runCalc, resolveTx, streamChat, testConnection, normalizeKey, keyLooksOdd,
+  runCalc, resolveTx, streamChat, testConnection, AI_INTRO, userFirstName, normalizeKey, keyLooksOdd,
   getSpeechRecognition, VoiceSession, speakReply, stopSpeech, cleanSpeechText,
 } from '../ai.js';
 
@@ -225,8 +225,11 @@ export function Copilot() {
     stopSpeech();
     setSpeakingId(null);
 
+    // Primera respuesta de la conversación: la app pone el saludo con el nombre de la persona.
+    const first = !msgs.some((m) => m.role === 'assistant' && m.text && !m.error);
+    const greeting = first ? AI_INTRO(userFirstName(profile)) + '\n\n' : '';
     const user = { id: ++uid, role: 'user', text: q, audio, isVoice };
-    const bot = { id: ++uid, role: 'assistant', text: '', isVoice };
+    const bot = { id: ++uid, role: 'assistant', text: greeting, isVoice };
     const history = [...msgs, user].filter((m) => (m.text || m.audio) && !m.error).slice(-14).map((m) => ({ role: m.role, text: m.text, audio: m.audio }));
     while (history.length && history[0].role !== 'user') history.shift();
 
@@ -239,8 +242,8 @@ export function Copilot() {
     let fullReply = '';
 
     try {
-      fullReply = await streamChat({
-        config, system: systemPrompt(d), history: withGuard(history), signal: c.signal,
+      fullReply = greeting + await streamChat({
+        config, system: systemPrompt(d, { first }), history: withGuard(history), signal: c.signal,
         onDelta: (t) => {
           fullReply += t;
           setMsgs((cur) => cur.map((m) => (m.id === bot.id ? { ...m, text: m.text + t } : m)));
