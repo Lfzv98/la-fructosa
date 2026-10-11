@@ -68,6 +68,8 @@ const real = {
   auth: {
     async session() { const c = await sb(); return (await c.auth.getSession()).data.session; },
     async onChange(cb) { const c = await sb(); return c.auth.onAuthStateChange((e, s) => cb(s, e)).data.subscription; },
+    // JWT de la sesión actual (el copiloto lo usa para identificarse ante el proxy de IA).
+    async accessToken() { const c = await sb(); return (await c.auth.getSession()).data.session?.access_token || null; },
     // Acepta usuario o correo. El usuario se traduce a su correo con una función de la BD.
     async signIn(login, password) {
       const c = await sb();
@@ -314,6 +316,7 @@ const demo = {
   auth: {
     async session() { return { user: { id: 'demo', email: 'demo@lafructosa.app' } }; },
     async onChange() { return { unsubscribe() {} }; },
+    async accessToken() { return null; }, // el demo no tiene sesión de Supabase
     async signIn() {}, async signUp() { return { needsConfirm: false }; }, async usernameAvailable(u) { return u !== 'luis'; }, async reset() {}, async updatePassword() {},
     async signOut() { localStorage.removeItem(DEMO_KEY); demoState = null; location.href = location.pathname + '?demo'; },
   },

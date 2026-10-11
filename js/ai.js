@@ -3,11 +3,24 @@
 // validación de lo que propone el modelo.
 //
 // Principios:
-//  · La clave de API vive SOLO en este dispositivo (localStorage). No se sube a Supabase.
+//  · El chat funciona sin configurar nada. Fuente de la clave, por orden:
+//      1. Clave personal (Ajustes, solo en este dispositivo, localStorage).
+//      2. Proxy seguro (AI_PROXY_URL en config.js): la clave vive en el servidor y la app
+//         se identifica con la sesión de Supabase. Es la opción recomendada.
+//      3. Clave global (AI_DEFAULT_KEY en config.js). ⚠ config.js es PÚBLICO: esa clave
+//         la puede leer cualquiera que abra la app. Úsala solo si aceptas ese riesgo.
 //  · Al proveedor solo viaja lo que hay en pantalla: saldos, tasas y últimos movimientos.
 //  · El modelo nunca escribe en la base de datos: propone, y la persona confirma con un botón.
 //  · Las conversiones las calcula la app con las tasas activas, no el modelo.
 import { CATEGORIES, CURRENCIES, RATE_LABELS, convert, todayISO, monthKey } from './money.js';
+
+// config.js tiene tus claves y puede faltar: sin él no hay IA incluida (solo clave personal).
+let APP = {};
+try { APP = await import('./config.js'); } catch { /* sin config */ }
+const SHARED_PROXY = String(APP.AI_PROXY_URL || '').trim();
+const SHARED_KEY = String(APP.AI_DEFAULT_KEY || '').trim();
+// ¿Hay IA incluida en la app (sin que el usuario ponga nada)?
+export const SHARED_AI = Boolean(SHARED_PROXY || SHARED_KEY);
 
 // ---------------------------------------------------------------------
 // Configuración (por dispositivo)
@@ -30,7 +43,7 @@ export function loadAiConfig() {
   try { return { ...DEFAULT_CFG, ...JSON.parse(localStorage.getItem(CFG_KEY) || '{}') }; } catch { return { ...DEFAULT_CFG }; }
 }
 export function saveAiConfig(cfg) {
-  const clean = { ...DEFAULT_CFG, ...cfg, apiKey: String(cfg.apiKey || '').trim(), model: String(cfg.model || '').trim(), endpoint: String(cfg.endpoint || '').trim() };
+  const clean = { ...DEFAULT_CFG, ...cfg, consent: true, apiKey: String(cfg.apiKey || '').trim(), model: String(cfg.model || '').trim(), endpoint: String(cfg.endpoint || '').trim() };
   localStorage.setItem(CFG_KEY, JSON.stringify(clean));
   return clean;
 }
@@ -45,10 +58,27 @@ export function endpointError(url) {
   return '';
 }
 
+// ¿Esta configuración personal es usable por sí sola?
 export function aiReady(cfg) {
-  if (!cfg.apiKey || !cfg.consent) return false;
+  if (!cfg.apiKey) return false;
   if (cfg.provider === 'custom') return Boolean(cfg.model) && !endpointError(cfg.endpoint);
   return true;
+}
+
+// Elige la fuente de clave en el momento de preguntar. getToken() devuelve el JWT de la sesión.
+// → { config, source: 'personal' | 'proxy' | 'default' | null }
+export async function resolveAi(getToken) {
+  const personal = loadAiConfig();
+  if (aiReady(personal)) return { config: personal, source: 'personal' };
+  if (SHARED_PROXY) {
+    const token = await Promise.resolve(getToken?.()).catch(() => null);
+    if (token) return { config: { ...DEFAULT_CFG, provider: 'proxy', endpoint: SHARED_PROXY, apiKey: token, shared: true }, source: 'proxy' };
+  }
+  if (SHARED_KEY) {
+    const provider = PROVIDERS[APP.AI_DEFAULT_PROVIDER] ? APP.AI_DEFAULT_PROVIDER : 'gemini';
+    return { config: { ...DEFAULT_CFG, provider, apiKey: SHARED_KEY, model: String(APP.AI_DEFAULT_MODEL || ''), endpoint: String(APP.AI_DEFAULT_ENDPOINT || ''), shared: true }, source: 'default' };
+  }
+  return { config: personal, source: null };
 }
 
 // ---------------------------------------------------------------------
@@ -259,8 +289,14 @@ export function resolveTx(spec, d) {
 // ---------------------------------------------------------------------
 export class AiError extends Error {}
 
-function httpMessage(status, body) {
+function httpMessage(status, body, shared = false) {
   const detail = (() => { try { return JSON.parse(body)?.error?.message || ''; } catch { return ''; } })();
+  if (shared) {
+    // IA incluida: el usuario no tiene ninguna clave que revisar; mensajes en su lenguaje.
+    if (status === 429) return 'Has hecho muchas preguntas seguidas. Espera unos minutos e inténtalo de nuevo.';
+    if (status === 401) return 'Tu sesión expiró. Vuelve a entrar para usar el copiloto.';
+    return 'El copiloto no está disponible en este momento. Inténtalo en unos minutos.';
+  }
   if (status === 401 || status === 403 || (status === 400 && /api key|apikey|credential/i.test(detail))) return 'La clave de API no es válida o no tiene permiso. Revísala en Ajustes → Copiloto IA.';
   if (status === 404) return 'No se encontró el modelo o la dirección del servicio. Revisa el nombre del modelo en Ajustes.';
   if (status === 429) return 'Se alcanzó el límite de uso del proveedor. Espera un momento e inténtalo de nuevo.';
@@ -271,19 +307,27 @@ function httpMessage(status, body) {
 // history: [{ role: 'user'|'assistant', text }]. Devuelve el texto completo.
 export async function streamChat({ config, system, history, signal, onDelta }) {
   const provider = config.provider;
-  const model = config.model.trim() || PROVIDERS[provider].model;
+  const model = (config.model || '').trim() || PROVIDERS[provider]?.model || '';
   const key = config.apiKey.trim();
+  const shared = Boolean(config.shared);
   let url; let headers; let body;
 
-  if (provider === 'gemini') {
+  if (provider === 'proxy') {
+    // Servidor propio (Edge Function): la clave del proveedor nunca sale de él. El modelo lo fija el servidor.
+    const bad = endpointError(config.endpoint);
+    if (bad) throw new AiError('El copiloto no está disponible en este momento.');
+    url = config.endpoint;
+    headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, ...(APP.SUPABASE_ANON_KEY ? { apikey: APP.SUPABASE_ANON_KEY } : {}) };
+    body = { stream: true, messages: [{ role: 'system', content: system }, ...history.map((m) => ({ role: m.role, content: m.text }))] };
+  } else if (provider === 'gemini') {
     url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
     headers = { 'Content-Type': 'application/json', 'x-goog-api-key': key };
     body = { systemInstruction: { parts: [{ text: system }] }, generationConfig: { temperature: 0.3 },
       contents: history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })) };
   } else {
-    const base = (config.endpoint.trim() || PROVIDERS[provider].endpoint || '').replace(/\/+$/, '');
+    const base = ((config.endpoint || '').trim() || PROVIDERS[provider].endpoint || '').replace(/\/+$/, '');
     const bad = endpointError(base);
-    if (bad) throw new AiError(bad);
+    if (bad) throw new AiError(shared ? 'El copiloto no está disponible en este momento.' : bad);
     url = base + '/chat/completions';
     headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` };
     body = { model, stream: true, temperature: 0.3, messages: [{ role: 'system', content: system }, ...history.map((m) => ({ role: m.role, content: m.text }))] };
@@ -294,9 +338,11 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
     res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
   } catch (e) {
     if (e?.name === 'AbortError') throw e;
-    throw new AiError('No se pudo conectar con el servicio de IA. Revisa tu internet; si usas una dirección propia, puede que bloquee el navegador (CORS).');
+    throw new AiError(shared
+      ? 'No se pudo conectar. Revisa tu internet e inténtalo de nuevo.'
+      : 'No se pudo conectar con el servicio de IA. Revisa tu internet; si usas una dirección propia, puede que bloquee el navegador (CORS).');
   }
-  if (!res.ok) throw new AiError(httpMessage(res.status, await res.text().catch(() => '')));
+  if (!res.ok) throw new AiError(httpMessage(res.status, await res.text().catch(() => ''), shared));
 
   const reader = res.body.getReader();
   const dec = new TextDecoder();

@@ -1,11 +1,12 @@
 // Copiloto IA: chat con respuestas en streaming + configuración del proveedor.
 import { useEffect, useRef, useState } from 'react';
-import { html, Icon, Sheet, Field, Switch, toast, errorText, vibrate } from '../ui.js';
+import { html, Icon, Sheet, Field, toast, errorText, vibrate } from '../ui.js';
+import { api } from '../api.js';
 import { useData } from '../store.js';
 import { go } from './common.js';
 import { categoryMeta, fmt, fmtRate } from '../money.js';
 import {
-  PROVIDERS, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, endpointError, systemPrompt, withGuard, parseReply,
+  PROVIDERS, SHARED_AI, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, resolveAi, endpointError, systemPrompt, withGuard, parseReply,
   runCalc, resolveTx, streamChat, testConnection,
 } from '../ai.js';
 
@@ -22,12 +23,13 @@ export function AiSettings({ onSaved }) {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState({});
+  const [armed, setArmed] = useState(false); // el campo de clave no acepta autocompletado hasta que lo tocas
   const p = PROVIDERS[cfg.provider];
   const set = (k, v) => { setCfg((c) => ({ ...c, [k]: v })); setErr({}); };
 
   function validate() {
     const e = {};
-    if (!cfg.apiKey.trim()) e.apiKey = 'Pega tu clave de API.';
+    if (!cfg.apiKey.trim()) e.apiKey = SHARED_AI ? 'Pega tu clave, o cierra esta ventana para usar la IA incluida.' : 'Pega tu clave de API.';
     if (cfg.provider === 'custom') {
       const be = endpointError(cfg.endpoint.trim());
       if (be) e.endpoint = be;
@@ -38,10 +40,9 @@ export function AiSettings({ onSaved }) {
   }
   function save() {
     if (!validate()) return;
-    if (!cfg.consent) { setErr({ consent: 'Acepta el aviso de privacidad para activar el copiloto.' }); return; }
     const saved = saveAiConfig(cfg);
     setCfg(saved);
-    toast('Copiloto IA configurado');
+    toast('Usarás tu propia clave');
     onSaved?.(saved);
   }
   async function test() {
@@ -58,6 +59,7 @@ export function AiSettings({ onSaved }) {
   }
 
   return html`<div class="stack">
+    ${SHARED_AI && html`<div class="callout good">✓ El copiloto ya funciona sin configurar nada. Esto es <b>opcional</b>: úsalo solo si prefieres tu propia clave o elegir otro modelo.</div>`}
     <${Field} label="Proveedor">
       <select class="input select block" value=${cfg.provider} onChange=${(e) => { setCfg((c) => ({ ...c, provider: e.target.value, model: '' })); setErr({}); }}>
         ${Object.entries(PROVIDERS).map(([k, v]) => html`<option key=${k} value=${k}>${v.label}</option>`)}
@@ -65,7 +67,8 @@ export function AiSettings({ onSaved }) {
     <//>
     <${Field} label="Clave de API" error=${err.apiKey} hint=${p.hint}>
       <div class="input-affix right">
-        <input class="input" type=${show ? 'text' : 'password'} autocomplete="off" autocapitalize="none" spellcheck="false"
+        <input class="input" type=${show ? 'text' : 'password'} name="fructosa-ai-key" autocomplete="off" autocapitalize="none" spellcheck="false"
+          data-lpignore="true" data-1p-ignore="true" data-form-type="other" readOnly=${!armed} onFocus=${() => setArmed(true)}
           placeholder="Pega aquí tu clave" value=${cfg.apiKey} onInput=${(e) => set('apiKey', e.target.value)} />
         <button type="button" class="icon-btn sm" onClick=${() => setShow(!show)} aria-label=${show ? 'Ocultar clave' : 'Mostrar clave'}><${Icon} name=${show ? 'eyeOff' : 'eye'} size=${18} /></button>
       </div>
@@ -76,17 +79,13 @@ export function AiSettings({ onSaved }) {
     ${cfg.provider === 'custom' && html`<${Field} label="URL base del servicio" error=${err.endpoint} hint="Ej. https://api.openai.com/v1 (se llama a /chat/completions)">
       <input class="input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="https://…/v1" value=${cfg.endpoint} onInput=${(e) => set('endpoint', e.target.value)} />
     <//>`}
-    <div class="callout ai-consent">
-      <${Switch} checked=${cfg.consent} onChange=${(v) => set('consent', v)} label="Entiendo y acepto"
-        sub=${`Tus preguntas y un resumen de tus cuentas, tasas y últimos movimientos se envían a ${p.name} para responder. La clave se guarda solo en este dispositivo.`} />
-      ${err.consent && html`<span class="field-error">${err.consent}</span>`}
-    </div>
+    <p class="hint ai-note">🔒 Al preguntar, un resumen de tus cuentas, tasas y últimos movimientos se envía a ${p.name} para responder. La clave se guarda solo en este dispositivo. No guardamos la conversación.</p>
     ${err.form && html`<p class="form-error">${err.form}</p>`}
     <div class="row-btns">
       <button class="btn primary grow" onClick=${save}>Guardar</button>
       <button class="btn soft" disabled=${busy === 'test'} onClick=${test}>${busy === 'test' ? 'Probando…' : 'Probar'}</button>
     </div>
-    ${cfg.apiKey && html`<button class="btn ghost block" onClick=${forget}>Borrar clave de este dispositivo</button>`}
+    ${cfg.apiKey && html`<button class="btn ghost block" onClick=${forget}>${SHARED_AI ? 'Volver a la IA incluida' : 'Borrar clave de este dispositivo'}</button>`}
   </div>`;
 }
 
@@ -170,7 +169,7 @@ export function Copilot() {
   const ctl = useRef(null);
   const log = useRef(null);
   const box = useRef(null);
-  const ready = aiReady(cfg);
+  const ready = aiReady(cfg) || SHARED_AI; // con IA incluida el chat funciona sin configurar nada
 
   useEffect(() => { const el = log.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs]);
   useEffect(() => () => ctl.current?.abort(), []);
@@ -187,7 +186,9 @@ export function Copilot() {
   async function send(text) {
     const q = String(text ?? input).trim();
     if (!q || busy) return;
-    if (!ready) { setSetup(true); return; }
+    // Fuente de la clave: personal → proxy seguro → clave global. Sin ninguna, se ofrece conectar la propia.
+    const { config, source } = await resolveAi(() => api.auth.accessToken());
+    if (!source) { setSetup(true); return; }
     const user = { id: ++uid, role: 'user', text: q };
     const bot = { id: ++uid, role: 'assistant', text: '' };
     const history = [...msgs, user].filter((m) => m.text && !m.error).slice(-14).map((m) => ({ role: m.role, text: m.text }));
@@ -199,7 +200,7 @@ export function Copilot() {
     ctl.current = c;
     try {
       await streamChat({
-        config: cfg, system: systemPrompt(d), history: withGuard(history), signal: c.signal,
+        config, system: systemPrompt(d), history: withGuard(history), signal: c.signal,
         onDelta: (t) => setMsgs((cur) => cur.map((m) => (m.id === bot.id ? { ...m, text: m.text + t } : m))),
       });
     } catch (e) {
@@ -237,6 +238,7 @@ export function Copilot() {
         <h2>Hola${profile.display_name ? ', ' + profile.display_name : ''} 👋</h2>
         <p>Pregúntame por tus números, pídeme conversiones con las tasas de hoy o dime un gasto para registrarlo.</p>
         ${!ready && html`<button class="btn primary" onClick=${() => setSetup(true)}><${Icon} name="lock" size=${16} /> Conectar mi IA</button>`}
+        <p class="chat-note">🔒 Para responderte se envía a la IA un resumen de tus cuentas, tasas y últimos movimientos. No se guarda la conversación.</p>
         <div class="chat-sugg">${suggestions.map((s) => html`<button key=${s} class="chip" onClick=${() => send(s)}>${s}</button>`)}</div>
       </div>`}
       ${msgs.map((m) => html`<${Bubble} key=${m.id} m=${m} d=${d} onBlock=${onBlock} />`)}
@@ -251,7 +253,7 @@ export function Copilot() {
         : html`<button type="submit" class="icon-btn send" disabled=${!input.trim()} aria-label="Enviar"><${Icon} name="send" size=${19} /></button>`}
     </form>
 
-    ${setup && html`<${Sheet} title="Copiloto IA" onClose=${() => setSetup(false)}>
+    ${setup && html`<${Sheet} title=${SHARED_AI ? 'Copiloto IA · opcional' : 'Copiloto IA'} onClose=${() => setSetup(false)}>
       ${(close) => html`<${AiSettings} onSaved=${(c) => { setCfg(c); if (aiReady(c)) close(); }} />`}
     <//>`}
   </div>`;
