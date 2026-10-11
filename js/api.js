@@ -115,6 +115,27 @@ const real = {
       } catch { return null; }
     },
     async onChange(cb) { const c = await sb(); return c.auth.onAuthStateChange((e, s) => cb(s, e)).data.subscription; },
+    // Términos y condiciones: la versión aceptada vive en los metadatos de la cuenta (sirve en cualquier teléfono).
+    async termsVersion() {
+      const c = await sb();
+      return Number((await c.auth.getSession()).data.session?.user?.user_metadata?.terms_v) || 0;
+    },
+    async acceptTerms(v) {
+      const c = await sb();
+      const { error } = await c.auth.updateUser({ data: { terms_v: v, terms_at: new Date().toISOString() } });
+      if (error) throw error;
+    },
+    // Borra la cuenta y TODOS sus datos (función delete_my_account, migración 009). No se puede deshacer.
+    async deleteAccount() {
+      const c = await sb();
+      const uid = (await c.auth.getSession()).data.session?.user?.id;
+      const { error } = await c.rpc('delete_my_account');
+      if (error) throw error;
+      await import('./push.js').then((m) => m.disablePush()).catch(() => {});
+      await c.auth.signOut({ scope: 'local' }).catch(() => {});
+      try { localStorage.removeItem('fructosa-auth'); } catch { /* nada */ }
+      if (uid) await import('./offline.js').then((m) => Promise.all([m.snapshot.clear(uid), m.queue.write(uid, [])])).catch(() => {});
+    },
     // JWT de la sesión actual (el copiloto lo usa para identificarse ante el proxy de IA).
     async accessToken() { const c = await sb(); return (await c.auth.getSession()).data.session?.access_token || null; },
     // Acepta usuario o correo. Con usuario, la Edge Function "login" valida todo en el servidor
@@ -289,6 +310,18 @@ const real = {
     unwrap(await c.from(table).delete().eq('id', id));
   },
 
+  // Si al abrir la app no hay tasas de hoy en la base de datos, se le pide al servidor que las busque
+  // (función update-rates). Como mucho una vez cada 2 horas por teléfono; si falla, no pasa nada.
+  async healRates() {
+    const k = 'fructosa-rates-heal';
+    try { if (Date.now() - (Number(localStorage.getItem(k)) || 0) < 2 * 3600e3) return null; localStorage.setItem(k, String(Date.now())); } catch { return null; }
+    try {
+      const c = await sb();
+      const { data, error } = await c.functions.invoke('update-rates', { body: {} });
+      return error ? null : data;
+    } catch { return null; }
+  },
+
   // Avisos push (migración 008): una fila por persona y teléfono. RLS: solo las propias.
   push: {
     async save(row) {
@@ -308,6 +341,10 @@ const real = {
     async remove(endpoint) {
       const c = await sb();
       unwrap(await c.from('push_subscriptions').delete().eq('endpoint', endpoint));
+    },
+    // Fecha del último respaldo, para que el aviso semanal sepa si toca recordarlo (columna de la migración 009).
+    async markBackup(day) {
+      try { const c = await sb(); await c.from('push_subscriptions').update({ last_backup_on: day }).not('id', 'is', null); } catch { /* sin avisos activados */ }
     },
   },
 
@@ -460,7 +497,11 @@ const demo = {
     async accessToken() { return null; }, // el demo no tiene sesión de Supabase
     async signIn() {}, async signUp() { return { needsConfirm: false }; }, async usernameAvailable(u) { return u !== 'luis'; }, async reset() {}, async updatePassword() {},
     async signOut() { localStorage.removeItem(DEMO_KEY); demoState = null; location.href = location.pathname + '?demo'; },
+    async termsVersion() { return Number(localStorage.getItem('fructosa-demo-terms')) || 0; },
+    async acceptTerms(v) { localStorage.setItem('fructosa-demo-terms', String(v)); },
+    async deleteAccount() { localStorage.removeItem(DEMO_KEY); localStorage.removeItem('fructosa-demo-terms'); demoState = null; },
   },
+  async healRates() { return null; },
   async loadAll() {
     const s = state();
     const { rates, meta } = ratesFromRows(s.rateHistory);

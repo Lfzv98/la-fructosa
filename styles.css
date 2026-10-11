@@ -769,3 +769,32 @@ b.big { font-size: 20px; }
 :root[data-theme="light"] .banner.offline { background: #F4CF5D; }
 .loan-sum .pos, .loan-row .pos { color: var(--inc); }
 .loan-sum .neg, .loan-row .neg { color: var(--exp); }
+
+/* Confianza y términos (antes del tour) */
+.terms-gate { z-index: 70; padding-left: 20px; padding-right: 20px; overflow: hidden; }
+.terms-scroll { flex: 1; overflow-y: auto; max-width: 460px; width: 100%; margin: 0 auto; padding-bottom: 12px; -webkit-overflow-scrolling: touch; }
+.terms-head { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 8px 0 18px; }
+.terms-head h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.03em; }
+.terms-head p { color: var(--muted); font-size: 15px; }
+.terms-badge { width: 72px; height: 72px; border-radius: 24px; display: grid; place-items: center; color: var(--ink);
+  background: linear-gradient(145deg, var(--mint), var(--blue)); margin-bottom: 4px; }
+.trust-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.trust-list li { display: flex; gap: 12px; align-items: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+.trust-list.card li { background: none; border: 0; padding: 6px 0; }
+.trust-list b { display: block; font-size: 14.5px; }
+.trust-list small { display: block; color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 2px; }
+.trust-ico { flex: none; width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--surface-2); color: var(--blue); }
+.terms-more { margin-top: 12px; }
+.terms-text p { font-size: 13.5px; line-height: 1.5; }
+.terms-foot { gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.terms-check { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; text-align: left; cursor: pointer; }
+.terms-check input { width: 22px; height: 22px; flex: none; margin-top: 1px; accent-color: var(--mint); }
+.terms-foot .btn.ghost { width: auto; }
+
+/* Banner de respaldo en las demás pantallas */
+.backup-banner { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; padding: 8px 8px 8px 12px; border-radius: 14px;
+  background: var(--surface-2); border: 1px solid var(--line-2); font-size: 13.5px; color: var(--text); }
+.backup-banner > svg { color: var(--peach); flex: none; }
+.backup-banner .icon-btn { width: 32px; height: 32px; background: transparent; border: 0; }
+:root[data-theme="light"] .trust-ico { background: #EEF3FF; color: #3E63B8; }
+:root[data-theme="light"] .backup-banner { background: #FFF6E8; border-color: #F3D9B1; }

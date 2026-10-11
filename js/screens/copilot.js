@@ -527,7 +527,7 @@ export function Copilot() {
       ${!msgs.length && html`<div class="chat-empty">
         <div class="chat-spark"><${Icon} name="sparkle" size=${30} /></div>
         <h2>Hola${profile.display_name ? ', ' + profile.display_name : ''} 👋</h2>
-        <p>Soy Fructosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento. Con 📷 leo tus capturas de Pago Móvil y recibos.</p>
+        <p>Soy Fructosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento. Con 📷 leo tus capturas de pagos de cualquier banco o app (Pago Móvil, Zelle, Binance, PayPal…) y tus recibos.</p>
         ${!ready && html`<button class="btn primary" onClick=${() => setSetup(true)}><${Icon} name="lock" size=${16} /> Conectar mi IA</button>`}
         <p class="chat-note">🔒 Para responderte se analiza un resumen de tus cuentas, tasas y últimos movimientos. Tu conversación se guarda en tu cuenta y solo tú la ves.</p>
         <div class="chat-sugg">${suggestions.map((s) => html`<button key=${s} class="chip" onClick=${() => send(s)}>${s}</button>`)}</div>
@@ -547,7 +547,7 @@ export function Copilot() {
         try { setImage(await prepareImage(f)); box.current?.focus(); } catch (err) { toast(errorText(err), { tone: 'bad' }); }
       }} />
       <button type="button" class="icon-btn mic" onClick=${() => fileRef.current?.click()} disabled=${busy}
-        aria-label="Adjuntar captura de Pago Móvil o recibo" title="Leer una captura de Pago Móvil o un recibo"><${Icon} name="camera" size=${19} /></button>
+        aria-label="Adjuntar captura de un pago o un recibo" title="Leer la captura de un pago (cualquier banco o app) o un recibo"><${Icon} name="camera" size=${19} /></button>
       <textarea ref=${box} rows="1" class="input"
         placeholder=${listening ? "Escuchando tu voz… habla ahora" : "Escribe a Fructosa…"}
         value=${input} maxLength="600"

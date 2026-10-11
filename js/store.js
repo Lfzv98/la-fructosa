@@ -155,7 +155,10 @@ export function DataProvider({ uid, children }) {
     if (!data || isDemo || (data.profile.region || 'VE') !== 'VE') return;
     const today = todayISO();
     const stale = ['BCV_USD', 'PARALELO', 'USDT'].some((k) => !data.rateMeta[k] || data.rateMeta[k].rate_date < today || !data.rates[k]);
-    if (stale) fetchLiveRates().then(setLive).catch(() => {});
+    if (stale) {
+      fetchLiveRates().then(setLive).catch(() => {});
+      if (navigator.onLine) api.healRates(); // que el servidor guarde las de hoy en el historial
+    }
   }, [data]);
 
   const derived = useMemo(() => {

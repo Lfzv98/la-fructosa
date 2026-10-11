@@ -7,7 +7,7 @@ let config = {};
 try { config = await import('./config.js'); } catch { /* sin config */ }
 const FN = () => String(config.SUPABASE_URL || '').replace(/\/$/, '') + '/functions/v1/send-reminders';
 
-export const DEFAULT_PREFS = { bills: true, loans: true, rates: false };
+export const DEFAULT_PREFS = { bills: true, loans: true, rates: false, backup: true };
 
 export function pushSupport() {
   if (isDemo || !config.SUPABASE_URL) return 'off';
@@ -44,6 +44,9 @@ export async function enablePush(prefs = DEFAULT_PREFS) {
   if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToBytes(key) });
   const j = sub.toJSON();
   await api.push.save({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth, prefs });
+  const uid = (await api.auth.session())?.user?.id;
+  const last = (() => { try { return localStorage.getItem('fructosa-last-backup-' + uid); } catch { return null; } })();
+  if (last) api.push.markBackup(last);
   return sub;
 }
 

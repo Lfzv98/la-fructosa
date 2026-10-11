@@ -32,7 +32,7 @@ const MANUAL = [
     body: [
       'Mira tus dólares y bolívares al mismo tiempo, con el precio del día: el dólar oficial (BCV), el del mercado (Paralelo) y el USDT.',
       'La "brecha" es solo cuánto más cuesta el dólar en la calle que en el banco. Si es grande, conviene fijarse bien antes de cambiar o pagar en bolívares.',
-      'En "Tasas" tocas el botón de actualizar y se refresca el precio sin sacarte de tu sesión. También tienes una calculadora para convertir rápido.',
+      'Las tasas se actualizan solas varias veces al día. En "Tasas" también puedes tocar actualizar, y si pasan 2 días sin tasas nuevas la app te avisa. Tienes además una calculadora para convertir rápido.',
     ],
   },
   {
@@ -43,6 +43,69 @@ const MANUAL = [
       'Si te pagaron o pagaste en otra moneda, la app hace la cuenta por ti.',
       'Si te equivocas, toca el movimiento en la lista y lo corriges o lo borras.',
     ],
+  },
+  {
+    emoji: '📷',
+    title: 'Registra con una captura de cualquier pago',
+    body: [
+      'En el Copiloto toca la cámara 📷 y elige la captura o la foto del comprobante. Sirve de cualquier banco o app: Pago Móvil, transferencias de Banesco, Mercantil, Provincial, Venezuela y los demás bancos, Zelle, Binance, PayPal, Zinli, Wally, Venmo, Cash App, Bizum, una factura o un ticket.',
+      'Fructosa lee el monto, la moneda, la fecha, si fue un pago o un cobro y la comisión si la hay. Te muestra el movimiento listo con la cuenta que corresponde y tú tocas "Guardar". Nada se guarda sin tu confirmación.',
+      'Si la captura es un cambio de divisa entre tus propias cuentas (por ejemplo vender USDT y recibir bolívares), te dirá que lo anotes como Transferencia con el botón +.',
+      'Por tu seguridad, Fructosa nunca repite números de cuenta, cédulas ni teléfonos que aparezcan en la imagen.',
+    ],
+  },
+  {
+    emoji: '📶',
+    title: 'Sin internet también funciona',
+    body: [
+      'Si te quedas sin señal, la app abre con lo último que cargó y puedes seguir anotando gastos e ingresos.',
+      'Arriba verás "⏳ movimientos por subir". Cuando vuelva el internet se suben solos, sin duplicarse.',
+    ],
+  },
+  {
+    emoji: '💾',
+    title: 'Tu respaldo semanal en Excel',
+    body: [
+      'En Ajustes › Respaldo descargas un Excel con todo: cuentas, movimientos, presupuestos, pagos fijos, metas, préstamos y tasas. Guárdalo en una carpeta segura, en tu computadora o en la nube.',
+      'Si pasan 7 días sin respaldo, la app te lo recuerda con una tarjeta en el inicio, un aviso arriba en las demás pantallas y, si activaste los avisos, una notificación en el teléfono.',
+    ],
+  },
+  {
+    emoji: '🏁',
+    title: 'Metas de ahorro y préstamos',
+    body: [
+      'En Más › Metas de ahorro creas una meta (un viaje, una laptop), le pones cuánto y para cuándo, y vas abonando. La app te dice cuánto apartar cada mes para llegar.',
+      'En Más › Préstamos anotas quién te debe y a quién le debes. Cuando te pagan o pagas, tocas "Me pagó" o "Pagué" y el saldo se actualiza.',
+    ],
+  },
+  {
+    emoji: '🔔',
+    title: 'Avisos en tu teléfono',
+    body: [
+      'En Ajustes › Avisos activas las notificaciones: pagos fijos que vencen hoy o mañana, préstamos que vencen, las tasas de la mañana y el recordatorio de respaldo.',
+      'En iPhone primero instala la app en tu pantalla de inicio (Safari › Compartir › Agregar a inicio).',
+    ],
+  },
+  {
+    emoji: '🔒',
+    title: 'Bloqueo con Face ID, huella o PIN',
+    body: [
+      'En Ajustes › Privacidad y seguridad activas el bloqueo. Cada vez que abras la app, o vuelvas a ella después de un minuto, te pedirá tu cara, tu huella o tu PIN.',
+      'Si olvidas el PIN, toca "Olvidé mi PIN": sales de la sesión y entras de nuevo con tu contraseña.',
+    ],
+  },
+  {
+    emoji: '🛡️',
+    title: 'Tu privacidad y tus derechos',
+    body: [
+      'Tus datos son solo tuyos: cada cuenta está protegida en el servidor y nadie más puede verla. La app no se conecta a tu banco ni te pide claves bancarias.',
+      'Puedes leer los términos cuando quieras en Ajustes › Términos y privacidad, y si un día decides irte, en Ajustes › Borrar mi cuenta eliminas tu cuenta con todos sus datos (antes te ofrece descargar tu respaldo).',
+    ],
+  },
+  {
+    emoji: '🌗',
+    title: 'Modo claro u oscuro',
+    body: ['En Ajustes › Apariencia eliges Oscuro, Claro o Automático (sigue el modo de tu teléfono).'],
   },
   {
     emoji: '💡',

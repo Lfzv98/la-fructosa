@@ -5,6 +5,7 @@ import { html, Icon, toast } from './ui.js';
 import { buildXlsx } from './xlsx.js';
 import { saveFile } from './export.js';
 import { todayISO } from './money.js';
+import { api } from './api.js';
 
 const TYPE = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
 const KIND = { cash: 'Efectivo', bank: 'Banco', digital: 'Digital', crypto: 'Cripto' };
@@ -16,6 +17,7 @@ const lastKey = (uid) => 'fructosa-last-backup-' + (uid || 'demo');
 export function lastBackup(uid) { try { return localStorage.getItem(lastKey(uid)); } catch { return null; } }
 function markBackup(uid) {
   try { localStorage.setItem(lastKey(uid), todayISO()); } catch { /* nada */ }
+  api.push?.markBackup(todayISO()); // para que el aviso semanal al teléfono sepa que ya lo hiciste
   window.dispatchEvent(new Event('fructosa-backup'));
 }
 export function daysSince(iso) {
@@ -117,7 +119,7 @@ export function BackupReminder({ d }) {
   const snoozeKey = 'fructosa-backup-snooze-' + d.profile.id;
   const [snoozed, setSnoozed] = useState(() => { try { return localStorage.getItem(snoozeKey) === todayISO(); } catch { return false; } });
   if (snoozed || !d.txs.length || daysSince(last) < BACKUP_EVERY_DAYS) return null;
-  const later = () => { try { localStorage.setItem(snoozeKey, todayISO()); } catch { /* nada */ } setSnoozed(true); };
+  const later = () => { try { localStorage.setItem(snoozeKey, todayISO()); } catch { /* nada */ } setSnoozed(true); window.dispatchEvent(new Event('fructosa-backup')); };
   return html`<section class="card pad backup-nudge">
     <div class="backup-top"><span class="backup-ico"><${Icon} name="download" size=${20} /></span>
       <div class="grow"><b>${last ? 'Toca tu respaldo semanal' : 'Haz tu primer respaldo'}</b>
@@ -127,4 +129,25 @@ export function BackupReminder({ d }) {
       <button class="btn primary sm" onClick=${() => downloadBackup(d).catch((e) => toast(String(e?.message || e), { tone: 'bad' }))}>Descargar</button>
     </div>
   </section>`;
+}
+
+// Banner fino arriba de las demás pantallas (en Inicio ya está la tarjeta grande). Comparte el "Luego".
+export function BackupBanner({ d }) {
+  const last = useLastBackup(d.profile.id);
+  const snoozeKey = 'fructosa-backup-snooze-' + d.profile.id;
+  const [snoozed, setSnoozed] = useState(() => { try { return localStorage.getItem(snoozeKey) === todayISO(); } catch { return false; } });
+  useEffect(() => {
+    const on = () => { try { setSnoozed(localStorage.getItem(snoozeKey) === todayISO()); } catch { /* nada */ } };
+    window.addEventListener('fructosa-backup', on);
+    return () => window.removeEventListener('fructosa-backup', on);
+  }, [snoozeKey]);
+  const ago = daysSince(last);
+  if (snoozed || !d.txs.length || ago < BACKUP_EVERY_DAYS) return null;
+  const later = () => { try { localStorage.setItem(snoozeKey, todayISO()); } catch { /* nada */ } setSnoozed(true); window.dispatchEvent(new Event('fructosa-backup')); };
+  return html`<div class="backup-banner" role="status">
+    <${Icon} name="download" size=${18} />
+    <span class="grow">${last ? `${ago} días sin respaldo` : 'Aún no tienes respaldo'}</span>
+    <button class="btn primary sm" onClick=${() => downloadBackup(d).catch((e) => toast(String(e?.message || e), { tone: 'bad' }))}>Descargar</button>
+    <button class="icon-btn" aria-label="Recordar mañana" onClick=${later}><${Icon} name="x" size=${16} /></button>
+  </div>`;
 }

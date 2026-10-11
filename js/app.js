@@ -20,6 +20,8 @@ import { TxForm } from './screens/txform.js';
 import { Copilot } from './screens/copilot.js';
 import { AppLock, clearLock } from './lock.js';
 import { Goals, Loans } from './screens/goals.js';
+import { TermsGate, TermsPage, useTerms } from './terms.js';
+import { BackupBanner } from './backup.js';
 
 // ---------------------------------------------------------------------
 // Rutas por hash (#/movimientos): funcionan en GitHub Pages y con "atrás".
@@ -47,7 +49,7 @@ const TABS = [
   ['analisis', 'pie', 'Análisis'],
   ['mas', 'grid', 'Más'],
 ];
-const TAB_OF = { cuentas: 'mas', cuenta: 'mas', presupuestos: 'mas', fijos: 'mas', tasas: 'mas', ajustes: 'mas', aprende: 'mas', metas: 'mas', prestamos: 'mas' };
+const TAB_OF = { cuentas: 'mas', cuenta: 'mas', presupuestos: 'mas', fijos: 'mas', tasas: 'mas', ajustes: 'mas', aprende: 'mas', metas: 'mas', prestamos: 'mas', terminos: 'mas' };
 
 function TabBar({ current, onNew }) {
   return html`<nav class="tabbar" aria-label="Navegación principal"><ul>
@@ -75,16 +77,18 @@ function Screen({ route }) {
     case 'ajustes': return html`<${Settings} />`;
     case 'aprende': return html`<${LearnPage} />`;
     case 'copiloto': return html`<${Copilot} />`;
+    case 'terminos': return html`<${TermsPage} />`;
     default: return html`<${Home} />`;
   }
 }
 
-function Shell({ recovery, clearRecovery }) {
+function Shell({ uid, recovery, clearRecovery }) {
   const d = useData();
   const route = useRoute();
   const [tx, setTx] = useState(null);
   const [onboarded] = usePref('onboarded', false);
   const [tourDone, setTourDone] = useTour();
+  const [terms, acceptTerms] = useTerms(uid);
 
   useEffect(() => {
     const on = (e) => setTx(e.detail || {});
@@ -104,17 +108,21 @@ function Shell({ recovery, clearRecovery }) {
   if (!isDemo && !d.profile.username) return html`<${CompleteProfile} />`;
 
   const hasUserData = (d.accounts && d.accounts.length > 0) || (d.txs && d.txs.length > 0);
-  const showOnboard = !onboarded && !hasUserData;
+  // Primero la pantalla de confianza y términos; después la bienvenida y el tour.
+  const showTerms = terms === false;
+  const termsOk = terms === true;
+  const showOnboard = termsOk && !onboarded && !hasUserData;
 
   return html`<div class="app">
     ${d.pending > 0 && html`<div class="banner pending" role="status">⏳ ${d.pending === 1 ? '1 movimiento por subir' : d.pending + ' movimientos por subir'}</div>`}
     ${isDemo && html`<div class="demo-badge" title="Datos de ejemplo guardados solo en este navegador">DEMO</div>`}
-    <main class="main" key=${route.key}><${Screen} route=${route} /></main>
+    <main class="main" key=${route.key}>${route.name !== 'inicio' && html`<${BackupBanner} d=${d} />`}<${Screen} route=${route} /></main>
     ${['inicio', 'analisis'].includes(route.name) && html`<a class="ai-fab" data-tour="copilot" href="#/copiloto" aria-label="Abrir Copiloto IA"><${Icon} name="sparkle" size=${20} /><span>Copiloto IA</span></a>`}
     <${TabBar} current=${route.name} onNew=${() => setTx({})} />
     ${tx && html`<${TxForm} key=${tx.tx?.id || 'new'} tx=${tx.tx} preset=${tx.preset} onClose=${() => setTx(null)} />`}
     ${showOnboard && html`<${Onboarding} />`}
-    ${(onboarded || hasUserData) && !tourDone && !showOnboard && !recovery && !tx && route.name === 'inicio' && html`<${Tour} region=${d.region} onClose=${() => setTourDone(true)} />`}
+    ${showTerms && html`<${TermsGate} onAccept=${acceptTerms} />`}
+    ${termsOk && (onboarded || hasUserData) && !tourDone && !showOnboard && !recovery && !tx && route.name === 'inicio' && html`<${Tour} region=${d.region} onClose=${() => setTourDone(true)} />`}
     ${recovery && html`<${PasswordSheet} title="Crea tu nueva contraseña" onClose=${clearRecovery} />`}
   </div>`;
 }
@@ -161,7 +169,7 @@ function App() {
     ${session === undefined ? html`<main class="center-screen"><${Spinner} /></main>`
       : session ? html`<${DataProvider} key=${session.user.id} uid=${session.user.id}>
           <${AppLock} uid=${session.user.id} onSignOut=${() => { clearLock(session.user.id); api.auth.signOut(); }}>
-            <${Shell} recovery=${recovery} clearRecovery=${() => setRecovery(false)} />
+            <${Shell} uid=${session.user.id} recovery=${recovery} clearRecovery=${() => setRecovery(false)} />
           <//>
         <//>`
       : html`<${AuthScreen} onSession=${adoptSession} />`}

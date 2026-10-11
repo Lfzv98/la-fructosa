@@ -8,12 +8,12 @@ import { exportCSV } from '../export.js';
 import { api, isDemo } from '../api.js';
 import { REGIONS, RATE_LABELS } from '../money.js';
 import { AiSettings } from './copilot.js';
-import { BackupButton } from '../backup.js';
-import { LockSettings } from '../lock.js';
+import { BackupButton, downloadBackup } from '../backup.js';
+import { LockSettings, clearLock } from '../lock.js';
 import { applyTheme } from '../theme.js';
 import { pushSupport, publicKey, currentSubscription, enablePush, disablePush, updatePushPrefs, DEFAULT_PREFS } from '../push.js';
 
-export const APP_VERSION = '3.0.0';
+export const APP_VERSION = '3.1.0';
 
 export function More() {
   const { region, txs, accById, recurring, budgets, goals, loans } = useData();
@@ -45,6 +45,7 @@ export function Settings() {
   useEffect(() => { applyTheme(theme); }, [theme]);
   const [name, setName] = useState(profile.display_name || '');
   const [pwd, setPwd] = useState(false);
+  const [del, setDel] = useState(false);
   const install = useInstall();
 
   const save = async (patch, msg) => {
@@ -115,6 +116,7 @@ export function Settings() {
       <${Switch} checked=${hide} onChange=${setHide} label="Ocultar saldos" sub="Útil si usas la app frente a otras personas" />
       <${LockSettings} uid=${profile.id} label=${profile.username ? '@' + profile.username : profile.display_name} />
       ${!isDemo && html`<button class="menu-row" onClick=${() => setPwd(true)}><${Icon} name="lock" /><span>Cambiar contraseña</span><${Icon} name="right" class="muted" /></button>`}
+      <a class="menu-row" href="#/terminos"><${Icon} name="shield" /><span>Términos y privacidad<small>Qué guardamos, cómo lo protegemos y tus derechos</small></span><${Icon} name="right" class="muted" /></a>
       <div class="menu-row static"><${Icon} name="info" /><span><b>Tus datos son solo tuyos.</b><small>Cada registro lleva tu identificador y la base de datos (Row Level Security) bloquea cualquier consulta de otra persona, incluso de la familia.</small></span></div>
     </section>
 
@@ -129,10 +131,12 @@ export function Settings() {
       ${install.state !== 'installed' && html`<button class="menu-row" onClick=${install.run}><${Icon} name="phone" /><span>Instalar en este teléfono<small>${install.state === 'ios' ? 'Safari → Compartir → Agregar a inicio' : 'Abre como app, a pantalla completa'}</small></span><${Icon} name="right" class="muted" /></button>`}
       <a class="menu-row" href="#/aprende"><${Icon} name="book" /><span>Manual de uso y tour</span><${Icon} name="right" class="muted" /></a>
       ${isDemo && html`<button class="menu-row" onClick=${resetDemo}><${Icon} name="refresh" /><span>Reiniciar datos de ejemplo</span></button>`}
+      ${!isDemo && html`<button class="menu-row danger-text" onClick=${() => setDel(true)}><${Icon} name="trash" /><span>Borrar mi cuenta<small>Elimina tu cuenta y todos tus datos para siempre</small></span></button>`}
       <button class="menu-row danger-text" onClick=${signOut}><${Icon} name="logout" /><span>${isDemo ? 'Salir del demo' : 'Cerrar sesión'}</span></button>
     </section>
     <p class="hint center">La Fructosa ${APP_VERSION} ${isDemo ? '· modo demo (datos en este navegador)' : ''}<br/>Hecha con cariño para la familia 🍊</p>
     ${pwd && html`<${PasswordSheet} onClose=${() => setPwd(false)} />`}
+    ${del && html`<${DeleteAccountSheet} d=${d} onClose=${() => setDel(false)} />`}
   </div>`;
 }
 
@@ -173,6 +177,7 @@ function PushSettings({ region }) {
       : html`
         <${Switch} checked=${prefs.bills} onChange=${(v) => setPref('bills', v)} label="Pagos fijos por vencer" sub="El día antes y el mismo día, si aún no los pagaste" />
         <${Switch} checked=${prefs.loans} onChange=${(v) => setPref('loans', v)} label="Préstamos que vencen" sub="El día que vence lo que te deben o debes" />
+        <${Switch} checked=${prefs.backup !== false} onChange=${(v) => setPref('backup', v)} label="Recordatorio de respaldo" sub="Si pasan 7 días sin descargar tu Excel, te aviso" />
         ${region.rates && html`<${Switch} checked=${prefs.rates} onChange=${(v) => setPref('rates', v)} label="Tasas del día" sub="BCV, Paralelo, USDT y la brecha cada mañana" />`}
         <button class="menu-row danger-text" disabled=${busy} onClick=${turnOff}><${Icon} name="bell" /><span>Desactivar avisos en este teléfono</span></button>`}
     </section>`;
@@ -204,4 +209,37 @@ export function useInstall() {
     toast(ios ? 'En Safari: botón Compartir → "Agregar a inicio"' : 'En Chrome: menú ⋮ → "Instalar app" o "Agregar a pantalla principal"');
   };
   return { state, run };
+}
+
+// Borrar la cuenta: primero ofrece el respaldo y pide escribir el usuario para confirmar.
+function DeleteAccountSheet({ d, onClose }) {
+  const want = d.profile.username || 'BORRAR';
+  const [typed, setTyped] = useState('');
+  const [busy, setBusy] = useState(false);
+  const ok = typed.trim().replace(/^@/, '').toLowerCase() === want.toLowerCase();
+  const run = async () => {
+    setBusy(true);
+    try {
+      await api.auth.deleteAccount();
+      clearLock(d.profile.id);
+      try { for (const k of Object.keys(localStorage)) if (k.includes(d.profile.id)) localStorage.removeItem(k); } catch { /* nada */ }
+      toast('Tu cuenta y todos tus datos fueron borrados.');
+      setTimeout(() => { location.hash = ''; location.reload(); }, 1200);
+    } catch (e) {
+      const missing = /delete_my_account|PGRST202|not find the function|404/i.test(String(e?.message || e?.code || e));
+      toast(missing ? 'Esta opción aún no está activada en el servidor. Pídele al administrador que corra la migración 009.' : errorText(e), { tone: 'bad' });
+      setBusy(false);
+    }
+  };
+  return html`<${Sheet} title="Borrar mi cuenta" onClose=${onClose}
+    footer=${html`<button class="btn ghost" onClick=${onClose}>Cancelar</button>
+      <button class="btn danger" disabled=${!ok || busy} onClick=${run}>${busy ? 'Borrando…' : 'Borrar para siempre'}</button>`}>
+    <div class="stack">
+      <p>Se borran tu cuenta, tus cuentas, movimientos, presupuestos, pagos fijos, metas, préstamos y tu conversación con Fructosa. <b>No se puede deshacer.</b></p>
+      <button class="btn soft block" onClick=${() => downloadBackup(d).catch((e) => toast(errorText(e), { tone: 'bad' }))}><${Icon} name="download" size=${18} /> Descargar mi respaldo antes</button>
+      <${Field} label=${html`Para confirmar, escribe <b>${want}</b>`}>
+        <input class="input" value=${typed} autocomplete="off" autocapitalize="off" onInput=${(e) => setTyped(e.target.value)} />
+      <//>
+    </div>
+  <//>`;
 }

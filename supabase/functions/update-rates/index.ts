@@ -4,7 +4,9 @@
 // con permiso de escritura en esa tabla según las políticas RLS.
 //
 // Desplegar:  supabase functions deploy update-rates
-// Programar:  supabase/migrations/003_tasas_automaticas.sql
+// Programar:  supabase/migrations/003_tasas_automaticas.sql (y 009, que la corre 4 veces al día)
+// La app también la llama si al abrirla no hay tasas de hoy (con la sesión del usuario), para que el
+// historial se complete solo aunque el cron haya fallado. Si ya se actualizó hace poco, no vuelve a consultar.
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 type Rate = { rate_type: 'BCV_USD' | 'BCV_EUR' | 'PARALELO' | 'USDT'; rate: number; source: string };
@@ -44,8 +46,21 @@ async function binanceUsdt(): Promise<Rate | null> {
   return { rate_type: 'USDT', rate: prices[Math.floor(prices.length / 2)], source: 'binance-p2p' };
 }
 
-Deno.serve(async () => {
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+const FRESH_MS = 90 * 60 * 1000; // si las de hoy tienen menos de hora y media, no se vuelve a consultar
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
   const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+  const reply = (body: unknown, status = 200) => Response.json(body, { status, headers: CORS });
+
+  const { data: have } = await supabase.from('exchange_rates').select('rate_type, fetched_at').eq('rate_date', today());
+  const fresh = (t: string) => have?.some((r) => r.rate_type === t && Date.now() - Date.parse(r.fetched_at) < FRESH_MS);
+  if (fresh('BCV_USD') && fresh('PARALELO')) return reply({ ok: true, date: today(), cached: true });
   const rates: Rate[] = [];
   const errors: string[] = [];
 
@@ -60,10 +75,10 @@ Deno.serve(async () => {
     if (p) rates.push({ rate_type: 'USDT', rate: p.rate, source: 'aprox. paralelo' });
   }
 
-  if (!rates.length) return Response.json({ ok: false, errors }, { status: 502 });
+  if (!rates.length) return reply({ ok: false, errors }, 502);
 
   const rows = rates.map((r) => ({ ...r, rate: Number(r.rate.toFixed(4)), rate_date: today(), fetched_at: new Date().toISOString() }));
   const { error } = await supabase.from('exchange_rates').upsert(rows, { onConflict: 'rate_type,rate_date' });
-  if (error) return Response.json({ ok: false, error: error.message, errors }, { status: 500 });
-  return Response.json({ ok: true, date: today(), rates: rows, errors });
+  if (error) return reply({ ok: false, error: error.message, errors }, 500);
+  return reply({ ok: true, date: today(), rates: rows, errors });
 });

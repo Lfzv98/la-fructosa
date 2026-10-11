@@ -40,7 +40,7 @@ const daysInMonth = (ym: string) => new Date(Date.UTC(+ym.slice(0, 4), +ym.slice
 // Día de pago real de un fijo en un mes (31 en febrero → 28/29).
 export const dueDate = (ym: string, day: number) => `${ym}-${String(Math.min(day, daysInMonth(ym))).padStart(2, '0')}`;
 
-type Sub = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; prefs: { bills?: boolean; loans?: boolean; rates?: boolean } | null };
+type Sub = { id: string; user_id: string; endpoint: string; p256dh: string; auth: string; prefs: { bills?: boolean; loans?: boolean; rates?: boolean; backup?: boolean } | null; created_at?: string; last_backup_on?: string | null };
 type Recurring = { id: string; user_id: string; name: string; amount: number; currency: string; due_day: number; is_active: boolean };
 
 // Arma los avisos de una persona. Exportada para probarla sin enviar nada.
@@ -49,9 +49,10 @@ export function buildMessages(input: {
   recurring: Recurring[]; paidRecurringIds: Set<string>;
   loans: { person: string; direction: string; amount: number; paid_amount: number; currency: string; due_on: string | null; settled: boolean }[];
   rates?: Record<string, number>;
+  lastBackup?: string | null; since?: string | null;
 }) {
   const { today, recurring, paidRecurringIds, loans } = input;
-  const prefs = { bills: true, loans: true, rates: false, ...(input.prefs ?? {}) };
+  const prefs = { bills: true, loans: true, rates: false, backup: true, ...(input.prefs ?? {}) };
   const out: { title: string; body: string; url: string; tag: string }[] = [];
   const ym = today.slice(0, 7);
   const tomorrow = addDays(today, 1);
@@ -89,6 +90,18 @@ export function buildMessages(input: {
       url: './#/tasas', tag: 'rates-' + today,
     });
   }
+  // Respaldo: a los 7 días sin descargar el Excel, y luego cada 3 días hasta que lo haga.
+  const base = input.lastBackup || input.since?.slice(0, 10);
+  if (prefs.backup && base) {
+    const days = Math.round((Date.parse(today + 'T12:00:00Z') - Date.parse(base + 'T12:00:00Z')) / 86400000);
+    if (days >= 7 && (days - 7) % 3 === 0) {
+      out.push({
+        title: 'Toca hacer tu respaldo',
+        body: input.lastBackup ? `Han pasado ${days} días desde tu último respaldo. Descarga tu Excel y guárdalo en un lugar seguro.` : 'Aún no has descargado tu respaldo. Toma 10 segundos: Ajustes › Respaldo.',
+        url: './#/ajustes', tag: 'backup-' + today,
+      });
+    }
+  }
   return out;
 }
 
@@ -103,7 +116,9 @@ Deno.serve(async (req) => {
   const today = caracasToday();
   const ym = today.slice(0, 7);
 
-  const { data: subs, error } = await db.from('push_subscriptions').select('id, user_id, endpoint, p256dh, auth, prefs');
+  // last_backup_on llega con la migración 009; si aún no se corrió, se sigue sin él.
+  let { data: subs, error } = await db.from('push_subscriptions').select('id, user_id, endpoint, p256dh, auth, prefs, created_at, last_backup_on');
+  if (error) ({ data: subs, error } = await db.from('push_subscriptions').select('id, user_id, endpoint, p256dh, auth, prefs, created_at'));
   if (error) return Response.json({ ok: false, error: error.message }, { status: 500 });
   const users = [...new Set((subs ?? []).map((s: Sub) => s.user_id))];
   if (!users.length) return Response.json({ ok: true, sent: 0 });
@@ -128,6 +143,7 @@ Deno.serve(async (req) => {
       paidRecurringIds: paidIds,
       loans: (loans.data ?? []).filter((l: { user_id: string }) => l.user_id === s.user_id),
       rates: rateRows.error ? undefined : rates,
+      lastBackup: s.last_backup_on ?? null, since: s.created_at ?? null,
     });
     for (const m of msgs) {
       try {

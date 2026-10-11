@@ -1,0 +1,11 @@
+# Archivos del sistema y copias que no deben subirse a GitHub (el repositorio es público)
+.DS_Store
+*.zip
+*.log
+.env
+.env.*
+supabase/.temp/
+supabase/.branches/
+node_modules/
+# Copias sueltas de migraciones en la raíz (las buenas están en supabase/migrations/)
+/0*.sql

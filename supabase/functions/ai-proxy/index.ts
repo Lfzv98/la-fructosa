@@ -32,6 +32,44 @@ const UP = UPSTREAMS[Deno.env.get('AI_UPSTREAM') ?? (GEMINI_KEY ? 'gemini' : 'gr
 // AI_MODEL admite varios modelos separados por coma: se prueban en orden si uno no existe (404),
 // no tiene cupo (429), está saturado (5xx) o tarda más de FIRST_BYTE_MS en empezar a responder.
 const MODELS = (Deno.env.get('AI_MODEL') || (UP === UPSTREAMS.gemini ? GEMINI_MODELS : UP.model)).split(',').map((s) => s.trim()).filter(Boolean);
+// Modelos vigentes según Google (ListModels), revisados cada 6 horas. Se prueban primero los de MODELS que
+// sigan existiendo y detrás los Flash más nuevos: si Google apaga un modelo o saca uno nuevo, el copiloto
+// sigue funcionando sin volver a desplegar.
+const LIST_EVERY_MS = 6 * 60 * 60 * 1000;
+let catalog: { at: number; names: Set<string> } | null = null;
+export function newestFlash(names: Iterable<string>, exclude: string[] = []): string[] {
+  const ver = (m: string) => (m.match(/gemini-(\d+(?:\.\d+)?)/) ?? ['', '0'])[1].split('.').map(Number);
+  return [...names]
+    .filter((m) => /^gemini-[\d.]+-flash(-lite)?$|^gemini-flash(-lite)?-latest$/.test(m) && !exclude.includes(m))
+    .sort((a, b) => {
+      const va = ver(a), vb = ver(b);
+      return (vb[0] - va[0]) || ((vb[1] ?? 0) - (va[1] ?? 0)) || (Number(a.includes('lite')) - Number(b.includes('lite')));
+    });
+}
+export function chainFrom(models: string[], names: Set<string> | null): string[] {
+  if (!names?.size) return models;
+  const keep = models.filter((m) => names.has(m));
+  const chain = [...keep, ...newestFlash(names, keep).slice(0, 3)];
+  return chain.length ? chain : models;
+}
+async function modelChain(): Promise<string[]> {
+  if (UP !== UPSTREAMS.gemini || !GEMINI_KEY) return MODELS;
+  if (!catalog || Date.now() - catalog.at > LIST_EVERY_MS) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000&key=${encodeURIComponent(GEMINI_KEY)}`, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        const j = await res.json();
+        const names = new Set<string>();
+        for (const m of j.models ?? []) {
+          if ((m.supportedGenerationMethods ?? []).includes('generateContent')) names.add(String(m.name ?? '').replace(/^models\//, ''));
+        }
+        catalog = { at: Date.now(), names };
+      } else await res.body?.cancel();
+    } catch (_) { /* sin catálogo: se usa la lista fija */ }
+  }
+  return chainFrom(MODELS, catalog?.names ?? null);
+}
+
 const ORIGINS = (Deno.env.get('AI_ALLOWED_ORIGINS') ?? 'https://lfzv98.github.io,http://localhost:8000,http://127.0.0.1:8000')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
@@ -71,7 +109,7 @@ Deno.serve(async (req) => {
 
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   // GET: la app pregunta qué sabe hacer esta versión (v2 = lee capturas y recibos).
-  if (req.method === 'GET') return new Response(JSON.stringify({ ok: true, v: 2, images: true }), { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
+  if (req.method === 'GET') return new Response(JSON.stringify({ ok: true, v: 3, images: true }), { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
   if (req.method !== 'POST') return reply(405, 'Método no permitido');
   if (!KEY) return reply(503, 'El copiloto no está configurado en el servidor');
   if (origin && !ORIGINS.includes(origin)) return reply(403, 'Origen no permitido');
@@ -120,7 +158,7 @@ Deno.serve(async (req) => {
   // 4. Proveedor (la clave solo viaja de servidor a servidor). Prueba los modelos en orden.
   let upstream: Response | null = null;
   let lastStatus = 502;
-  for (const model of MODELS) {
+  for (const model of await modelChain()) {
     const payload = {
       model, stream: true, temperature: 0.3, max_tokens: MAX_TOKENS,
       ...(UP === UPSTREAMS.gemini ? { reasoning_effort: 'low' } : {}),

@@ -1,4 +1,4 @@
-# La Fructosa 3.0
+# La Fructosa 3.1
 
 PWA de finanzas personales para la familia: cuentas en USD, Bs., USDT y EUR,
 tasas BCV / Paralelo / USDT, calculadora de brecha cambiaria, presupuestos,
@@ -96,12 +96,28 @@ la-fructosa/
 4. Prueba local: `python3 -m http.server` y abre `http://localhost:8000/?demo`.
 5. GitHub Pages: Settings → Pages → Deploy from branch `main` / root.
 
+## Novedades 3.1
+
+- **Confianza y términos**: al entrar por primera vez (y quien ya tenía cuenta, una vez) aparece una pantalla
+  que explica en palabras simples por qué sus datos están seguros, con los términos completos y la casilla
+  "Acepto". La aceptación se guarda en la cuenta (`user_metadata.terms_v`). Para pedirla de nuevo tras cambiar
+  los términos, sube `TERMS_VERSION` en `js/terms.js`.
+- **Capturas de cualquier plataforma**: Fructosa lee comprobantes de cualquier banco o app (Pago Móvil, Zelle,
+  Binance, PayPal, Zinli, Venmo, Bizum, facturas…), detecta moneda, dirección, fecha y comisión.
+- **Respaldo**: banner en todas las pantallas a los 7 días y aviso push semanal (`send-reminders`).
+- **Borrar mi cuenta** (Ajustes): función `delete_my_account` de la migración 009.
+- **IA a prueba de cambios**: el proxy y la app consultan la lista de modelos de Google y usan el Flash
+  más nuevo disponible si uno de la lista se apaga.
+
 ## Tasas automáticas
 
 1. `supabase functions deploy update-rates` (CLI de Supabase).
-2. Edita y ejecuta `supabase/migrations/003_tasas_automaticas.sql` (9 a. m. y 5 p. m. de Caracas).
+2. Edita y ejecuta `supabase/migrations/003_tasas_automaticas.sql`; la 009 lo pasa a 4 veces al día
+   (8 a. m., 11 a. m., 2 p. m. y 6 p. m. de Caracas).
 
-Mientras tanto la app usa DolarApi en vivo para mostrar tasas si la BD no tiene las de hoy.
+Si al abrir la app no hay tasas de hoy, la app las muestra en vivo (DolarApi) y además le pide a
+`update-rates` que las guarde, como mucho una vez cada 2 horas por teléfono; así el historial se completa
+aunque el cron falle. Para revisar: ver las consultas al final de `009_confianza.sql`.
 
 ## Seguridad
 
@@ -112,5 +128,9 @@ Mientras tanto la app usa DolarApi en vivo para mostrar tasas si la BD no tiene 
 - Entrar con usuario pasa por la Edge Function `login` (`supabase functions deploy login --no-verify-jwt`);
   después, `006_login_seguro.sql` quita el acceso público a `email_for_login`.
 - El copiloto pide permiso a cada persona antes de enviar datos a Google Gemini (servicio gratuito).
+- **Repositorio público**: solo contiene el código de la app (como cualquier página web, que el navegador
+  descarga igual). No hay claves secretas: la publishable key está hecha para ser pública y los datos viven en
+  Supabase protegidos por RLS. Las claves de Gemini, VAPID y CRON viven como secretos en Supabase.
+  `.gitignore` evita subir zips, `.DS_Store` y copias sueltas; `LICENSE` reserva los derechos del código.
 
 Al publicar una versión nueva, sube `CACHE_VERSION` en `sw.js`.

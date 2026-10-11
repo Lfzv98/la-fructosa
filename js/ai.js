@@ -340,7 +340,14 @@ PRECISIÓN NUMÉRICA (obligatoria)
   c) DESGLOSE POR CUENTAS (ej. "¿cuánto tengo en Banesco?"): da el saldo exacto de esa cuenta con su moneda y su equivalente. Si hay varias cuentas que coinciden, lista cada una y su suma. Si la cuenta no existe, dilo y menciona las que sí tiene.
   d) INGRESOS Y GASTOS de un periodo, categoría o cuenta: añade el bloque sum (la app suma los movimientos y muestra el total exacto, por moneda y en la moneda principal). Escribe una línea con lo que consultas. Para el mes actual, el anterior y hace dos meses los totales y las categorías ya están en los datos y puedes citarlos.
   e) REGISTRO DE MOVIMIENTOS en lenguaje natural (ej. "Gasté $15 en padel con Banesco"): interpreta monto, moneda, categoría y cuenta, y escribe una línea que los confirme: "Entendí: gasto de 15,00 USD · padel (categoría Salidas) · cuenta Banesco." Después añade el bloque tx (la app mostrará los valores y un botón para confirmar; tú no guardas nada y nunca digas que ya quedó guardado). Si falta el monto, la moneda no es clara o la cuenta es ambigua, pregunta y no emitas el bloque.
-  f) CAPTURAS Y RECIBOS: si el usuario adjunta una imagen (Pago Móvil, transferencia, Zelle, Binance o un recibo), léela con cuidado: monto exacto, moneda (Bs./VES, $/USD, USDT, €/EUR), fecha, banco o cuenta y concepto o comercio. Si el usuario envió o pagó, es gasto; si lo recibió, es ingreso; si no se ve claro, pregunta. Confirma en una línea lo que entendiste y emite el bloque tx con "date" (AAAA-MM-DD) cuando la fecha se vea en la imagen. Elige la cuenta del usuario que coincida con el banco y la moneda. Si la imagen no es un comprobante de pago, dilo y no emitas el bloque. Nunca repitas números de cuenta, cédulas ni teléfonos que aparezcan en la imagen.
+  f) CAPTURAS Y RECIBOS DE CUALQUIER PLATAFORMA: si el usuario adjunta una imagen, puede venir de cualquier banco o app de pagos de cualquier país: Pago Móvil o transferencias de bancos venezolanos (Banesco, Mercantil, Provincial, Venezuela, BNC, Bancamiga, Bancaribe, Banplus, Bicentenario, Tesoro, Exterior, Venezolano de Crédito, Activo, Sofitasa, 100% Banco…), Zelle, Binance (P2P, Pay, depósitos o retiros), PayPal, Zinli, Wally, AirTM, Reserve, Wise, Revolut, Venmo, Cash App, Apple Pay, Bizum, Nequi, Bancolombia, Yape, Mercado Pago, una tarjeta de débito o crédito, un punto de venta, una factura o un ticket de compra. Léela con cuidado:
+     · Monto exacto y moneda. Si la imagen no muestra el símbolo, deduce por la plataforma: Pago Móvil y bancos venezolanos = VES; Zelle, PayPal, Venmo, Cash App, Zinli y Wally = USD; Binance = USDT (o la cripto que se vea); Bizum = EUR. Si la moneda no es USD, VES, USDT ni EUR, dilo y pregunta en qué cuenta y por cuánto quiere registrarlo.
+     · Dirección: "enviaste", "pagaste", "débito", "sent", "paid", "retiro", "compra" o un signo "−" = gasto. "Recibiste", "te enviaron", "crédito", "received", "depósito" o un signo "+" = ingreso. Si no se ve claro, pregunta.
+     · Comisión: si aparece una comisión o fee, el gasto es el total que salió (monto + comisión) y lo mencionas en la descripción.
+     · Fecha (AAAA-MM-DD) cuando se vea, y el comercio, la persona o el concepto para la descripción (solo el nombre, sin datos personales).
+     · Cuenta: elige la cuenta del usuario que coincida con la plataforma o el banco y la moneda (Zelle con su cuenta Zelle, Binance con su cuenta de USDT, Banesco con Banesco…). Si no tiene una cuenta parecida, usa la más lógica por moneda y dilo.
+     · Si es un cambio de divisa o un movimiento entre sus propias cuentas (por ejemplo vender USDT en Binance P2P y recibir bolívares en su banco), explícale que es una transferencia y que la registre con el botón + en "Transferencia"; en ese caso no emitas el bloque tx.
+     Confirma en una línea lo que entendiste (monto, moneda, tipo, plataforma, fecha y cuenta) y emite el bloque tx con "date" cuando la fecha se vea. Si la imagen no es un comprobante de pago, dilo y no emitas el bloque. Si se ve borrosa o cortada, pide otra captura. Nunca repitas números de cuenta, cédulas, teléfonos, correos ni números de referencia completos que aparezcan en la imagen.
 - Resumen de "¿cómo van mis finanzas?": patrimonio exacto, ingresos, gastos y neto del mes con sus cifras, la categoría que más pesa con su monto y porcentaje, y UNA recomendación concreta basada en esos números.
 
 REGLAS
@@ -554,16 +561,22 @@ export async function listModels(key, { signal } = {}) {
   return names;
 }
 
-// Cadena de modelos a probar con esta clave: AI_MODELS en su orden, quitando los que la clave no tiene.
-// Si ninguno de la lista aparece en ListModels, se usa cualquier Flash de texto que sí tenga.
+// Cadena de modelos a probar con esta clave: AI_MODELS en su orden, quitando los que la clave no tiene,
+// y detrás los Flash más nuevos que Google ofrezca y no estén en la lista. Así, cuando Google saca un
+// modelo nuevo o apaga uno viejo, la app sigue funcionando sin tocar el código.
+export function newestFlash(names, exclude = []) {
+  const ver = (m) => (m.match(/gemini-(\d+(?:\.\d+)?)/) || [0, '0'])[1].split('.').map(Number);
+  return [...names]
+    .filter((m) => /^gemini-[\d.]+-flash(-lite)?$|^gemini-flash(-lite)?-latest$/.test(m) && !exclude.includes(m))
+    .sort((a, b) => {
+      const va = ver(a), vb = ver(b);
+      return (vb[0] - va[0]) || ((vb[1] || 0) - (va[1] || 0)) || (a.includes('lite') - b.includes('lite'));
+    });
+}
 async function modelChain(key, signal) {
   const available = await listModels(key, { signal });
   let chain = AI_MODELS.filter((m) => !DEAD_MODELS.has(m) && (!available || available.has(m)));
-  if (!chain.length && available?.size) {
-    chain = [...available]
-      .filter((m) => /^gemini-.*flash/.test(m) && !/image|tts|audio|live|embed|vision|thinking|preview|exp/.test(m))
-      .sort().reverse().slice(0, 3);
-  }
+  if (available?.size) chain = [...chain, ...newestFlash(available, chain).filter((m) => !DEAD_MODELS.has(m)).slice(0, 3)];
   if (!chain.length) chain = AI_MODELS.filter((m) => !DEAD_MODELS.has(m));
   return chain.length ? chain : AI_MODELS;
 }
@@ -619,7 +632,7 @@ async function fetchWithFallback({ key, body, stream, signal, shared }) {
 }
 
 // Texto que acompaña una captura enviada sin mensaje.
-export const IMAGE_PROMPT = 'Lee esta captura o recibo y prepárame el movimiento para registrarlo.';
+export const IMAGE_PROMPT = 'Lee este comprobante (captura de pago, transferencia o recibo) y prepárame el movimiento para registrarlo.';
 
 // ¿El proxy del servidor ya acepta imágenes? (ai-proxy v2 responde a GET; el anterior no.)
 const PROXY_IMAGES = new Map();
