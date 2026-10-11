@@ -1,6 +1,6 @@
 // La Fructosa · Service Worker
 // Sube CACHE_VERSION en cada despliegue para forzar la actualización.
-const CACHE_VERSION = 'fructosa-v30';
+const CACHE_VERSION = 'fructosa-v31';
 
 const APP_SHELL = [
   './',
@@ -33,12 +33,14 @@ self.addEventListener('install', (event) => {
       } catch { /* sin red al instalar: se completa en la primera visita online */ }
     }));
   })());
+  // Activa de inmediato esta versión, sin esperar a que se cierren las pestañas.
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
+    // Descarta toda caché anterior y toma el control de las pestañas abiertas.
     await Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)));
     await self.clients.claim();
   })());

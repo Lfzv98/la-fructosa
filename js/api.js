@@ -175,43 +175,18 @@ const real = {
 // ---------- Demo en memoria ----------
 const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
 const demoState = {
-  profile: { id: 'demo', display_name: 'Familia', region: 'VE', preferred_currency: 'USD', valuation_rate: 'BCV_USD' },
+  profile: { id: 'demo', display_name: '', region: 'VE', preferred_currency: 'USD', valuation_rate: 'BCV_USD' },
   rates: [
     { rate_type: 'BCV_USD', rate: 180.25, rate_date: today, source: 'demo' },
     { rate_type: 'BCV_EUR', rate: 205.1, rate_date: today, source: 'demo' },
     { rate_type: 'PARALELO', rate: 252.4, rate_date: today, source: 'demo' },
     { rate_type: 'USDT', rate: 249.9, rate_date: today, source: 'demo' },
   ],
-  accounts: [
-    { id: 'a1', name: 'Efectivo', currency: 'USD', kind: 'cash', icon: '💵', initial_balance: 320, sort_order: 0 },
-    { id: 'a2', name: 'Zelle', currency: 'USD', kind: 'digital', icon: '📱', initial_balance: 850, sort_order: 1 },
-    { id: 'a3', name: 'Pago Móvil', currency: 'VES', kind: 'bank', icon: '🇻🇪', initial_balance: 18500, sort_order: 2 },
-    { id: 'a4', name: 'Binance', currency: 'USDT', kind: 'crypto', icon: '🟡', initial_balance: 410, sort_order: 3 },
-  ],
-  txs: [
-    { id: 't1', type: 'expense', account_id: 'a1', amount: 14.26, category: 'Comida', description: 'Arepera',
-      occurred_on: today, original_amount: 3600, original_currency: 'VES', rate_applied: 252.4,
-      rate_bcv: 180.25, rate_paralelo: 252.4, created_at: new Date().toISOString() },
-    { id: 't2', type: 'income', account_id: 'a2', amount: 600, category: 'Sueldo', description: 'Quincena',
-      occurred_on: today, created_at: new Date().toISOString() },
-    { id: 't3', type: 'expense', account_id: 'a2', amount: 45, category: 'Servicios', description: 'Electricidad',
-      occurred_on: today, created_at: new Date().toISOString() },
-    { id: 't4', type: 'expense', account_id: 'a1', amount: 20, category: 'Transporte', description: 'Gasolina',
-      occurred_on: today, created_at: new Date().toISOString() },
-    { id: 't5', type: 'expense', account_id: 'a1', amount: 8, category: 'Salud', description: 'Farmacia',
-      occurred_on: today, created_at: new Date().toISOString() },
-  ],
-  budgets: [
-    { id: 'b1', category: 'Comida', monthly_limit: 80, currency: 'USD' },
-    { id: 'b2', category: 'Servicios', monthly_limit: 40, currency: 'USD' },
-    { id: 'b3', category: 'Transporte', monthly_limit: 25, currency: 'USD' },
-    { id: 'b4', category: 'Salud', monthly_limit: 30, currency: 'USD' },
-  ],
-  recurring: [
-    { id: 'r1', name: 'Internet', amount: 25, currency: 'USD', category: 'Servicios', due_day: 12, account_id: 'a2', is_active: true },
-    { id: 'r2', name: 'Netflix', amount: 6.99, currency: 'USD', category: 'Salidas', due_day: 5, account_id: 'a2', is_active: true },
-    { id: 'r3', name: 'Gimnasio', amount: 15, currency: 'USD', category: 'Salud', due_day: 10, account_id: 'a1', is_active: true },
-  ],
+  // El modo demo arranca vacío: sin cuentas, movimientos, presupuestos ni pagos de ejemplo.
+  accounts: [],
+  txs: [],
+  budgets: [],
+  recurring: [],
 };
 const uid = () => Math.random().toString(36).slice(2);
 const accById = (id) => demoState.accounts.find((a) => a.id === id);

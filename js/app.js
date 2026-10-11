@@ -269,22 +269,22 @@ function AuthScreen() {
             <label class="block space-y-1">
               <span class="text-sm font-medium">Nombre completo</span>
               <input class="auth-input" required value=${name} onInput=${(e) => setName(e.target.value)}
-                autocomplete="name" name="name" placeholder="Inserta tu nombre aquí" />
+                autocomplete="name" name="name" placeholder="Tu nombre completo" />
             </label>`}
 
           ${regionBlock}
 
           <label class="block space-y-1">
             <span class="text-sm font-medium">Correo electrónico</span>
-            <input class="auth-input" type="email" required name="email" value=${email} placeholder="tu@correo.com"
+            <input class="auth-input" type="email" required name="email" value=${email} placeholder="Escribe tu correo electrónico"
               onInput=${(e) => setEmail(e.target.value)} autocomplete="email" />
           </label>
 
           <label class="block space-y-1">
-            <span class="text-sm font-medium">Contraseña</span>
+            <span class="text-sm font-medium">${mode === 'signup' ? 'Contraseña (mínimo 8 caracteres)' : 'Contraseña'}</span>
             <div class="relative">
               <input class="auth-input auth-input-pass" type=${showPass ? 'text' : 'password'} required minlength="8"
-                name=${mode === 'login' ? 'password' : 'new-password'} value=${password} placeholder="Mínimo 8 caracteres"
+                name=${mode === 'login' ? 'password' : 'new-password'} value=${password} placeholder="Escribe tu contraseña"
                 onInput=${(e) => setPassword(e.target.value)}
                 autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} />
               <button type="button" class="auth-eye" onClick=${() => setShowPass((v) => !v)}
@@ -475,8 +475,8 @@ function AccountForm({ account, onDone, onCancel, region = 'VE' }) {
         <//>`}
       ${editing
         ? html`<p class="text-sm opacity-70">Saldo actual: <b class="tabular">${fmt(account.balance, account.currency)}</b></p>`
-        : html`<${Field} label="Saldo inicial">
-            <input class=${input + ' tabular'} type="number" inputmode="decimal" step="any" value=${form.initial_balance}
+        : html`<${Field} label=${'Saldo inicial (' + form.currency + ')'}>
+            <input class=${input + ' tabular'} type="number" inputmode="decimal" step="any" min="0" placeholder="0,00" value=${form.initial_balance}
               onInput=${(e) => setForm({ ...form, initial_balance: e.target.value })} />
           <//>`}
       <${ErrorBox} error=${error} />
@@ -606,7 +606,7 @@ function NewTransaction({ balances, rates, onDone, profile }) {
         <${SpreadCard} spread=${spread} debit=${debit} currency=${account.currency} />
       ` : html`
         <${Field} label=${'Monto (' + (account?.currency ?? '') + ')'}>
-          <input class=${input + ' text-2xl font-semibold tabular'} type="number" inputmode="decimal" step="any" required value=${amount} onInput=${(e) => setAmount(e.target.value)} />
+          <input class=${input + ' text-2xl font-semibold tabular'} type="number" inputmode="decimal" step="any" min="0" placeholder="0,00" required value=${amount} onInput=${(e) => setAmount(e.target.value)} />
         <//>`}
 
       ${type === 'transfer' && html`
