@@ -12,7 +12,7 @@ Producción: https://lfzv98.github.io/la-fructosa/ · Demo: agrega `?demo` a la 
 - **Entrar** con usuario (o correo) y contraseña.
 - **Crear cuenta**: nombre, usuario único (se comprueba mientras escribes), correo (para confirmar y recuperar la contraseña), contraseña dos veces y **país obligatorio**. No hay país marcado por defecto: el botón no se activa hasta elegirlo.
 - El país define cómo funciona la app: 🇻🇪 USD, Bs. y USDT con tasas y brecha; 🇺🇸 solo dólares; 🇪🇸 euros. En EE. UU. y España se ocultan tasas, brecha y bolívares.
-- Quien ya tenía cuenta sin usuario ve "Un último paso" al entrar y elige usuario y país una sola vez.
+- Quien ya tenía cuenta sin usuario ve la pantalla de completar perfil al entrar y elige usuario y país una sola vez.
 
 ## Qué trae la 2.0
 

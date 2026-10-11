@@ -180,14 +180,13 @@ export function CompleteProfile() {
       toast(`¡Listo, @${username}!`);
     } catch (x) {
       setErrors({ form: /duplicate|unique/i.test(x.message) ? 'Ese usuario ya está en uso.' : errorText(x) });
-      setBusy(false);
-    }
+    } finally { setBusy(false); }
   }
 
   return html`<main class="auth">
     <div class="auth-brand">
       <img src="icons/icon-192.png" alt="" width="64" height="64" class="logo" />
-      <h1>Un último paso</h1>
+      <h1>La Fructosa</h1>
       <p>Hola${profile.display_name ? ', ' + profile.display_name : ''}. Elige tu usuario y tu país: la app se adapta a cada uno.</p>
     </div>
     <form class="auth-card stack" onSubmit=${submit} novalidate>

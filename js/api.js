@@ -32,6 +32,22 @@ async function tolerant(run, row) {
   throw new Error('La base de datos rechazó el registro. Revisa la migración.');
 }
 
+// --- Perfil con plan B ---------------------------------------------------
+// Si guardar usuario y país en la tabla `profiles` falla o tarda, se guardan en
+// user_metadata de Supabase Auth y en localStorage para que nadie se quede en
+// "Guardando…". Al siguiente arranque se intenta sincronizar con la tabla.
+const withTimeout = (promise, ms) => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
+]);
+const isDuplicate = (e) => e?.code === '23505' || /duplicate|unique/i.test(e?.message || '');
+const FB_KEY = (id) => 'fructosa-profile-fallback-' + id;
+const readFallback = (id) => { try { return JSON.parse(localStorage.getItem(FB_KEY(id))) || {}; } catch { return {}; } };
+const writeFallback = (id, patch) => { try { localStorage.setItem(FB_KEY(id), JSON.stringify({ ...readFallback(id), ...patch })); } catch { /* nada */ } };
+const clearFallback = (id) => { try { localStorage.removeItem(FB_KEY(id)); } catch { /* nada */ } };
+const PROFILE_KEYS = ['username', 'region', 'preferred_currency'];
+const pickProfile = (o = {}) => Object.fromEntries(PROFILE_KEYS.filter((k) => o[k]).map((k) => [k, o[k]]));
+
 const daysAgo = (n) => { const d = new Date(todayISO() + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 
 function ratesFromRows(rows) {
@@ -115,14 +131,46 @@ const real = {
       region: meta.region || 'VE', preferred_currency: meta.region === 'ES' ? 'EUR' : 'USD', valuation_rate: 'BCV_USD',
     };
     profile.email = user.email;
+
+    // Usuario y país guardados por el plan B (o elegidos en el registro) que la tabla aún no tiene:
+    // se aplican ya, para no volver a pedirlos, y se intenta sincronizarlos en segundo plano.
+    if (!profileRes.data?.username) {
+      const pending = { ...pickProfile(meta), ...pickProfile(readFallback(user.id)) };
+      if (pending.username) {
+        Object.assign(profile, pending);
+        c.from('profiles').update(pending).eq('id', user.id).then((r) => { if (!r.error) clearFallback(user.id); }, () => {});
+      }
+    }
     const { rates, meta: rateMeta } = ratesFromRows(rateRows);
     return { profile, accounts, transactions, budgets, recurring, rates, rateMeta, rateHistory: rateRows, missing };
   },
 
   async updateProfile(patch) {
     const c = await sb();
-    const { data: { user } } = await c.auth.getUser();
-    return tolerant((p) => c.from('profiles').update(p).eq('id', user.id).select().single(), patch);
+    const { data: { session } } = await c.auth.getSession();
+    const user = session?.user;
+    if (!user) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+    const critical = 'username' in patch || 'region' in patch; // lo que decide si entras a la app
+    const save = async () => {
+      try {
+        return await tolerant((p) => c.from('profiles').update(p).eq('id', user.id).select().single(), patch);
+      } catch (e) {
+        if (isDuplicate(e)) throw e;
+        // Sin fila de perfil (cuenta antigua o trigger caído): la creamos.
+        const display_name = user.user_metadata?.display_name || user.email.split('@')[0];
+        return tolerant((p) => c.from('profiles').upsert({ id: user.id, display_name, ...p }).select().single(), patch);
+      }
+    };
+    try {
+      return await withTimeout(save(), 8000);
+    } catch (e) {
+      if (!critical || isDuplicate(e)) throw e; // usuario repetido: se avisa y se puede corregir
+      console.warn('[perfil] la tabla no respondió; se guarda en user_metadata y en este dispositivo', e);
+      const fb = pickProfile(patch);
+      writeFallback(user.id, fb);
+      try { await withTimeout(c.auth.updateUser({ data: fb }), 5000); } catch { /* ya está en localStorage */ }
+      return { ...fb };
+    }
   },
   async insert(table, row) {
     const c = await sb();
