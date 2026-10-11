@@ -25,7 +25,7 @@ function AiNotice({ onClose }) {
   return html`<${Sheet} title="Fructosa es solo para tus finanzas" onClose=${onClose}
     footer=${(close) => html`<button class="btn primary block" onClick=${close}>Entendido</button>`}>
     <div class="ai-notice">
-      <p>Fructosa es tu asistente personal dentro de La Fructosa. Está hecha para una sola cosa: ayudarte con tu dinero, usando la información que tienes en la app.</p>
+      <p>Fructosa es tu asistente personal dentro de La App. Está hecha para una sola cosa: ayudarte con tu dinero, usando la información que tienes en la app.</p>
       <ul>
         <li>Tus cuentas, saldos y movimientos</li>
         <li>Tasas de cambio y conversiones</li>
