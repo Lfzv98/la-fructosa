@@ -15,6 +15,7 @@ import { Insights } from './screens/insights.js';
 import { More, Settings, LearnPage, PasswordSheet } from './screens/settings.js';
 import { Onboarding } from './screens/onboarding.js';
 import { TxForm } from './screens/txform.js';
+import { Copilot } from './screens/copilot.js';
 
 // ---------------------------------------------------------------------
 // Rutas por hash (#/movimientos): funcionan en GitHub Pages y con "atrás".
@@ -67,6 +68,7 @@ function Screen({ route }) {
     case 'mas': return html`<${More} />`;
     case 'ajustes': return html`<${Settings} />`;
     case 'aprende': return html`<${LearnPage} />`;
+    case 'copiloto': return html`<${Copilot} />`;
     default: return html`<${Home} />`;
   }
 }
@@ -97,6 +99,7 @@ function Shell({ recovery, clearRecovery }) {
   return html`<div class="app">
     ${isDemo && html`<div class="demo-badge" title="Datos de ejemplo guardados solo en este navegador">DEMO</div>`}
     <main class="main" key=${route.key}><${Screen} route=${route} /></main>
+    ${['inicio', 'analisis'].includes(route.name) && html`<a class="ai-fab" href="#/copiloto" aria-label="Abrir Copiloto IA"><${Icon} name="sparkle" size=${20} /><span>Copiloto IA</span></a>`}
     <${TabBar} current=${route.name} onNew=${() => setTx({})} />
     ${tx && html`<${TxForm} key=${tx.tx?.id || 'new'} tx=${tx.tx} preset=${tx.preset} onClose=${() => setTx(null)} />`}
     ${!onboarded && html`<${Onboarding} />`}

@@ -7,6 +7,7 @@ import { PageHeader, go } from './common.js';
 import { exportCSV } from '../export.js';
 import { api, isDemo } from '../api.js';
 import { REGIONS, RATE_LABELS } from '../money.js';
+import { AiSettings } from './copilot.js';
 
 export const APP_VERSION = '2.1.0';
 
@@ -17,6 +18,7 @@ export function More() {
     ['#/presupuestos', 'target', 'Presupuestos', `${budgets.length} activos`, '#FFADAD'],
     ['#/fijos', 'repeat', 'Pagos fijos', `${recurring.filter((r) => r.is_active !== false).length} programados`, '#FDFFB6'],
     region.rates && ['#/tasas', 'trend', 'Tasas y calculadora', 'BCV, Paralelo, USDT', '#CAFFBF'],
+    ['#/copiloto', 'sparkle', 'Copiloto IA', 'Pregunta por tus finanzas', '#FFC6FF'],
     ['#/aprende', 'book', 'Aprende', 'Guía y glosario', '#BDB2FF'],
     ['#/ajustes', 'sliders', 'Ajustes', 'Perfil, moneda, privacidad', '#9BF6FF'],
   ].filter(Boolean);
@@ -104,6 +106,12 @@ export function Settings() {
         <${Segmented} value=${profile.valuation_rate} onChange=${(v) => save({ valuation_rate: v }, `Valorando con ${RATE_LABELS[v]}`)}
           options=${[['BCV_USD', 'BCV'], ['PARALELO', 'Paralelo']]} />
       <//>`}
+    </section>
+
+    <${SectionTitle}>Copiloto IA<//>
+    <section class="card pad stack">
+      <p class="hint">Conecta tu propia clave de Gemini o Groq para chatear con tus números. <a class="link" href="#/copiloto">Abrir el copiloto</a></p>
+      <${AiSettings} />
     </section>
 
     <${SectionTitle}>Privacidad y seguridad<//>
