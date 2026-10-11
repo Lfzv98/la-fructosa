@@ -203,7 +203,9 @@ create trigger transactions_updated_at
   for each row execute function public.set_updated_at();
 
 -- ---------------------------------------------------------------------
--- 6. Saldos por cuenta (vista opcional; la PWA consolida en el cliente)
+-- 6. Saldos por cuenta (vista OPCIONAL).
+-- La PWA NUNCA consulta account_balances, archived ni occurred_on:
+-- lee accounts + transactions y calcula saldos y fechas en el cliente.
 -- ---------------------------------------------------------------------
 create view public.account_balances
 with (security_invoker = true) as

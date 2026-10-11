@@ -1,6 +1,6 @@
 // La Fructosa · Service Worker
 // Sube CACHE_VERSION en cada despliegue para forzar la actualización.
-const CACHE_VERSION = 'fructosa-v16';
+const CACHE_VERSION = 'fructosa-v20';
 
 const APP_SHELL = [
   './',
@@ -23,7 +23,13 @@ const APP_SHELL = [
 const CDN_HOSTS = ['esm.sh', 'cdn.tailwindcss.com'];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_VERSION).then((c) => c.addAll(APP_SHELL)));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_VERSION);
+    await Promise.all(APP_SHELL.map(async (url) => {
+      const res = await fetch(url, { cache: 'reload' });
+      if (res.ok) await cache.put(url, res);
+    }));
+  })());
   self.skipWaiting();
 });
 

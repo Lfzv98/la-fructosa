@@ -39,9 +39,9 @@ export const REGIONS = {
   ES: {
     id: 'ES',
     flag: '🇪🇸',
-    label: 'España / Europa',
-    cover: 'Europa (EUR - €)',
-    hint: 'Euros · sin tasas BCV ni USDT',
+    label: 'España (EUR - €)',
+    cover: 'España (EUR - €)',
+    hint: 'Euros · sin tasas locales',
     currency: 'EUR',
     showRates: false,
     presets: ['crypto', 'paypal', 'wise', 'cash', 'wire', 'custom'],
@@ -50,7 +50,7 @@ export const REGIONS = {
   US: {
     id: 'US',
     flag: '🇺🇸',
-    label: 'Estados Unidos',
+    label: 'Estados Unidos (USD - $)',
     cover: 'Estados Unidos (USD - $)',
     hint: 'Dólares · Zelle y Wire',
     currency: 'USD',
@@ -61,9 +61,9 @@ export const REGIONS = {
   VE: {
     id: 'VE',
     flag: '🇻🇪',
-    label: 'Venezuela / Multimoneda',
-    cover: 'Venezuela (Multimoneda / VES)',
-    hint: 'VES, USD y USDT · BCV y Pago Móvil',
+    label: 'Venezuela (Multimoneda / VES)',
+    cover: 'Venezuela (Multimoneda / VES - Tasa BCV/Paralelo)',
+    hint: 'USD, VES y USDT · BCV y paralelo',
     currency: 'USD',
     showRates: true,
     presets: ['zelle', 'crypto', 'paypal', 'wise', 'cash', 'wire', 'pago_movil', 'custom'],
@@ -337,6 +337,16 @@ export function caracasToday() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
 }
 
+/** Fecha de un movimiento sin depender de columns opcionales (occurred_on). */
+export function txDay(t) {
+  const raw = t?.occurred_on || t?.date || t?.created_at || '';
+  const s = String(raw);
+  if (s.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+}
+
 export function monthBounds(offset = 0) {
   const [y, m] = caracasToday().split('-').map(Number);
   const d = new Date(Date.UTC(y, m - 1 + offset, 1));
@@ -363,7 +373,8 @@ export function spentInCategory(txs, category, from, to, target, rates, valuatio
   let missing = false;
   for (const t of txs) {
     if (t.type !== 'expense' || t.category !== category) continue;
-    if (t.occurred_on < from || t.occurred_on > to) continue;
+    const day = txDay(t);
+    if (day && (day < from || day > to)) continue;
     const cur = t.account?.currency || 'USD';
     const v = convert(Number(t.amount), cur, target, rates, valuation);
     if (v == null) missing = true;
@@ -385,7 +396,7 @@ export function recurringStatus(rec, txs, from, to) {
   const due = Math.min(Number(rec.due_day), last);
   const paid = txs.some((t) => (
     t.type === 'expense'
-    && t.occurred_on >= from && t.occurred_on <= to
+    && (!txDay(t) || (txDay(t) >= from && txDay(t) <= to))
     && (t.description === rec.name
       || (t.category === rec.category && t.account_id === rec.account_id && Number(t.amount) === Number(rec.amount)))
   ));
@@ -402,7 +413,7 @@ export function transactionsToCsv(txs) {
   const headers = ['Fecha', 'Descripción', 'Categoría', 'Tipo', 'Monto Original', 'Moneda', 'Cuenta', 'Tasa de Cambio'];
   const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const lines = txs.map((t) => [
-    t.occurred_on,
+    txDay(t),
     t.description ?? '',
     t.category ?? '',
     TX_TIPO[t.type] ?? t.type,

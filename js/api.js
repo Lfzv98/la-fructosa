@@ -2,7 +2,7 @@
 // - Modo real: Supabase (RLS garantiza que cada quien vea solo lo suyo).
 // - Modo demo (?demo o sin config): datos en memoria para ver la UI.
 import { supabase, isConfigured } from './supabase.js';
-import { fetchLiveMarketRates, normalizeProfile } from './money.js';
+import { fetchLiveMarketRates, normalizeProfile, txDay } from './money.js';
 
 export const isDemo = !isConfigured || new URLSearchParams(location.search).has('demo');
 
@@ -22,12 +22,47 @@ function computeBalance(account, txs) {
 
 function activeAccounts(accounts) {
   return (accounts || [])
-    .filter((a) => !a.archived)
+    .filter((a) => a && a.archived !== true)
     .sort((x, y) => {
       const so = (Number(x.sort_order) || 0) - (Number(y.sort_order) || 0);
       if (so) return so;
       return String(x.name || '').localeCompare(String(y.name || ''), 'es');
     });
+}
+
+function filterTxs(txs, { from, to, accountId } = {}) {
+  return (txs || [])
+    .filter((t) => {
+      const day = txDay(t);
+      if (from && day && day < from) return false;
+      if (to && day && day > to) return false;
+      if (accountId && t.account_id !== accountId && t.to_account_id !== accountId) return false;
+      return true;
+    })
+    .sort((x, y) => (txDay(y) + (y.created_at || '')).localeCompare(txDay(x) + (x.created_at || '')));
+}
+
+function accountPayload(acc) {
+  const { archived, balance, id, user_id, created_at, updated_at, ...row } = acc || {};
+  return row;
+}
+
+function txPayload(tx) {
+  const {
+    occurred_on, id, user_id, account, to_account, created_at, updated_at,
+    usd_at_bcv, usd_at_paralelo, spread_usd, ...row
+  } = tx || {};
+  return row;
+}
+
+function profileFromUser(user, row = {}) {
+  const meta = user?.user_metadata || {};
+  return normalizeProfile({
+    ...row,
+    id: row.id || user?.id,
+    display_name: String(row.display_name || meta.display_name || user?.email?.split('@')[0] || '').trim(),
+    region: row.region || meta.region || row.region,
+  });
 }
 
 function attachAccounts(txs, accounts) {
@@ -46,11 +81,27 @@ function attachAccounts(txs, accounts) {
 const real = {
   async getProfile() {
     const { data: { user } } = await supabase.auth.getUser();
-    return normalizeProfile(unwrap(await supabase.from('profiles').select('*').eq('id', user.id).single()));
+    try {
+      const row = unwrap(await supabase.from('profiles').select('*').eq('id', user.id).single());
+      return profileFromUser(user, row);
+    } catch {
+      return profileFromUser(user);
+    }
   },
   async updateProfile(patch) {
     const { data: { user } } = await supabase.auth.getUser();
-    return normalizeProfile(unwrap(await supabase.from('profiles').update(patch).eq('id', user.id).select().single()));
+    const apply = async (p) => profileFromUser(user, unwrap(
+      await supabase.from('profiles').update(p).eq('id', user.id).select().single()
+    ));
+    try {
+      return await apply(patch);
+    } catch {
+      const { region, valuation_rate, ...rest } = patch;
+      if (region || valuation_rate) {
+        try { return await apply(rest); } catch { /* perfil mínimo en cliente */ }
+      }
+      return profileFromUser(user, patch);
+    }
   },
   async listBalances() {
     const [accRes, txRes] = await Promise.all([
@@ -62,30 +113,26 @@ const real = {
     return accounts.map((a) => ({ ...a, balance: computeBalance(a, txs) }));
   },
   async createAccount(acc) {
-    return unwrap(await supabase.from('accounts').insert(acc).select().single());
+    return unwrap(await supabase.from('accounts').insert(accountPayload(acc)).select().single());
   },
   async updateAccount(id, patch) {
     const { data: { user } } = await supabase.auth.getUser();
-    return unwrap(await supabase.from('accounts').update(patch).eq('id', id).eq('user_id', user.id).select().single());
+    const { archived, balance, ...safe } = patch;
+    return unwrap(await supabase.from('accounts').update(safe).eq('id', id).eq('user_id', user.id).select().single());
   },
-  async listTransactions({ limit = 400, from, to, accountId } = {}) {
-    let q = supabase.from('transactions').select('*')
-      .order('occurred_on', { ascending: false }).order('created_at', { ascending: false })
-      .limit(limit);
-    if (from) q = q.gte('occurred_on', from);
-    if (to) q = q.lte('occurred_on', to);
-    if (accountId) q = q.or(`account_id.eq.${accountId},to_account_id.eq.${accountId}`);
+  async listTransactions({ limit = 1500, from, to, accountId } = {}) {
     const [txRes, accRes] = await Promise.all([
-      q,
+      supabase.from('transactions').select('*').order('created_at', { ascending: false }).limit(limit),
       supabase.from('accounts').select('*'),
     ]);
-    return attachAccounts(unwrap(txRes), accRes.error ? [] : (accRes.data || []));
+    return filterTxs(attachAccounts(unwrap(txRes), accRes.error ? [] : (accRes.data || [])), { from, to, accountId });
   },
   async createTransaction(tx) {
-    return unwrap(await supabase.from('transactions').insert(tx).select().single());
+    return unwrap(await supabase.from('transactions').insert(txPayload(tx)).select().single());
   },
   async listBudgets() {
-    return unwrap(await supabase.from('budgets').select('*').order('category'));
+    try { return unwrap(await supabase.from('budgets').select('*').order('category')) || []; }
+    catch { return []; }
   },
   async upsertBudget(row) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -95,7 +142,8 @@ const real = {
     return unwrap(await supabase.from('budgets').delete().eq('id', id));
   },
   async listRecurring() {
-    return unwrap(await supabase.from('recurring_expenses').select('*').order('due_day'));
+    try { return unwrap(await supabase.from('recurring_expenses').select('*').order('due_day')) || []; }
+    catch { return []; }
   },
   async createRecurring(row) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -108,11 +156,19 @@ const real = {
     return unwrap(await supabase.from('recurring_expenses').delete().eq('id', id));
   },
   async latestRates() {
-    const rows = unwrap(await supabase.from('latest_rates').select('*'));
-    return Object.fromEntries(rows.map((r) => [r.rate_type, Number(r.rate)]));
+    try {
+      const rows = unwrap(await supabase.from('latest_rates').select('*'));
+      return Object.fromEntries((rows || []).map((r) => [r.rate_type, Number(r.rate)]));
+    } catch {
+      return {};
+    }
   },
   async latestRateRows() {
-    return unwrap(await supabase.from('latest_rates').select('*'));
+    try {
+      return unwrap(await supabase.from('latest_rates').select('*')) || [];
+    } catch {
+      return [];
+    }
   },
 };
 
@@ -167,7 +223,7 @@ const demo = {
     return normalizeProfile(demoState.profile);
   },
   async listBalances() {
-    return demoState.accounts.map((a) => ({ ...a, archived: false, balance: computeBalance(a, demoState.txs) }));
+    return demoState.accounts.map((a) => ({ ...a, balance: computeBalance(a, demoState.txs) }));
   },
   async createAccount(acc) { const a = { id: uid(), sort_order: 99, ...acc }; demoState.accounts.push(a); return a; },
   async updateAccount(id, patch) {
@@ -177,11 +233,10 @@ const demo = {
     return { ...a };
   },
   async listTransactions({ from, to, accountId } = {}) {
-    return [...demoState.txs]
-      .filter((t) => (!from || t.occurred_on >= from) && (!to || t.occurred_on <= to)
-        && (!accountId || t.account_id === accountId || t.to_account_id === accountId))
-      .sort((x, y) => (y.occurred_on + y.created_at).localeCompare(x.occurred_on + x.created_at))
-      .map((t) => ({ ...t, account: accById(t.account_id), to_account: t.to_account_id ? accById(t.to_account_id) : null }));
+    return filterTxs(
+      demoState.txs.map((t) => ({ ...t, account: accById(t.account_id), to_account: t.to_account_id ? accById(t.to_account_id) : null })),
+      { from, to, accountId }
+    );
   },
   async createTransaction(tx) {
     const t = { id: uid(), created_at: new Date().toISOString(), ...tx };

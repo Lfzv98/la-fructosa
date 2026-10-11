@@ -82,6 +82,7 @@
 .auth-region[aria-checked="true"] {
   border-color: #FFADAD;
   background: #FFE4E4;
+  box-shadow: 0 0 0 1px #FFADAD;
 }
 
 .auth-input {

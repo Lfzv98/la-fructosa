@@ -9,7 +9,7 @@ import {
   presetsForRegion, currenciesForRegion, patchForRegion, normalizeProfile,
   consolidate, convert, balanceBreakdown, spreadCalc, marketRateFor, fmt, fmtRate,
   monthBounds, yearBounds, spentInCategory, budgetTone, recurringStatus,
-  transactionsToCsv, downloadCsv,
+  transactionsToCsv, downloadCsv, txDay,
 } from './money.js';
 
 const html = htm.bind(React.createElement);
@@ -186,10 +186,12 @@ function AuthScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
-  const canSubmit = Boolean(region) && !busy;
+  const canSubmit = Boolean(region) && !busy && email && password && (mode === 'login' || name.trim());
 
-  async function persistRegion(id) {
-    try { await api.updateProfile(patchForRegion(id)); } catch { /* el trigger de alta ya guardó la región */ }
+  async function persistProfile(id, displayName) {
+    const patch = { ...patchForRegion(id) };
+    if (displayName) patch.display_name = displayName;
+    try { await api.updateProfile(patch); } catch { /* el trigger de alta ya guardó la región */ }
   }
 
   async function submit(e) {
@@ -203,17 +205,30 @@ function AuthScreen() {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        await persistRegion(region);
+        await persistProfile(region);
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email, password, options: { data: { display_name: name, region } },
+          email, password, options: { data: { display_name: name.trim(), region } },
         });
         if (error) throw error;
-        if (data.session) await persistRegion(region);
+        if (data.session) await persistProfile(region, name.trim());
         else setNotice('Te enviamos un correo para confirmar tu cuenta.');
       }
     } catch (err) { setError(err); } finally { setBusy(false); }
   }
+
+  const regionBlock = html`
+    <div class="space-y-2">
+      <p class="auth-label text-sm font-medium">Región y moneda base <span style="color:#B04343">*</span></p>
+      <div class="space-y-2" role="radiogroup" aria-label="Región y moneda base">
+        ${Object.values(REGIONS).map((r) => html`
+          <button key=${r.id} type="button" role="radio" aria-checked=${region === r.id}
+            class="auth-region" onClick=${() => { setRegion(r.id); setError(null); }}>
+            <span class="text-xl leading-none" aria-hidden="true">${r.flag}</span>
+            <span>${r.cover}</span>
+          </button>`)}
+      </div>
+    </div>`;
 
   return html`
     <main class="auth-page safe-top safe-bottom px-5 flex flex-col justify-center">
@@ -232,24 +247,14 @@ function AuthScreen() {
               onClick=${() => { setMode('signup'); setError(null); setNotice(null); }}>Crear Cuenta</button>
           </div>
 
-          <div class="space-y-2">
-            <p class="auth-label text-sm font-medium">Región y moneda base <span style="color:#B04343">*</span></p>
-            <div class="space-y-2" role="radiogroup" aria-label="Región y moneda base">
-              ${Object.values(REGIONS).map((r) => html`
-                <button key=${r.id} type="button" role="radio" aria-checked=${region === r.id}
-                  class="auth-region" onClick=${() => { setRegion(r.id); setError(null); }}>
-                  <span class="text-xl leading-none" aria-hidden="true">${r.flag}</span>
-                  <span>${r.cover}</span>
-                </button>`)}
-            </div>
-          </div>
-
           ${mode === 'signup' && html`
             <label class="block space-y-1">
               <span class="text-sm font-medium">Nombre</span>
               <input class="auth-input" required value=${name} onInput=${(e) => setName(e.target.value)}
                 autocomplete="name" name="name" placeholder="Inserta tu nombre aquí" />
             </label>`}
+
+          ${regionBlock}
 
           <label class="block space-y-1">
             <span class="text-sm font-medium">Correo electrónico</span>
@@ -286,9 +291,10 @@ function AuthScreen() {
 // Inicio: saldo consolidado + cuentas
 // ---------------------------------------------------------------------
 function greetName(profile) {
-  const n = String(profile?.display_name || '').trim();
-  if (!n || /^la\s*fructosa$/i.test(n)) return '';
-  return n.split(/\s+/)[0];
+  const raw = String(profile?.display_name || '').trim();
+  if (!raw || /^la\s*fructosa$/i.test(raw)) return '';
+  const n = raw.includes('@') ? raw.split('@')[0] : raw.split(/\s+/)[0];
+  return n;
 }
 
 function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleCurrency, onRefreshRates, ratesBusy, ratesNote }) {
@@ -680,13 +686,18 @@ function Movements({ txs, balances }) {
   const [period, setPeriod] = useState('current');
   const [accountId, setAccountId] = useState('');
   const range = periodRange(period);
-  const filtered = useMemo(() => txs.filter((t) => (
-    t.occurred_on >= range.from && t.occurred_on <= range.to
-    && (!accountId || t.account_id === accountId || t.to_account_id === accountId)
-  )), [txs, range.from, range.to, accountId]);
+  const filtered = useMemo(() => txs.filter((t) => {
+    const day = txDay(t);
+    return (!day || (day >= range.from && day <= range.to))
+      && (!accountId || t.account_id === accountId || t.to_account_id === accountId);
+  }), [txs, range.from, range.to, accountId]);
   const groups = useMemo(() => {
     const m = new Map();
-    for (const t of filtered) { if (!m.has(t.occurred_on)) m.set(t.occurred_on, []); m.get(t.occurred_on).push(t); }
+    for (const t of filtered) {
+      const day = txDay(t) || 'sin-fecha';
+      if (!m.has(day)) m.set(day, []);
+      m.get(day).push(t);
+    }
     return [...m.entries()];
   }, [filtered]);
 
@@ -700,10 +711,11 @@ function Movements({ txs, balances }) {
       </select>
       <button type="button" class=${btnPrimary}
         onClick=${() => {
-          const rows = txs.filter((t) => (
-            t.occurred_on >= range.from && t.occurred_on <= range.to
-            && (!accountId || t.account_id === accountId || t.to_account_id === accountId)
-          ));
+          const rows = txs.filter((t) => {
+            const day = txDay(t);
+            return (!day || (day >= range.from && day <= range.to))
+              && (!accountId || t.account_id === accountId || t.to_account_id === accountId);
+          });
           downloadCsv(`la-fructosa-${range.from}_${range.to}.csv`, transactionsToCsv(rows));
         }}>
         📥 Exportar reporte
@@ -712,7 +724,7 @@ function Movements({ txs, balances }) {
         ? html`<div class=${card + ' p-5 text-center opacity-80'}>No hay movimientos en este período.</div>`
         : groups.map(([day, list]) => html`
           <div key=${day}>
-            <h3 class="text-xs uppercase tracking-wide opacity-60 mb-2">${new Date(day + 'T12:00').toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
+            <h3 class="text-xs uppercase tracking-wide opacity-60 mb-2">${day === 'sin-fecha' ? 'Sin fecha' : new Date(day + 'T12:00').toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
             <ul class=${card + ' divide-y divide-azul-100 dark:divide-azul-800 overflow-hidden'}>
               ${list.map((t) => html`
                 <li key=${t.id} class=${'p-3 flex items-center gap-3 ' + (t.type === 'expense' ? 'bg-salmon-50/80 dark:bg-salmon-900/25' : '')}>
