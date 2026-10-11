@@ -16,6 +16,27 @@ let CHAT = [];
 let CHAT_OWNER = null;
 let uid = 0;
 
+// Aviso de uso de Fructosa: se muestra la primera vez que cada persona abre el chat (se recuerda por usuario).
+const NOTICE_KEY = (id) => 'fructosa-ai-aviso-' + (id || 'anon');
+const noticeSeen = (id) => { try { return localStorage.getItem(NOTICE_KEY(id)) === '1'; } catch { return false; } };
+const markNoticeSeen = (id) => { try { localStorage.setItem(NOTICE_KEY(id), '1'); } catch { /* nada */ } };
+
+function AiNotice({ onClose }) {
+  return html`<${Sheet} title="Fructosa es solo para tus finanzas" onClose=${onClose}
+    footer=${(close) => html`<button class="btn primary block" onClick=${close}>Entendido</button>`}>
+    <div class="ai-notice">
+      <p>Fructosa es tu asistente personal dentro de La Fructosa. Está hecha para una sola cosa: ayudarte con tu dinero, usando la información que tienes en la app.</p>
+      <ul>
+        <li>Tus cuentas, saldos y movimientos</li>
+        <li>Tasas de cambio y conversiones</li>
+        <li>Presupuestos, pagos fijos y consejos para ahorrar</li>
+      </ul>
+      <p>Cualquier otro tema queda fuera de su alcance.</p>
+      <p class="muted">🔒 Para responderte, Fructosa lee un resumen de tus datos. Solo tú los ves y la conversación no se guarda.</p>
+    </div>
+  <//>`;
+}
+
 // ---------------------------------------------------------------------
 // Configuración (se usa en Ajustes y dentro del chat)
 // ---------------------------------------------------------------------
@@ -137,7 +158,7 @@ function Bubble({ m, d, onBlock, speaking, onToggleSpeak }) {
   const parts = parseReply(m.text || '');
   return html`<div class="msg ai">
     <div class="msg-ai-header">
-      <small class="muted msg-name">Fructuosa</small>
+      <small class="muted msg-name">Fructosa</small>
       ${m.text && html`<button type="button" class=${'icon-btn sm speech-btn' + (speaking ? ' speaking' : '')}
         onClick=${() => onToggleSpeak(m)} aria-label=${speaking ? 'Detener voz' : 'Escuchar en voz alta'} title=${speaking ? 'Detener voz' : 'Escuchar respuesta'}>
         <${Icon} name=${speaking ? 'volumeX' : 'volume'} size=${15} />
@@ -166,6 +187,7 @@ export function Copilot() {
   const [busy, setBusy] = useState(false);
   const [cfg, setCfg] = useState(loadAiConfig);
   const [setup, setSetup] = useState(false);
+  const [notice, setNotice] = useState(() => !noticeSeen(profile.id));
   const [recording, setRecording] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [liveTranscript, setLiveTranscript] = useState('');
@@ -250,7 +272,7 @@ export function Copilot() {
         },
       });
 
-      // Si la interacción fue por voz o el modo voz está activo, Fructuosa lee su respuesta en voz alta
+      // Si la interacción fue por voz o el modo voz está activo, Fructosa lee su respuesta en voz alta
       if ((isVoice || voiceMode) && fullReply) {
         setSpeakingId(bot.id);
         speakReply(fullReply, {
@@ -414,8 +436,8 @@ export function Copilot() {
   return html`<div class="chat" role="region" aria-label="Copiloto IA">
     <header class="chat-head">
       <button class="icon-btn" onClick=${back} aria-label="Volver"><${Icon} name="left" /></button>
-      <div class="grow"><b>Fructuosa</b><small class="muted">Tu asistente personal de finanzas</small></div>
-      <button class=${'icon-btn' + (voiceMode ? ' on' : '')} onClick=${() => { setVoiceMode(!voiceMode); if (speakingId) { stopSpeech(); setSpeakingId(null); } }} title=${voiceMode ? 'Voz de Fructuosa activada' : 'Voz de Fructuosa silenciada'} aria-label="Modo de voz"><${Icon} name=${voiceMode ? 'volume' : 'volumeX'} size=${18} /></button>
+      <div class="grow"><b>Fructosa</b><small class="muted">Tu asistente personal de finanzas</small></div>
+      <button class=${'icon-btn' + (voiceMode ? ' on' : '')} onClick=${() => { setVoiceMode(!voiceMode); if (speakingId) { stopSpeech(); setSpeakingId(null); } }} title=${voiceMode ? 'Voz de Fructosa activada' : 'Voz de Fructosa silenciada'} aria-label="Modo de voz"><${Icon} name=${voiceMode ? 'volume' : 'volumeX'} size=${18} /></button>
       ${msgs.length > 0 && html`<button class="icon-btn" onClick=${reset} aria-label="Nueva conversación"><${Icon} name="refresh" size=${18} /></button>`}
       <button class="icon-btn" onClick=${() => setSetup(true)} aria-label="Configurar IA"><${Icon} name="sliders" size=${18} /></button>
     </header>
@@ -424,7 +446,7 @@ export function Copilot() {
       ${!msgs.length && html`<div class="chat-empty">
         <div class="chat-spark"><${Icon} name="sparkle" size=${30} /></div>
         <h2>Hola${profile.display_name ? ', ' + profile.display_name : ''} 👋</h2>
-        <p>Soy Fructuosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento.</p>
+        <p>Soy Fructosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento.</p>
         ${!ready && html`<button class="btn primary" onClick=${() => setSetup(true)}><${Icon} name="lock" size=${16} /> Conectar mi IA</button>`}
         <p class="chat-note">🔒 Para responderte se analiza un resumen de tus cuentas, tasas y últimos movimientos. No se guarda la conversación.</p>
         <div class="chat-sugg">${suggestions.map((s) => html`<button key=${s} class="chip" onClick=${() => send(s)}>${s}</button>`)}</div>
@@ -434,13 +456,13 @@ export function Copilot() {
 
     <form class="chat-input" onSubmit=${(e) => { e.preventDefault(); send(); }}>
       <textarea ref=${box} rows="1" class="input"
-        placeholder=${listening ? "Escuchando tu voz… habla ahora" : "Pregunta o habla con Fructuosa…"}
+        placeholder=${listening ? "Escuchando tu voz… habla ahora" : "Pregunta o habla con Fructosa…"}
         value=${input} maxLength="600"
         onInput=${(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
         onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}></textarea>
       <button type="button" class=${'icon-btn mic' + (listening ? ' listening' : '')} onClick=${toggleVoice}
-        aria-label=${listening ? "Detener micrófono" : "Hablar con Fructuosa por micrófono"}
-        title=${listening ? "Detener micrófono" : "Hablar con Fructuosa (Micrófono)"}>
+        aria-label=${listening ? "Detener micrófono" : "Hablar con Fructosa por micrófono"}
+        title=${listening ? "Detener micrófono" : "Hablar con Fructosa (Micrófono)"}>
         <${Icon} name=${listening ? 'micOff' : 'mic'} size=${19} />
       </button>
       ${busy
@@ -448,6 +470,7 @@ export function Copilot() {
         : html`<button type="submit" class="icon-btn send" disabled=${!input.trim()} aria-label="Enviar a Gemini"><${Icon} name="send" size=${19} /></button>`}
     </form>
 
+    ${notice && html`<${AiNotice} onClose=${() => { markNoticeSeen(profile.id); setNotice(false); }} />`}
     ${setup && html`<${Sheet} title=${SHARED_AI ? 'Copiloto IA · opcional' : 'Copiloto IA'} onClose=${() => setSetup(false)}>
       ${(close) => html`<${AiSettings} onSaved=${(c) => { setCfg(c); if (aiReady(c)) close(); }} />`}
     <//>`}

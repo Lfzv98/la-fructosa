@@ -46,7 +46,7 @@ const MANUAL = [
   },
   {
     emoji: '💡',
-    title: 'Los consejos de Fructuosa',
+    title: 'Los consejos de Fructosa',
     body: [
       'Arriba en el inicio te aparece un avisito cuando hay algo útil: si el mercado se te está yendo de las manos, si te acercas al tope de un presupuesto o si el dólar se movió.',
       'Para quitarlo, deslízalo hacia arriba o hacia un lado (o toca la ✕). Ese consejo no vuelve a salir en el mismo mes o día; cuando cambien las cosas, te avisamos de nuevo.',
@@ -54,10 +54,10 @@ const MANUAL = [
   },
   {
     emoji: '🎙️',
-    title: 'Háblale a Fructuosa',
+    title: 'Háblale a Fructosa',
     body: [
       'Entra al Copiloto y toca el micrófono. Dile algo como "¿cuánto gasté en comida este mes?" o "gasté 20 dólares en el mercado".',
-      'Lo que dices se va escribiendo en tiempo real. Cuando termines, toca enviar y Fructuosa te responde (y te lo puede leer en voz alta si quieres).',
+      'Lo que dices se va escribiendo en tiempo real. Cuando termines, toca enviar y Fructosa te responde (y te lo puede leer en voz alta si quieres).',
       'Si el navegador te pide permiso para usar el micrófono, dile que sí. Funciona mejor en Chrome, Edge y Safari.',
     ],
   },

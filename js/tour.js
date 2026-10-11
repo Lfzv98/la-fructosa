@@ -30,7 +30,7 @@ function stepsFor(region) {
     {
       target: '[data-tour="insight"]',
       emoji: '💡',
-      title: 'Consejos de Fructuosa',
+      title: 'Consejos de Fructosa',
       text: 'Arriba te aparece un aviso corto cuando hay algo que te conviene saber: si gastas mucho en mercado, si te acercas a tu tope o si el dólar se movió. ¿Ya lo leíste? Deslízalo hacia arriba o hacia un lado y desaparece.',
     },
     {
@@ -42,7 +42,7 @@ function stepsFor(region) {
     {
       target: '[data-tour="copilot"]',
       emoji: '🎙️',
-      title: 'Háblale a Fructuosa',
+      title: 'Háblale a Fructosa',
       text: 'Toca el botón de Copiloto, luego el micrófono y háblale como a un amigo: "gasté 15 dólares en el mercado". Ella escribe lo que dices y te ayuda a anotarlo o a entender tus números.',
     },
   );

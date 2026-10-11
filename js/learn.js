@@ -93,7 +93,7 @@ export function pickTip({ stats, budgetsOver, upcoming, savingsRate, spread, has
 }
 
 // ---------------------------------------------------------------------
-// Consejos del banner flotante (Fructuosa). Devuelve una lista ordenada por
+// Consejos del banner flotante (Fructosa). Devuelve una lista ordenada por
 // importancia; el inicio muestra el primero que el usuario no haya descartado.
 // Cada consejo lleva un id estable (con el mes o el día) para no repetirlo.
 // ---------------------------------------------------------------------
@@ -174,7 +174,7 @@ export function pickInsights({ stats, prevStats, budgetRows = [], upcoming = 0, 
     out.push({ id: 'tip-budget', emoji: '🎯', tone: 'info', title: 'Ponle tope a lo que más gastas',
       text: 'Elige 3 o 4 categorías (mercado, salidas…) y fija cuánto quieres gastar al mes. Yo te aviso antes de que te pases.', action: { label: 'Crear presupuesto', href: '#/presupuestos' } });
   }
-  out.push({ id: 'tip-voice', emoji: '🎙️', tone: 'info', title: 'Háblale a Fructuosa',
+  out.push({ id: 'tip-voice', emoji: '🎙️', tone: 'info', title: 'Háblale a Fructosa',
     text: 'Toca el micrófono en el chat y dile, por ejemplo: "gasté 20 dólares en comida". Yo lo anoto contigo.', action: { label: 'Abrir chat', href: '#/copiloto' } });
   return out;
 }

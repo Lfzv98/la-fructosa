@@ -655,3 +655,9 @@ b.big { font-size: 20px; }
 .tour-foot .dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--surface-3); }
 .tour-foot .dots i.on { width: 20px; border-radius: 6px; background: var(--salmon); }
 .region-mine { border-color: var(--salmon); }
+
+/* Aviso de uso de Fructosa (primera vez que se abre el chat) */
+.ai-notice { display: flex; flex-direction: column; gap: 10px; font-size: 14.5px; line-height: 1.5; }
+.ai-notice p { margin: 0; }
+.ai-notice ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.ai-notice .muted { font-size: 13px; }

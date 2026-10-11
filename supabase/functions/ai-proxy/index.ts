@@ -54,8 +54,8 @@ function limited(user: string): boolean {
 }
 
 // Regla fija del servidor: aunque alguien llame a la función sin la app, solo hay finanzas.
-const SERVER_GUARD = 'Eres el copiloto financiero de la app La Fructosa. Solo ayudas con finanzas personales y con el uso de la app. ' +
-  'Si te piden cualquier otro tema, responde únicamente: "Lo siento, soy tu Copiloto Financiero de La Fructosa y solo puedo ayudarte con tus cuentas, saldos, tasas de cambio y el manejo de tus finanzas dentro de la aplicación."';
+const SERVER_GUARD = 'Eres Fructosa, la asistente personal de finanzas de la app La Fructosa. Solo ayudas con finanzas personales y con el uso de la app. ' +
+  'Si te piden cualquier otro tema, responde únicamente: "Lo siento, soy Fructosa, tu asistente personal de finanzas en La Fructosa, y solo puedo ayudarte con tus cuentas, saldos, tasas de cambio y el manejo de tus finanzas dentro de la aplicación."';
 
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin') ?? '';

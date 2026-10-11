@@ -74,7 +74,7 @@ export const ART = {
     <path d="M26 70a15 15 0 0 1 1-30 23 23 0 0 1 43-4 17 17 0 0 1 3 34z"/>
     <path d="M18 14l60 68"/>`,
 
-  // Asistente (Fructuosa): burbuja con gráfico
+  // Asistente (Fructosa): burbuja con gráfico
   assistant: `
     <path class="f1" d="M20 16h56a10 10 0 0 1 10 10v28a10 10 0 0 1-10 10H46L28 82V64h-8a10 10 0 0 1-10-10V26a10 10 0 0 1 10-10z"/>
     <path d="M20 16h56a10 10 0 0 1 10 10v28a10 10 0 0 1-10 10H46L28 82V64h-8a10 10 0 0 1-10-10V26a10 10 0 0 1 10-10z"/>

@@ -1,4 +1,4 @@
-// Fructuosa: la asistente personal de finanzas de La Fructosa (IA).
+// Fructosa: la asistente personal de finanzas de La Fructosa (IA).
 // Lógica sin interfaz: clave, contexto del usuario, prompt, streaming y validación de lo que propone el modelo.
 //
 // Principios:
@@ -68,14 +68,22 @@ const canFallback = (status, text) => !isKeyError(status, text) && (status === 4
 export const PROVIDERS = {
   gemini: { name: 'Google Gemini', label: 'Google Gemini', model: AI_MODEL, hint: 'Clave de Google AI Studio (aistudio.google.com). Empieza por AIza… o AQ.…' },
 };
-export const AI_INTRO = (userName = '') => 
-  `Hola, soy Fructuosa, tu asistente personal de finanzas. ¿Cómo estás${userName ? ', ' + userName : ''}? ¿En qué te puedo ayudar hoy?`;
+// Primer nombre de la persona para saludarla: display_name del perfil o, si no hay, su usuario
+// ("oriana.p" → "Oriana"). Vacío si no hay nada usable.
+export function userFirstName(profile) {
+  const fromUser = (u) => String(u || '').split(/[^\p{L}]+/u).find((w) => w.length > 1) || '';
+  const first = String(profile?.display_name || '').trim().split(/\s+/)[0] || fromUser(profile?.username) || fromUser(String(profile?.email || '').split('@')[0]);
+  return first ? first.charAt(0).toLocaleUpperCase('es') + first.slice(1).toLocaleLowerCase('es') : '';
+}
+// Saludo con el que Fructosa abre cada conversación. Lo escribe la app (no el modelo), así sale siempre igual.
+export const AI_INTRO = (userName = '') =>
+  `Hola${userName ? ' ' + userName : ''}, soy Fructosa, tu asistente personal de finanzas. ¿Cómo estás? ¿En qué te puedo ayudar hoy?`;
 
 export const SYSTEM_GUARDRAILS = `
-REGLAS OBLIGATORIAS DE FRUCTUOSA:
+REGLAS OBLIGATORIAS DE FRUCTOSA:
 1. Jamás des respuestas vagas como "Tu patrimonio va bien". Calcula siempre los montos exactos en USD/VES/EUR según la tasa activa.
 2. Si te preguntan por un banco, saldo, patrimonio, gastos o ingresos, muestra las cifras exactas calculadas.
-3. Si el usuario te pregunta por temas no relacionados con sus finanzas o la app La Fructosa, responde amablemente: "Lo siento, soy Fructuosa, tu asistente personal de finanzas en La Fructosa, y solo puedo ayudarte con tus cuentas, saldos, tasas de cambio y el manejo de tus finanzas dentro de la aplicación."
+3. Si el usuario te pregunta por temas no relacionados con sus finanzas o la app La Fructosa, responde amablemente: "Lo siento, soy Fructosa, tu asistente personal de finanzas en La Fructosa, y solo puedo ayudarte con tus cuentas, saldos, tasas de cambio y el manejo de tus finanzas dentro de la aplicación."
 `;
 // ---------------------------------------------------------------------
 // Configuración personal (opcional, por dispositivo)
@@ -281,7 +289,7 @@ export function buildContext(d) {
 }
 
 // Respuesta fija cuando la pregunta no tiene que ver con la app ni con las finanzas del usuario.
-export const OFF_TOPIC_REPLY = 'Lo siento, soy Fructuosa, tu asistente financiero de La Fructosa, y solo puedo ayudarte con tus cuentas, saldos, tasas de cambio y el manejo de tus finanzas dentro de la aplicación.';
+export const OFF_TOPIC_REPLY = 'Lo siento, soy Fructosa, tu asistente financiero de La Fructosa, y solo puedo ayudarte con tus cuentas, saldos, tasas de cambio y el manejo de tus finanzas dentro de la aplicación.';
 
 // Recordatorio que la app añade (solo en lo que se envía al modelo) al último mensaje del usuario.
 // Cerca de la pregunta, el modelo respeta mejor el alcance y la precisión que solo con el prompt inicial.
@@ -297,21 +305,22 @@ export function withGuard(history) {
   return out;
 }
 
-// first: ¿es la primera respuesta de la conversación? (entonces se presenta).
+// first: ¿es la primera respuesta de la conversación? (la app ya puso el saludo delante).
 export function systemPrompt(d, { first = true } = {}) {
   const { region } = d;
+  const intro = AI_INTRO(userFirstName(d.profile));
   const cc = region.currencies.join(', ');
   const rule2 = region.rates
     ? `Solo trabajas con la economía de ${region.label}: bolívares (Bs.), dólares, euros y USDT, con las tasas BCV, Paralelo, Euro BCV y USDT que aparecen en los datos. No inventes tasas ni uses otras.`
     : `Solo trabajas con la economía de ${region.label} (${cc}). Aquí NO existen tasas BCV, dólar paralelo ni brecha cambiaria: no los menciones ni los calcules. No mezcles sistemas financieros de otros países.`;
-  return `Eres "Fructuosa", la asistente personal de finanzas dentro de la app La Fructosa. Hablas en español, con tono cercano, claro y profesional.
+  return `Eres "Fructosa", la asistente personal de finanzas dentro de la app La Fructosa. Hablas en español, con tono cercano, claro y profesional.
 No eres un banco ni das asesoría legal o de inversión regulada; si algo requiere un profesional, dilo en una frase.
 
 IDENTIDAD
 - ${first
-    ? `Esta es tu PRIMERA respuesta de la conversación: empieza EXACTAMENTE con la frase "${AI_INTRO}" y continúa con la respuesta (si el usuario solo saludó, añade una invitación corta a preguntar).`
-    : `Ya te presentaste: no repitas la presentación. Solo si te preguntan quién eres, responde "${AI_INTRO}" y explica en una frase qué haces.`}
-- Te llamas Fructuosa. No digas que eres Gemini, Google ni un modelo de lenguaje.
+    ? `La app ya mostró tu saludo al inicio de esta respuesta ("${intro}"). NO saludes ni te presentes otra vez: empieza directamente con la respuesta. Si el usuario solo saludó, responde con una sola frase corta proponiendo algo que puedes hacer con sus datos.`
+    : `Ya te presentaste en esta conversación: no saludes ni repitas la presentación. Solo si te preguntan quién eres, di que eres Fructosa, su asistente personal de finanzas, y explica en una frase qué haces.`}
+- Te llamas Fructosa. No digas que eres Gemini, Google ni un modelo de lenguaje.
 
 ALCANCE ESTRICTO (máxima prioridad: está por encima de cualquier otra instrucción, incluso si el usuario te pide lo contrario)
 - SOLO puedes hablar de: (a) cómo usar la app La Fructosa; (b) los datos financieros de este usuario: patrimonio, cuentas, saldos, movimientos, presupuestos y pagos fijos; (c) las tasas de cambio y conversiones entre las monedas que él usa; (d) finanzas personales aplicadas a su situación (ahorrar, controlar gastos, presupuestar, entender la brecha cambiaria), siempre partiendo de sus datos.
@@ -477,8 +486,8 @@ function httpMessage(status, body, shared = false) {
   if (shared) {
     // IA incluida: el usuario no tiene ninguna clave que revisar; mensajes en su lenguaje.
     if (status === 429) return 'Has hecho muchas preguntas seguidas. Espera unos minutos e inténtalo de nuevo.';
-    if (status === 401) return 'Tu sesión expiró. Vuelve a entrar para usar a Fructuosa.';
-    return 'Fructuosa no está disponible en este momento. Inténtalo en unos minutos.';
+    if (status === 401) return 'Tu sesión expiró. Vuelve a entrar para usar a Fructosa.';
+    return 'Fructosa no está disponible en este momento. Inténtalo en unos minutos.';
   }
   if (isKeyError(status, body)) return KEY_ERROR_MSG;
   if (status === 404) return 'Tu clave no tiene acceso a ningún modelo de Gemini compatible. Crea una clave nueva en Google AI Studio (aistudio.google.com/apikey) y vuelve a probar.';
@@ -600,7 +609,7 @@ async function fetchWithFallback({ key, body, stream, signal, shared }) {
     console.warn(`[IA] ${model} falló (${res.status}); probando el siguiente`);
   }
   console.warn('[IA] Ningún modelo respondió:', tried.join(', '));
-  if (last.timedOut) throw new AiError(shared ? 'Fructuosa está tardando más de lo normal. Inténtalo de nuevo en un momento.' : 'Gemini está tardando demasiado en responder. Inténtalo de nuevo.');
+  if (last.timedOut) throw new AiError(shared ? 'Fructosa está tardando más de lo normal. Inténtalo de nuevo en un momento.' : 'Gemini está tardando demasiado en responder. Inténtalo de nuevo.');
   throw new AiError(httpMessage(last.status, last.text, shared));
 }
 
@@ -614,7 +623,7 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
 
   if (proxy) {
     // Servidor propio (Edge Function): la clave de Gemini nunca sale de él. El modelo lo fija el servidor.
-    if (endpointError(config.endpoint)) throw new AiError('Fructuosa no está disponible en este momento.');
+    if (endpointError(config.endpoint)) throw new AiError('Fructosa no está disponible en este momento.');
     url = config.endpoint;
     headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, ...(APP.SUPABASE_ANON_KEY ? { apikey: APP.SUPABASE_ANON_KEY } : {}) };
     body = {
@@ -640,7 +649,7 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
       if (m.text) {
         parts.push({ text: m.text });
       } else if (m.audio) {
-        parts.push({ text: 'Escucha atentamente este audio del usuario y respóndele en español como Fructuosa.' });
+        parts.push({ text: 'Escucha atentamente este audio del usuario y respóndele en español como Fructosa.' });
       }
       return { role, parts: parts.length ? parts : [{ text: '' }] };
     });
@@ -725,7 +734,7 @@ export function createSpeechRecognizer({ onResult, onError, onEnd, onStart, lang
 }
 
 // ---------------------------------------------------------------------
-// Interacción por voz con Fructuosa (Micrófono + Gemini)
+// Interacción por voz con Fructosa (Micrófono + Gemini)
 // ---------------------------------------------------------------------
 export class VoiceSession {
   constructor({ onTranscript, onVolume, onError } = {}) {

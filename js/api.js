@@ -157,6 +157,8 @@ const real = {
     };
     if (uName) profile.username = uName;
     if (reg) profile.region = reg;
+    // Un display_name vacío en la tabla no debe tapar el nombre guardado al registrarse ni el usuario.
+    if (!String(profile.display_name || '').trim()) profile.display_name = meta.display_name || fallback.display_name || uName;
     profile.email = user.email;
 
     // Usuario y país guardados por el plan B (o elegidos en el registro) que la tabla aún no tiene:
