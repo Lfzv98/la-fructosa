@@ -5,7 +5,7 @@ import { useData } from '../store.js';
 import { go } from './common.js';
 import { categoryMeta, fmt, fmtRate } from '../money.js';
 import {
-  PROVIDERS, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, endpointError, systemPrompt, parseReply,
+  PROVIDERS, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, endpointError, systemPrompt, withGuard, parseReply,
   runCalc, resolveTx, streamChat, testConnection,
 } from '../ai.js';
 
@@ -199,7 +199,7 @@ export function Copilot() {
     ctl.current = c;
     try {
       await streamChat({
-        config: cfg, system: systemPrompt(d), history, signal: c.signal,
+        config: cfg, system: systemPrompt(d), history: withGuard(history), signal: c.signal,
         onDelta: (t) => setMsgs((cur) => cur.map((m) => (m.id === bot.id ? { ...m, text: m.text + t } : m))),
       });
     } catch (e) {
