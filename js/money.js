@@ -42,7 +42,8 @@ export const ACCOUNT_TEMPLATES = {
     { name: 'Efectivo', currency: 'USD', kind: 'cash' },
     { name: 'Zelle', currency: 'USD', kind: 'digital' },
     { name: 'Pago Móvil', currency: 'VES', kind: 'bank' },
-    { name: 'Bancamiga', currency: 'VES', kind: 'bank' },
+    // bank: true → cada persona elige o escribe su propio banco.
+    { name: 'Mi banco', currency: 'VES', kind: 'bank', bank: true },
     { name: 'Binance', currency: 'USDT', kind: 'crypto' },
     { name: 'Efectivo Bs.', currency: 'VES', kind: 'cash' },
   ],
@@ -59,6 +60,13 @@ export const ACCOUNT_TEMPLATES = {
     { name: 'Binance', currency: 'USDT', kind: 'crypto' },
   ],
 };
+
+// Bancos de Venezuela más usados. Son sugerencias: también se puede escribir cualquier otro.
+export const VE_BANKS = [
+  'Banco de Venezuela', 'Banesco', 'Mercantil', 'BBVA Provincial', 'Banco Nacional de Crédito (BNC)',
+  'Banco Exterior', 'Bancamiga', 'Bancaribe', 'Banplus', 'Banco del Tesoro', 'Banco Bicentenario',
+  'Banco Venezolano de Crédito', 'Banco Activo', 'Bancrecer', '100% Banco', 'Banco Caroní', 'Banco Plaza',
+];
 
 export const ACCOUNT_COLORS = ['#A0C4FF', '#FFADAD', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#BDB2FF', '#FFC6FF', '#FFD6A5'];
 

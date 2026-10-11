@@ -5,7 +5,7 @@ import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { AccountRow, TxRow, PageHeader, openTx, go } from './common.js';
 import {
-  ACCOUNT_COLORS, ACCOUNT_TEMPLATES, ADJUST_CATEGORY, CURRENCIES, KINDS, convert, fmt, parseAmount, todayISO, monthKey,
+  ACCOUNT_COLORS, ACCOUNT_TEMPLATES, ADJUST_CATEGORY, CURRENCIES, KINDS, VE_BANKS, convert, fmt, parseAmount, todayISO, monthKey,
 } from '../money.js';
 
 const ICONS = ['💵', '🏦', '📱', '📲', '🪙', '💳', '🐷', '💼', '🏠', '✈️', '🎓', '💰'];
@@ -105,7 +105,9 @@ export function AccountForm({ account, onClose }) {
           onClick=${() => setF((x) => ({ ...x, ...t, icon: KINDS[t.kind].emoji }))}>${KINDS[t.kind].emoji} ${t.name} · ${t.currency}</button>`)}</div>
       </div>`}
       <${Field} label="Nombre" error=${err.name}>
-        <input class="input" maxlength="60" placeholder="Ej. Pago Móvil Bancamiga" value=${f.name} onInput=${(e) => set('name', e.target.value)} />
+        <input class="input" maxlength="60" placeholder="Ej. Pago Móvil Bancamiga" value=${f.name} onInput=${(e) => set('name', e.target.value)}
+          list=${profile.region === 'VE' && f.kind === 'bank' ? 'banks-ve-form' : undefined} />
+        <datalist id="banks-ve-form">${VE_BANKS.map((b) => html`<option key=${b} value=${b}></option>`)}</datalist>
       <//>
       <${Field} label="Moneda" hint=${editing && used ? 'Cambiar la moneda no convierte los movimientos ya registrados.' : ''}>
         <${Segmented} value=${f.currency} onChange=${(v) => set('currency', v)} options=${[...new Set([...region.currencies, ...(editing ? [account.currency] : [])])].map((c) => [c, c])} />

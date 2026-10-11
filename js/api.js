@@ -183,7 +183,11 @@ const real = {
   },
   async insert(table, row) {
     const c = await sb();
-    return tolerant((p) => c.from(table).insert(p).select().single(), row);
+    // user_id = auth.uid() de la sesión actual, siempre explícito: la política RLS de insert
+    // exige (auth.uid() = user_id) y no dependemos solo del default de la columna.
+    const { data: { session } } = await c.auth.getSession();
+    if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+    return tolerant((p) => c.from(table).insert(p).select().single(), { ...row, user_id: session.user.id });
   },
   async update(table, id, patch) {
     const c = await sb();
