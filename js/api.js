@@ -41,6 +41,14 @@ async function tolerant(run, row) {
 // y así un movimiento simple no depende de columnas opcionales (brecha, transferencias).
 const withoutNulls = (row) => Object.fromEntries(Object.entries(row).filter(([, v]) => v !== null && v !== undefined));
 
+// Algunas bases tienen transactions.currency obligatoria (NOT NULL). La moneda de un movimiento
+// es siempre la de su cuenta: si no viene, se toma de la cuenta (por su id) antes de guardar.
+async function withTxCurrency(c, table, row) {
+  if (table !== 'transactions' || row.currency || !row.account_id) return row;
+  const { data } = await c.from('accounts').select('currency').eq('id', row.account_id).maybeSingle();
+  return data?.currency ? { ...row, currency: data.currency } : row;
+}
+
 // --- Perfil con plan B ---------------------------------------------------
 // Si guardar usuario y país en la tabla `profiles` falla o tarda, se guardan en
 // user_metadata de Supabase Auth y en localStorage para que nadie se quede en
@@ -307,11 +315,12 @@ const real = {
     // exige (auth.uid() = user_id) y no dependemos solo del default de la columna.
     const { data: { session } } = await c.auth.getSession();
     if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
-    return tolerant((p) => c.from(table).insert(p).select().single(), { ...withoutNulls(row), user_id: session.user.id });
+    const full = await withTxCurrency(c, table, { ...withoutNulls(row), user_id: session.user.id });
+    return tolerant((p) => c.from(table).insert(p).select().single(), full);
   },
   async update(table, id, patch) {
     const c = await sb();
-    return tolerant((p) => c.from(table).update(p).eq('id', id).select().single(), patch);
+    return tolerant((p) => c.from(table).update(p).eq('id', id).select().single(), await withTxCurrency(c, table, patch));
   },
   async remove(table, id) {
     const c = await sb();

@@ -483,7 +483,7 @@ export function resolveTx(spec, d) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(spec.date || '')) && spec.date <= today && spec.date >= addDays(today, -90) ? spec.date : today;
   if (!(n2(inAcc) > 0)) return { error: 'El monto convertido es demasiado pequeño para registrarlo.' };
   const row = {
-    type: kind, account_id: String(acc.id), amount: n2(inAcc), category, description, occurred_on: date,
+    type: kind, account_id: String(acc.id), currency: acc.currency, amount: n2(inAcc), category, description, occurred_on: date,
     to_account_id: null, to_amount: null, original_amount: null, original_currency: null,
     rate_applied: null, rate_bcv: null, rate_paralelo: null,
   };

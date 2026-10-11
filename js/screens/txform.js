@@ -108,7 +108,7 @@ export function TxForm({ tx, preset = {}, onClose }) {
     setBusy(true);
     const round = (n, dec = 8) => Number(Number(n).toFixed(dec));
     const row = {
-      type, account_id: accountId, amount: round(finalAmount, 2), category: effectiveCategory,
+      type, account_id: accountId, currency: acc?.currency, amount: round(finalAmount, 2), category: effectiveCategory,
       description: description.trim() || null, occurred_on: date,
       to_account_id: type === 'transfer' ? toAccountId : null,
       to_amount: type === 'transfer' ? round(toFinal, 2) : null,
