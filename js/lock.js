@@ -1,11 +1,11 @@
 // Bloqueo de la app con PIN y, si el teléfono lo permite, Face ID / huella (WebAuthn).
 // Es un candado de este dispositivo: se pide al abrir la app y al volver después de un rato.
-// El PIN nunca se guarda tal cual: solo su huella PBKDF2 con sal. Se configura en Ajustes.
+// El PIN nunca se guarda tal cual: solo su hash PBKDF2 con sal. Se configura en Ajustes.
 import { useEffect, useRef, useState } from 'react';
 import { html, Icon, Sheet, Field, toast, confirmDialog, vibrate } from './ui.js';
 
 const KEY = (uid) => 'fructosa-lock-' + uid;
-const RELOCK_MS = 60 * 1000; // vuelve a pedir el candado si la app estuvo en segundo plano más de 1 minuto
+const RELOCK_MS = 60 * 1000; // vuelve a pedir el PIN si la app estuvo en segundo plano más de 1 minuto
 const MAX_TRIES = 5;
 
 export function readLock(uid) { try { return JSON.parse(localStorage.getItem(KEY(uid))) || null; } catch { return null; } }
@@ -124,7 +124,7 @@ function LockScreen({ cfg, onUnlock, onSignOut }) {
     const n = tries + 1;
     setTries(n); setPin('');
     if (n >= MAX_TRIES) { setWaitUntil(Date.now() + 30000); setTries(0); setErr('Demasiados intentos. Espera 30 segundos.'); }
-    else setErr(`PIN incorrecto. Te quedan ${MAX_TRIES - n} intentos.`);
+    else setErr(`PIN incorrecto. ${MAX_TRIES - n === 1 ? 'Te queda 1 intento' : `Te quedan ${MAX_TRIES - n} intentos`}.`);
   };
 
   const forgot = async () => {

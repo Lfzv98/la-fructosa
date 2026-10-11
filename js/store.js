@@ -1,5 +1,5 @@
-// Estado global: carga los datos una vez, calcula saldos y estadísticas,
-// y expone acciones que actualizan la BD y la interfaz al instante.
+// Estado global: carga los datos una vez, calcula saldos y estadísticas
+// y expone acciones que actualizan la base de datos y la interfaz al instante.
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo } from './api.js';
 import { fetchLiveRates } from './rates.js';
@@ -49,7 +49,7 @@ export function DataProvider({ uid, children }) {
   dataRef.current = data;
   const useOffline = !isDemo && Boolean(uid);
 
-  // Agrega a la lista los movimientos que siguen en la cola (no están aún en la BD).
+  // Agrega a la lista los movimientos que siguen en la cola (aún no están en la base de datos).
   const withQueued = async (next) => {
     if (!useOffline) return next;
     const q = await queue.read(uid);
@@ -87,7 +87,7 @@ export function DataProvider({ uid, children }) {
   }, []);
   useEffect(() => { reload(); }, [reload]);
 
-  // Sube la cola en orden. Si un movimiento ya llegó (id repetido), cuenta como subido.
+  // Sube la cola en orden. Si un movimiento ya llegó (id repetido), se cuenta como subido.
   const flushing = useRef(false);
   const flush = useCallback(async () => {
     if (!useOffline || flushing.current || !navigator.onLine) return;
@@ -119,7 +119,7 @@ export function DataProvider({ uid, children }) {
     } finally { flushing.current = false; }
   }, [uid]);
 
-  // Al volver la señal: subir la cola y refrescar los datos.
+  // Al volver la conexión: sube la cola y actualiza los datos.
   useEffect(() => {
     if (!useOffline) return;
     const back = () => { flush().then(() => { if (dataRef.current?.savedAt || offline) reload(); }); };
@@ -150,14 +150,14 @@ export function DataProvider({ uid, children }) {
     }
   }, []);
 
-  // Tasas en vivo si la BD no tiene las de hoy (solo en modo real y región VE).
+  // Tasas en vivo si la base de datos no tiene las de hoy (solo en modo real y región VE).
   useEffect(() => {
     if (!data || isDemo || (data.profile.region || 'VE') !== 'VE') return;
     const today = todayISO();
     const stale = ['BCV_USD', 'PARALELO', 'USDT'].some((k) => !data.rateMeta[k] || data.rateMeta[k].rate_date < today || !data.rates[k]);
     if (stale) {
       fetchLiveRates().then(setLive).catch(() => {});
-      if (navigator.onLine) api.healRates(); // que el servidor guarde las de hoy en el historial
+      if (navigator.onLine) api.healRates(); // para que el servidor guarde las de hoy en el historial
     }
   }, [data]);
 
@@ -167,7 +167,7 @@ export function DataProvider({ uid, children }) {
     const region = REGIONS[profile.region] || REGIONS.VE;
     const accountTemplates = ACCOUNT_TEMPLATES[profile.region] || ACCOUNT_TEMPLATES.VE;
 
-    // Tasas: BD primero; la API en vivo rellena huecos o días faltantes.
+    // Tasas: primero las de la base de datos; la API en vivo completa los huecos o los días faltantes.
     const rates = { ...data.rates };
     const rateMeta = { ...data.rateMeta };
     if (live) {
@@ -238,7 +238,7 @@ export function DataProvider({ uid, children }) {
       rateHistory: data.rateHistory, missing: data.missing || [], savedAt: data.savedAt };
   }, [data, live]);
 
-  // Mutaciones: escriben en la BD y actualizan el estado local sin recargar todo.
+  // Mutaciones: escriben en la base de datos y actualizan el estado local sin recargar todo.
   const upsertLocal = (table, row) => setData((d) => {
     const key = TABLE_KEY[table];
     if (!d[key]) d = { ...d, [key]: [] };
@@ -256,7 +256,7 @@ export function DataProvider({ uid, children }) {
     reload,
     refreshRates,
     async save(table, row, id) {
-      // Movimientos nuevos: llevan su id desde el teléfono, así se pueden guardar sin conexión
+      // Movimientos nuevos: llevan su id desde el teléfono; así se pueden guardar sin conexión
       // y subir después sin duplicarse.
       if (useOffline && table === 'transactions' && !id) {
         const local = { ...row, id: row.id || uuid() };
@@ -266,7 +266,7 @@ export function DataProvider({ uid, children }) {
           setPending(q.length + 1);
           const shown = { ...local, user_id: uid, created_at: new Date().toISOString(), pending: true };
           upsertLocal(table, shown);
-          toast('Sin conexión: guardado en el teléfono. Se subirá solo cuando vuelva la señal.');
+          toast('Sin conexión: guardado en el teléfono. Se subirá automáticamente cuando vuelva la conexión.');
           return shown;
         };
         if (!navigator.onLine) return enqueue();
@@ -296,7 +296,7 @@ export function DataProvider({ uid, children }) {
       return saved;
     },
     async remove(table, id) {
-      // Un movimiento que aún no se subió se quita de la cola, sin ir a la BD.
+      // Un movimiento que aún no se subió se quita de la cola, sin pasar por la base de datos.
       if (useOffline) {
         const q = await queue.read(uid);
         if (q.some((it) => it.row.id === id)) {
@@ -331,7 +331,7 @@ export function DataProvider({ uid, children }) {
       }
       return created;
     },
-    // optimistic: aplica el cambio en pantalla al instante y lo revierte si la BD lo rechaza.
+    // optimistic: aplica el cambio en pantalla al instante y lo revierte si la base de datos lo rechaza.
     async updateProfile(patch, { optimistic = false } = {}) {
       const before = optimistic ? dataRef.current?.profile : null;
       if (optimistic) setData((d) => ({ ...d, profile: { ...d.profile, ...patch } }));

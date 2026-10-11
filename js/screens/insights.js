@@ -64,7 +64,7 @@ export function Insights() {
     </section>`}
 
     <section class="card pad">
-      <h2 class="card-title"><${Icon} name="pie" size=${18} /> ¿En qué se fue?</h2>
+      <h2 class="card-title"><${Icon} name="pie" size=${18} /> ¿En qué se fue el dinero?</h2>
       ${cats.length === 0
         ? html`<${Empty} art="growth" title="Sin gastos este mes" />`
         : html`<div class="donut-wrap">
@@ -84,7 +84,7 @@ export function Insights() {
     </section>
 
     ${biggest.length > 0 && html`<section>
-      <${SectionTitle}>Gastos más grandes<//>
+      <${SectionTitle}>Mayores gastos<//>
       <div class="card list">${biggest.map((t) => html`<${TxRow} key=${t.id} t=${t} accById=${accById} showDate />`)}</div>
     </section>`}
   </div>`;

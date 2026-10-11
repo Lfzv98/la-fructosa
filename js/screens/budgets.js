@@ -36,7 +36,7 @@ export function Budgets() {
 
   if (missing.includes('budgets')) {
     return html`<div class="page"><${PageHeader} title="Presupuestos" back="#/mas" />
-      <${Empty} art="database" title="Falta activar presupuestos" text="Ejecuta supabase/migrations/002_mejoras.sql en el SQL Editor de Supabase y recarga." /></div>`;
+      <${Empty} art="database" title="Falta activar los presupuestos" text="Ejecuta el archivo supabase/migrations/002_mejoras.sql en el SQL Editor de Supabase y vuelve a cargar la página." /></div>`;
   }
 
   return html`<div class="page">
@@ -44,14 +44,14 @@ export function Budgets() {
       <button class="btn sm primary" onClick=${() => setForm({})}><${Icon} name="plus" size=${16} /> Nuevo</button>`} />
 
     ${rows.length > 0 && html`<section class="card pad stack sm">
-      <div class="row-between"><span class="muted">Gastado de lo presupuestado <${Learn} term="presupuesto" /></span>
+      <div class="row-between"><span class="muted">Gastado del total presupuestado <${Learn} term="presupuesto" /></span>
         <span class="num"><b><${Money} v=${totSpent} c=${target} /></b> / <${Money} v=${totLimit} c=${target} /></span></div>
       <${Progress} value=${totSpent / (totLimit || 1)} />
       <div class="month-marker"><i style=${{ left: monthPct * 100 + '%' }}></i><span style=${{ left: monthPct * 100 + '%' }}>Hoy · día ${day}</span></div>
     </section>`}
 
     ${rows.length === 0
-      ? html`<${Empty} art="target" title="Sin presupuestos" text="Ponle un tope mensual a las categorías donde más gastas. La app te avisa antes de pasarte."
+      ? html`<${Empty} art="target" title="Sin presupuestos" text="Define un tope mensual para las categorías en las que más gastas. La app te avisa antes de que te excedas."
           action=${html`<button class="btn primary" onClick=${() => setForm({})}>Crear presupuesto</button>`} />`
       : html`<div class="stack sm">${rows.map(({ b, spent, ratio, left, perDay, projected }) => {
           const meta = categoryMeta(b.category);
@@ -63,8 +63,8 @@ export function Budgets() {
             </div>
             <${Progress} value=${ratio} tone=${ahead ? 'warn' : undefined} />
             <p class=${'budget-note ' + (ratio >= 1 ? 'bad' : ahead ? 'warn' : 'ok')}>
-              ${ratio >= 1 ? html`Te pasaste por <b class="num"><${Money} v=${-left} c=${b.currency} /></b>.`
-                : ahead ? html`Vas rápido: a este ritmo cerrarías el mes en <b class="num"><${Money} v=${projected} c=${b.currency} /></b>.`
+              ${ratio >= 1 ? html`Te excediste por <b class="num"><${Money} v=${-left} c=${b.currency} /></b>.`
+                : ahead ? html`Estás gastando más rápido de lo previsto: a este ritmo cerrarías el mes en <b class="num"><${Money} v=${projected} c=${b.currency} /></b>.`
                 : html`Te quedan <b class="num"><${Money} v=${left} c=${b.currency} /></b> · unos <b class="num"><${Money} v=${perDay} c=${b.currency} /></b> por día.`}
             </p>
           </button>`;
@@ -76,7 +76,7 @@ export function Budgets() {
         const meta = categoryMeta(c);
         return html`<button key=${c} class="tx-row" onClick=${() => setForm({ category: c, suggest: Math.ceil((avg[c] || v) / 5) * 5 })}>
           <span class="tx-ico" style=${{ '--cat': meta.color }}>${meta.emoji}</span>
-          <span class="tx-main"><b>${c}</b><small>Toca para ponerle tope</small></span>
+          <span class="tx-main"><b>${c}</b><small>Toca para fijar un tope</small></span>
           <span class="tx-amt"><${Money} v=${v} c=${target} /></span>
         </button>`;
       })}</div>
@@ -124,7 +124,7 @@ function BudgetForm({ budget, preset, avg, onClose }) {
       <${Field} label="Moneda del tope">
         <${Segmented} value=${currency} onChange=${setCurrency} options=${region.currencies.map((c) => [c, c])} />
       <//>
-      <${Field} label="Tope mensual" hint=${suggestion ? `Tu promedio de los últimos 3 meses en ${category}: ${fmt(suggestion, target)}` : 'Empieza con un número realista; podrás ajustarlo.'}>
+      <${Field} label="Tope mensual" hint=${suggestion ? `Tu promedio de los últimos 3 meses en ${category} es ${fmt(suggestion, target)}.` : 'Empieza con una cantidad realista; podrás ajustarla después.'}>
         <div class="input-affix"><span>${CURRENCIES[currency].symbol}</span>
           <input class="input num" inputmode="decimal" placeholder="0" value=${limit} onInput=${(e) => { setLimit(e.target.value.replace(/[^\d.,]/g, '')); setErr(''); }} /></div>
       <//>

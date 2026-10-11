@@ -11,7 +11,7 @@ const MANUAL = [
     emoji: '🏦',
     title: 'Empieza por tus cuentas',
     body: [
-      'Una cuenta es cualquier lugar donde guardas dinero: la cartera, el banco, una app de pago o tus criptos.',
+      'Una cuenta es cualquier lugar donde guardas dinero: la billetera, el banco, una app de pago o tus criptos.',
       'Créalas una sola vez, ponles lo que tienes hoy y listo. Desde ahí, la app va sumando y restando por ti.',
       'En "Cuentas" también puedes archivar las que ya no uses, sin perder el historial.',
     ],
@@ -20,9 +20,9 @@ const MANUAL = [
     emoji: '💰',
     title: 'Tu resumen en el inicio',
     body: [
-      'Lo primero que ves es cuánto tienes en total, sumando todas tus cuentas en una sola moneda. Puedes cambiarla con los botoncitos de arriba a la derecha.',
+      'Lo primero que ves es cuánto tienes en total, sumando todas tus cuentas en una sola moneda. Puedes cambiarla con los botones de arriba a la derecha.',
       'Debajo ves cuánto entró, cuánto salió y qué porcentaje te está quedando este mes.',
-      'Si estás en un lugar público, toca el ojito y los montos se ocultan.',
+      'Si estás en un lugar público, toca el ícono del ojo y los montos se ocultan.',
     ],
   },
   {
@@ -31,15 +31,15 @@ const MANUAL = [
     only: ['VE'],
     body: [
       'Mira tus dólares y bolívares al mismo tiempo, con el precio del día: el dólar oficial (BCV), el del mercado (Paralelo) y el USDT.',
-      'La "brecha" es solo cuánto más cuesta el dólar en la calle que en el banco. Si es grande, conviene fijarse bien antes de cambiar o pagar en bolívares.',
-      'Las tasas se actualizan solas varias veces al día. En "Tasas" también puedes tocar actualizar, y si pasan 2 días sin tasas nuevas la app te avisa. Tienes además una calculadora para convertir rápido.',
+      'La "brecha" es solo cuánto más cuesta el dólar en el mercado que en el banco. Si es grande, conviene fijarse bien antes de cambiar o pagar en bolívares.',
+      'Las tasas se actualizan solas varias veces al día. En "Tasas" también puedes tocar actualizar, y si pasan 2 días sin tasas nuevas la app te avisa. Además, tienes una calculadora para convertir rápido.',
     ],
   },
   {
     emoji: '➕',
     title: 'Anota un gasto o un ingreso',
     body: [
-      'Toca el botón + de abajo, escribe cuánto fue y elige la categoría. Ya está.',
+      'Toca el botón + de abajo, escribe cuánto fue y elige la categoría. Listo.',
       'Si te pagaron o pagaste en otra moneda, la app hace la cuenta por ti.',
       'Si te equivocas, toca el movimiento en la lista y lo corriges o lo borras.',
     ],
@@ -48,9 +48,9 @@ const MANUAL = [
     emoji: '📷',
     title: 'Registra con una captura de cualquier pago',
     body: [
-      'En el Copiloto toca la cámara 📷 y elige la captura o la foto del comprobante. Sirve de cualquier banco o app: Pago Móvil, transferencias de Banesco, Mercantil, Provincial, Venezuela y los demás bancos, Zelle, Binance, PayPal, Zinli, Wally, Venmo, Cash App, Bizum, una factura o un ticket.',
+      'En el Copiloto toca la cámara 📷 y elige la captura o la foto del comprobante. Sirve de cualquier banco o app: Pago Móvil, transferencias de Banesco, Mercantil, Provincial, Venezuela y los demás bancos, Zelle, Binance, PayPal, Zinli, Wally, Venmo, Cash App, Bizum, una factura o un recibo.',
       'Fructosa lee el monto, la moneda, la fecha, si fue un pago o un cobro y la comisión si la hay. Te muestra el movimiento listo con la cuenta que corresponde y tú tocas "Guardar". Nada se guarda sin tu confirmación.',
-      'Si la captura es un cambio de divisa entre tus propias cuentas (por ejemplo vender USDT y recibir bolívares), te dirá que lo anotes como Transferencia con el botón +.',
+      'Si la captura es un cambio de divisa entre tus propias cuentas (por ejemplo vender USDT y recibir bolívares), te sugerirá que lo anotes como Transferencia con el botón +.',
       'Por tu seguridad, Fructosa nunca repite números de cuenta, cédulas ni teléfonos que aparezcan en la imagen.',
     ],
   },
@@ -59,7 +59,7 @@ const MANUAL = [
     title: 'Sin internet también funciona',
     body: [
       'Si te quedas sin señal, la app abre con lo último que cargó y puedes seguir anotando gastos e ingresos.',
-      'Arriba verás "⏳ movimientos por subir". Cuando vuelva el internet se suben solos, sin duplicarse.',
+      'Arriba verás "⏳ movimientos por subir". Cuando vuelva la conexión, se suben solos, sin duplicarse.',
     ],
   },
   {
@@ -74,7 +74,7 @@ const MANUAL = [
     emoji: '🏁',
     title: 'Metas de ahorro y préstamos',
     body: [
-      'En Más › Metas de ahorro creas una meta (un viaje, una laptop), le pones cuánto y para cuándo, y vas abonando. La app te dice cuánto apartar cada mes para llegar.',
+      'En Más › Metas de ahorro creas una meta (un viaje, una computadora), le pones el monto y la fecha, y vas abonando. La app te dice cuánto apartar cada mes para llegar.',
       'En Más › Préstamos anotas quién te debe y a quién le debes. Cuando te pagan o pagas, tocas "Me pagó" o "Pagué" y el saldo se actualiza.',
     ],
   },
@@ -83,14 +83,14 @@ const MANUAL = [
     title: 'Avisos en tu teléfono',
     body: [
       'En Ajustes › Avisos activas las notificaciones: pagos fijos que vencen hoy o mañana, préstamos que vencen, las tasas de la mañana y el recordatorio de respaldo.',
-      'En iPhone primero instala la app en tu pantalla de inicio (Safari › Compartir › Agregar a inicio).',
+      'En iPhone, primero instala la app en tu pantalla de inicio (Safari › Compartir › Agregar a inicio).',
     ],
   },
   {
     emoji: '🔒',
     title: 'Bloqueo con Face ID, huella o PIN',
     body: [
-      'En Ajustes › Privacidad y seguridad activas el bloqueo. Cada vez que abras la app, o vuelvas a ella después de un minuto, te pedirá tu cara, tu huella o tu PIN.',
+      'En Ajustes › Privacidad y seguridad activas el bloqueo. Cada vez que abras la app, o vuelvas a ella después de un minuto, te pedirá tu rostro, tu huella o tu PIN.',
       'Si olvidas el PIN, toca "Olvidé mi PIN": sales de la sesión y entras de nuevo con tu contraseña.',
     ],
   },
@@ -111,7 +111,7 @@ const MANUAL = [
     emoji: '💡',
     title: 'Los consejos de Fructosa',
     body: [
-      'Arriba en el inicio te aparece un avisito cuando hay algo útil: si el mercado se te está yendo de las manos, si te acercas al tope de un presupuesto o si el dólar se movió.',
+      'Arriba en el inicio te aparece un aviso cuando hay algo útil: si estás gastando de más en mercado, si te acercas al tope de un presupuesto o si el dólar se movió.',
       'Para quitarlo, deslízalo hacia arriba o hacia un lado (o toca la ✕). Ese consejo no vuelve a salir en el mismo mes o día; cuando cambien las cosas, te avisamos de nuevo.',
     ],
   },
@@ -136,8 +136,8 @@ const MANUAL = [
     emoji: '📊',
     title: 'Análisis del mes',
     body: [
-      'Ahí ves en qué se va tu plata, mes por mes, y cómo vas comparado con el mes anterior.',
-      'Un buen hábito: darle una miradita cada lunes.',
+      'Ahí ves en qué se va tu dinero, mes por mes, y cómo vas comparado con el mes anterior.',
+      'Un buen hábito: darle un vistazo cada lunes.',
     ],
   },
 ];
@@ -146,7 +146,7 @@ const MANUAL = [
 const BY_REGION = {
   VE: {
     title: 'Venezuela',
-    text: 'Pago Móvil, efectivo en dólares y en bolívares, Zelle, Binance (USDT), y tu banco, como Banesco o Mercantil. Además ves el dólar BCV, el Paralelo y el USDT.',
+    text: 'Pago Móvil, efectivo en dólares y en bolívares, Zelle, Binance (USDT) y tu banco, como Banesco o Mercantil. Además ves el dólar BCV, el Paralelo y el USDT.',
   },
   US: {
     title: 'Estados Unidos',
@@ -168,7 +168,7 @@ export function LearnPage() {
   const replayTour = () => { setTourDone(false); go('#/'); window.scrollTo(0, 0); };
 
   return html`<div class="page">
-    <${PageHeader} title="Manual de uso" sub="Cómo sacarle el jugo a La Fructosa" back="#/mas" />
+    <${PageHeader} title="Manual de uso" sub="Cómo sacarle el máximo provecho a La Fructosa" back="#/mas" />
 
     <button class="card pad tour-cta" onClick=${replayTour}>
       <span class="tile-ico" style=${{ '--tc': '#FFADAD' }}><${Icon} name="sparkle" /></span>

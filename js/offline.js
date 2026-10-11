@@ -1,5 +1,5 @@
 // Modo sin conexión: guarda en el teléfono la última copia de tus datos (para abrir la app sin
-// internet) y una cola de movimientos nuevos que se suben solos cuando vuelve la señal.
+// internet) y una cola de movimientos nuevos que se suben automáticamente cuando vuelve la conexión.
 // Todo vive en IndexedDB de este navegador y se borra al cerrar sesión (salvo lo que falte por subir).
 
 const DB = 'fructosa';

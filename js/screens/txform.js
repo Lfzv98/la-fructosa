@@ -143,7 +143,7 @@ export function TxForm({ tx, preset = {}, onClose }) {
   if (!active.length) {
     return html`<${Sheet} title="Nuevo movimiento" onClose=${onClose}>
       <div class="empty"><${Art} name="bank" class="empty-art" /><h3>Primero crea una cuenta</h3>
-      <p>Todo movimiento sale o entra de una cuenta (efectivo, banco, Zelle…).</p>
+      <p>Todo movimiento sale de una cuenta o entra en ella (efectivo, banco, Zelle…).</p>
       <button class="btn primary" onClick=${() => { onClose(); setTimeout(() => { location.hash = '#/cuentas?nueva=1'; }, 150); }}>Crear cuenta</button></div>
     <//>`;
   }
@@ -179,7 +179,7 @@ export function TxForm({ tx, preset = {}, onClose }) {
       </div>`}
       ${errors.amount && html`<span class="field-error center">${errors.amount}</span>`}
       ${!usingVes && cur === 'VES' && finalAmount > 0 && rates.BCV_USD && html`<p class="hint center">
-        ≈ ${fmt(finalAmount / rates.BCV_USD, 'USD')} a tasa BCV${rates.PARALELO ? ` · ${fmt(finalAmount / rates.PARALELO, 'USD')} a Paralelo` : ''}</p>`}
+        ≈ ${fmt(finalAmount / rates.BCV_USD, 'USD')} a la tasa BCV${rates.PARALELO ? ` · ${fmt(finalAmount / rates.PARALELO, 'USD')} a la tasa Paralelo` : ''}</p>`}
 
       <${Field} label=${type === 'transfer' ? 'Desde' : type === 'income' ? 'Entra a' : 'Sale de'}>
         ${accountPicker({ value: accountId, onPick: (id) => { setAccountId(id); if (id === toAccountId) setToAccountId(active.find((a) => a.id !== id)?.id || ''); }, error: errors.account })}
@@ -204,15 +204,15 @@ export function TxForm({ tx, preset = {}, onClose }) {
           </div>
           <${Segmented} value=${rateMode} onChange=${setRateMode} options=${rateOptions} />
           ${spread && html`<div class="spread">
-            <div class="spread-row big"><span>Se debita de ${acc.name}</span><b class="num">${fmt(spread.realCost, cur)}</b></div>
-            <div class="spread-row"><span>Precio a tasa BCV (${fmtRate(spread.bcv)})</span><span class="num">${fmt(spread.usdAtBcv, 'USD')}</span></div>
+            <div class="spread-row big"><span>Se descuenta de ${acc.name}</span><b class="num">${fmt(spread.realCost, cur)}</b></div>
+            <div class="spread-row"><span>Precio a la tasa BCV (${fmtRate(spread.bcv)})</span><span class="num">${fmt(spread.usdAtBcv, 'USD')}</span></div>
             <div class=${'spread-row verdict ' + (spread.diff >= 0 ? 'good' : 'bad')}>
-              <span>${spread.diff >= 0 ? 'Te ahorraste por la brecha' : 'Perdiste en el cambio'}</span>
+              <span>${spread.diff >= 0 ? 'Ahorraste gracias a la brecha' : 'Perdiste en el cambio'}</span>
               <b class="num">${fmt(Math.abs(spread.diff), 'USD')} · ${fmtPct(Math.abs(spread.diffPct))}</b>
             </div>
             <p class="spread-note">${spread.diff >= 0
-              ? `Pagaste Bs. ${fmtRate(vesNum)} con bolívares conseguidos a ${fmtRate(rateUsed)}: te costaron menos dólares que el precio oficial.`
-              : `Cambiaste a ${fmtRate(rateUsed)}, por debajo del BCV: pagar en divisas te habría salido mejor.`}
+              ? `Pagaste Bs. ${fmtRate(vesNum)} con bolívares obtenidos a una tasa de ${fmtRate(rateUsed)}: te costó menos que al precio oficial.`
+              : `Cambiaste a una tasa de ${fmtRate(rateUsed)}, inferior a la del BCV: pagar en divisas te habría salido mejor.`}
               <${Learn} term="costoReal" label="¿Cómo se calcula?" /></p>
           </div>`}
         </div>`}
@@ -247,7 +247,7 @@ export function TxForm({ tx, preset = {}, onClose }) {
 
       <div class="grid2">
         <${Field} label="Descripción">
-          <input class="input" placeholder=${type === 'income' ? 'Ej. Quincena' : 'Ej. Panadería'} maxlength="80" value=${description} onInput=${(e) => setDescription(e.target.value)} />
+          <input class="input" placeholder=${type === 'income' ? 'Ej. Sueldo' : 'Ej. Panadería'} maxlength="80" value=${description} onInput=${(e) => setDescription(e.target.value)} />
         <//>
         <${Field} label="Fecha">
           <input class="input" type="date" max=${todayISO()} value=${date} onInput=${(e) => setDate(e.target.value || todayISO())} />

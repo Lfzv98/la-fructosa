@@ -96,17 +96,17 @@ function Compare({ rates }) {
   const c = payCompare(parseAmount(price), rates, src);
   return html`<section class="card pad stack sm">
     <h2 class="card-title"><${Icon} name="scale" size=${18} /> ¿Pago en divisas o en bolívares?</h2>
-    <p class="hint">El comercio marca el precio en $ y acepta Bs. a tasa BCV. Compara cuánto te cuesta realmente cada opción.</p>
+    <p class="hint">El comercio marca el precio en $ y acepta Bs. a la tasa BCV. Compara cuánto te cuesta realmente cada opción.</p>
     <div class="grid2">
       <${Field} label="Precio en $"><input class="input num" inputmode="decimal" value=${price} onInput=${(e) => setPrice(e.target.value.replace(/[^\d.,]/g, ''))} /><//>
-      <${Field} label="Tu respaldo"><${Segmented} value=${src} onChange=${setSrc} options=${[['USD', 'USD'], ['USDT', 'USDT']]} /><//>
+      <${Field} label="Divisa que usas"><${Segmented} value=${src} onChange=${setSrc} options=${[['USD', 'USD'], ['USDT', 'USDT']]} /><//>
     </div>
     ${c && html`<div class="spread">
       <div class="spread-row"><span>Pagando en ${src}</span><b class="num">${fmt(c.costIfUsd, src)}</b></div>
       <div class="spread-row"><span>Pagando Bs. ${fmtRate(c.ves)} (cambiados a ${fmtRate(c.market)})</span><b class="num">${fmt(c.costIfVes, src)}</b></div>
       <div class=${'spread-row verdict ' + (c.saving >= 0 ? 'good' : 'bad')}>
         <span>${c.saving >= 0 ? 'Conviene pagar en bolívares' : 'Conviene pagar en divisas'}</span>
-        <b class="num">ahorras ${fmt(Math.abs(c.saving), src)}</b>
+        <b class="num">Ahorras ${fmt(Math.abs(c.saving), src)}</b>
       </div>
       <p class="spread-note">Supone que consigues los bolívares a la tasa ${src === 'USDT' ? 'USDT' : 'paralela'}. Si tu banco te los vende a BCV, el costo es el mismo.</p>
     </div>`}

@@ -1,5 +1,5 @@
 // Respaldo completo en Excel: todas tus cuentas, movimientos, presupuestos, pagos fijos y tasas.
-// Se arma en el teléfono con lo que ya está cargado; no pasa por ningún servidor extra.
+// Se genera en el teléfono con los datos ya cargados; no pasa por ningún servidor adicional.
 import { useEffect, useState } from 'react';
 import { html, Icon, toast } from './ui.js';
 import { buildXlsx } from './xlsx.js';
@@ -122,7 +122,7 @@ export function BackupReminder({ d }) {
   const later = () => { try { localStorage.setItem(snoozeKey, todayISO()); } catch { /* nada */ } setSnoozed(true); window.dispatchEvent(new Event('fructosa-backup')); };
   return html`<section class="card pad backup-nudge">
     <div class="backup-top"><span class="backup-ico"><${Icon} name="download" size=${20} /></span>
-      <div class="grow"><b>${last ? 'Toca tu respaldo semanal' : 'Haz tu primer respaldo'}</b>
+      <div class="grow"><b>${last ? 'Es hora de tu respaldo semanal' : 'Haz tu primer respaldo'}</b>
         <small class="muted">Descarga un Excel con todos tus datos y guárdalo en una carpeta segura.</small></div></div>
     <div class="row-btns backup-btns">
       <button class="btn ghost sm" onClick=${later}>Luego</button>
@@ -131,7 +131,7 @@ export function BackupReminder({ d }) {
   </section>`;
 }
 
-// Banner fino arriba de las demás pantallas (en Inicio ya está la tarjeta grande). Comparte el "Luego".
+// Banner delgado en la parte superior de las demás pantallas (en Inicio ya está la tarjeta grande). Comparte el "Luego".
 export function BackupBanner({ d }) {
   const last = useLastBackup(d.profile.id);
   const snoozeKey = 'fructosa-backup-snooze-' + d.profile.id;

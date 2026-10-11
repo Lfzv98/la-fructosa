@@ -16,8 +16,8 @@ export const GLOSSARY = {
     title: 'Brecha cambiaria',
     body: [
       'Es la diferencia entre la tasa oficial (BCV) y la del mercado (Paralelo o USDT).',
-      'Si el BCV está en 180 y el paralelo en 250, la brecha es de 38,9%. Eso significa que un dólar en la calle compra 38,9% más bolívares que en el banco.',
-      'Por eso pagar en bolívares un precio fijado en $ a tasa BCV puede salirte más barato si consigues esos bolívares a tasa paralela, o más caro si te los venden caros.',
+      'Si el BCV está en 180 y el paralelo en 250, la brecha es de 38,9%. Eso significa que un dólar en el mercado compra 38,9% más bolívares que en el banco.',
+      'Por eso pagar en bolívares un precio fijado en $ a tasa BCV puede salirte más barato si consigues esos bolívares a tasa paralela, o más caro si te los venden a un precio alto.',
     ],
   },
   costoReal: {
@@ -33,7 +33,7 @@ export const GLOSSARY = {
     body: [
       'Un tope de gasto por categoría para cada mes. No bloquea nada: te avisa.',
       'La regla práctica 50/30/20: 50% necesidades (mercado, servicios, alquiler), 30% gustos (salidas, suscripciones) y 20% ahorro.',
-      'La barra se pone amarilla al 80% y roja al pasarte. El "ritmo" compara lo gastado con los días que van del mes.',
+      'La barra se pone amarilla al 80% y roja cuando te pasas. El "ritmo" compara lo gastado con los días que van del mes.',
     ],
   },
   fijos: {
@@ -47,7 +47,7 @@ export const GLOSSARY = {
     title: 'Tasa de ahorro',
     body: [
       'Es el porcentaje de tus ingresos del mes que no gastaste: (ingresos − gastos) ÷ ingresos.',
-      'Por encima de 20% vas muy bien; entre 10% y 20% es sano; por debajo de 10% conviene revisar los gastos más grandes del mes.',
+      'Por encima del 20% vas muy bien; entre el 10% y el 20% es saludable; por debajo del 10% conviene revisar los gastos más grandes del mes.',
     ],
   },
   transferencia: {
@@ -87,9 +87,9 @@ export function pickTip({ stats, budgetsOver, upcoming, savingsRate, spread, has
   if (budgetsOver > 0) return { emoji: '🚨', text: `Te pasaste en ${budgetsOver} presupuesto${budgetsOver > 1 ? 's' : ''} este mes. Revisa en Presupuestos dónde se fue el dinero.`, term: 'presupuesto' };
   if (upcoming > 0) return { emoji: '📅', text: `Tienes ${upcoming} pago${upcoming > 1 ? 's' : ''} fijo${upcoming > 1 ? 's' : ''} en los próximos 7 días. Asegúrate de tener saldo en la cuenta correcta.`, term: 'fijos' };
   if (regionHasRates && spread > 0.5) return { emoji: '💱', text: 'Este mes la brecha cambiaria te ha ahorrado dinero al pagar en bolívares. Mira el detalle en Análisis.', term: 'costoReal' };
-  if (savingsRate != null && savingsRate < 0.1 && stats.income > 0) return { emoji: '🌱', text: 'Tu tasa de ahorro este mes está por debajo de 10%. Prueba fijar un presupuesto para tu categoría más grande.', term: 'ahorro' };
+  if (savingsRate != null && savingsRate < 0.1 && stats.income > 0) return { emoji: '🌱', text: 'Tu tasa de ahorro este mes está por debajo del 10%. Prueba a fijar un presupuesto para tu categoría más grande.', term: 'ahorro' };
   if (savingsRate != null && savingsRate >= 0.2) return { emoji: '🏆', text: '¡Vas ahorrando más del 20% de tus ingresos este mes! Considera mover ese excedente a una cuenta separada.', term: 'ahorro' };
-  return { emoji: '💡', text: 'Ponle presupuesto a 3 o 4 categorías donde más gastas. Es la forma más simple de ver si el mes va bien.', term: 'presupuesto' };
+  return { emoji: '💡', text: 'Ponle presupuesto a 3 o 4 categorías en las que más gastas. Es la forma más simple de ver si el mes va bien.', term: 'presupuesto' };
 }
 
 // ---------------------------------------------------------------------
@@ -109,7 +109,7 @@ export function pickInsights({ stats, prevStats, budgetRows = [], upcoming = 0, 
 
   if (!hasAccounts) {
     out.push({ id: 'start-accounts', emoji: '👋', tone: 'info', title: 'Empecemos por tus cuentas',
-      text: 'Crea las cuentas donde guardas tu dinero (efectivo, banco, apps de pago) y yo hago las cuentas por ti.', action: { label: 'Crear cuentas', href: '#/cuentas?nueva=1' } });
+      text: 'Crea las cuentas donde guardas tu dinero (efectivo, banco, apps de pago) y yo hago los cálculos por ti.', action: { label: 'Crear cuentas', href: '#/cuentas?nueva=1' } });
     return out;
   }
   if (!hasTx) {
@@ -126,7 +126,7 @@ export function pickInsights({ stats, prevStats, budgetRows = [], upcoming = 0, 
   const near = budgetRows.find((x) => x.ratio >= 0.8 && x.ratio < 1);
   if (near) {
     out.push({ id: `bud-near-${near.b.category}-${ym}`, emoji: '⚠️', tone: 'warn', title: `Cuidado con ${near.b.category}`,
-      text: `Ya vas por el ${Math.round(near.ratio * 100)}% de tu tope en ${near.b.category.toLowerCase()}. Todavía hay tiempo de ajustar.`, action: { label: 'Ver presupuestos', href: '#/presupuestos' } });
+      text: `Ya llevas el ${Math.round(near.ratio * 100)}% de tu tope en ${near.b.category.toLowerCase()}. Todavía hay tiempo de ajustar.`, action: { label: 'Ver presupuestos', href: '#/presupuestos' } });
   }
 
   // 2) Mercado, comida y salidas: más que el mes pasado.
@@ -136,7 +136,7 @@ export function pickInsights({ stats, prevStats, budgetRows = [], upcoming = 0, 
     if (prev > 0 && cur > prev * 1.25) {
       const pct = Math.round((cur / prev - 1) * 100);
       out.push({ id: `cat-up-${cat}-${ym}`, emoji, tone: 'warn', title: `Estás gastando más en ${label}`,
-        text: `Este mes llevas ${money(cur)} en ${cat.toLowerCase()}, un ${pct}% más que todo el mes pasado. ¿Le echamos un ojo?`, action: { label: 'Ver movimientos', href: '#/movimientos' } });
+        text: `Este mes llevas ${money(cur)} en ${cat.toLowerCase()}, un ${pct}% más que todo el mes pasado. ¿Le damos un vistazo?`, action: { label: 'Ver movimientos', href: '#/movimientos' } });
       break;
     }
   }
@@ -149,7 +149,7 @@ export function pickInsights({ stats, prevStats, budgetRows = [], upcoming = 0, 
   // 3) Pagos fijos cerca.
   if (upcoming > 0) {
     out.push({ id: `due-${today}`, emoji: '📅', tone: 'warn', title: upcoming === 1 ? 'Tienes un pago por vencer' : `Tienes ${upcoming} pagos por vencer`,
-      text: 'Revisa que tengas saldo en la cuenta con la que vas a pagar para que no te agarre desprevenido.', action: { label: 'Ver pagos', href: '#/fijos' } });
+      text: 'Revisa que tengas saldo en la cuenta con la que vas a pagar para que no te tome por sorpresa.', action: { label: 'Ver pagos', href: '#/fijos' } });
   }
 
   // 4) Dólar BCV vs mercado (solo Venezuela).
@@ -164,7 +164,7 @@ export function pickInsights({ stats, prevStats, budgetRows = [], upcoming = 0, 
       out.push({ id: `save-great-${ym}`, emoji: '🏆', tone: 'good', title: '¡Vas muy bien!',
         text: `Este mes te está quedando el ${Math.round(savingsRate * 100)}% de lo que ganas. Si puedes, aparta ese ahorro en una cuenta aparte.` });
     } else if (savingsRate < 0.1) {
-      out.push({ id: `save-low-${ym}`, emoji: '🌱', tone: 'info', title: 'Te queda poquito este mes',
+      out.push({ id: `save-low-${ym}`, emoji: '🌱', tone: 'info', title: 'Te queda poco este mes',
         text: 'Ahorraste menos del 10% de lo que ganaste. Mira tu categoría más grande: ahí suele estar la mejor oportunidad.', action: { label: 'Ver análisis', href: '#/analisis' } });
     }
   }

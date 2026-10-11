@@ -40,7 +40,7 @@ function AiNotice({ onAccept, onDecline }) {
   const accepted = useRef(false);
   return html`<${Sheet} title="Antes de hablar con Fructosa" onClose=${() => (accepted.current ? onAccept() : onDecline())}
     footer=${(close) => html`<div class="stack sm">
-      <button class="btn primary block" onClick=${() => { accepted.current = true; close(); }}>Acepto, quiero usar a Fructosa</button>
+      <button class="btn primary block" onClick=${() => { accepted.current = true; close(); }}>Acepto, quiero usar Fructosa</button>
       <button class="btn ghost block" onClick=${close}>Ahora no</button>
     </div>`}>
     <div class="ai-notice">
@@ -98,8 +98,8 @@ export function AiSettings({ onSaved }) {
   }
 
   return html`<div class="stack">
-    ${SHARED_AI && html`<div class="callout good">✓ El copiloto ya funciona sin configurar nada. Esto es <b>opcional</b>: úsalo solo si prefieres usar tu propia clave de Google Gemini.</div>`}
-    <${Field} label="Clave de API" error=${err.apiKey} hint=${keyLooksOdd(normalizeKey(cfg.apiKey)) ? 'Las claves de Google AI Studio empiezan por AIza… o AQ.…; revisa que la copiaste completa. Igual puedes guardarla y probarla.' : p.hint}>
+    ${SHARED_AI && html`<div class="callout good">✓ El copiloto ya funciona sin configurar nada. Esto es <b>opcional</b>: configúralo solo si prefieres usar tu propia clave de Google Gemini.</div>`}
+    <${Field} label="Clave de API" error=${err.apiKey} hint=${keyLooksOdd(normalizeKey(cfg.apiKey)) ? 'Las claves de Google AI Studio empiezan por AIza… o AQ.…; revisa que la hayas copiado completa. Igual puedes guardarla y probarla.' : p.hint}>
       <div class="input-affix right">
         <input class="input" type=${show ? 'text' : 'password'} name="fructosa-ai-key" autocomplete="off" autocapitalize="none" spellcheck="false"
           data-lpignore="true" data-1p-ignore="true" data-form-type="other" readOnly=${!armed} onFocus=${() => setArmed(true)}
@@ -305,7 +305,7 @@ export function Copilot() {
     const { config, source } = await resolveAi(() => api.auth.accessToken());
     if (!source) { setSetup(true); return; }
     if (img && !(await proxySupportsImages(config))) {
-      toast('Para leer capturas, actualiza Fructosa en el servidor (ai-proxy). Mientras, escribe el monto.', { tone: 'bad' });
+      toast('Para leer capturas, actualiza Fructosa en el servidor (ai-proxy). Mientras tanto, escribe el monto.', { tone: 'bad' });
       return;
     }
 
@@ -365,7 +365,7 @@ export function Copilot() {
 
     const Speech = getSpeechRecognition();
     if (!Speech) {
-      toast('Tu navegador no soporta reconocimiento de voz (Web Speech API). Usa Chrome, Safari o Edge.', { tone: 'bad' });
+      toast('Tu navegador no admite el reconocimiento de voz. Usa Chrome, Safari o Edge.', { tone: 'bad' });
       return;
     }
 
@@ -554,7 +554,7 @@ export function Copilot() {
         onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}></textarea>
       <button type="button" class=${'icon-btn mic' + (listening ? ' listening' : '')} onClick=${toggleVoice}
         aria-label=${listening ? "Detener micrófono" : "Hablar con Fructosa por micrófono"}
-        title=${listening ? "Detener micrófono" : "Hablar con Fructosa (Micrófono)"}>
+        title=${listening ? "Detener micrófono" : "Hablar con Fructosa (micrófono)"}>
         <${Icon} name=${listening ? 'micOff' : 'mic'} size=${19} />
       </button>
       ${busy

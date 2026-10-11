@@ -1,6 +1,6 @@
 // Avisos al teléfono (push): pagos fijos por vencer, préstamos y tasas del día.
 // La clave pública VAPID la da la Edge Function "send-reminders"; si no está desplegada,
-// la opción simplemente no aparece. En iPhone hace falta tener la app instalada en el inicio (iOS 16.4+).
+// la opción simplemente no aparece. En iPhone hace falta tener la app instalada en la pantalla de inicio (iOS 16.4 o superior).
 import { api, isDemo } from './api.js';
 
 let config = {};

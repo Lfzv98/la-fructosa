@@ -147,7 +147,7 @@ function UpdateBanner() {
     addEventListener('online', up); addEventListener('offline', down);
     return () => { removeEventListener('online', up); removeEventListener('offline', down); };
   }, []);
-  return html`${!online && html`<div class="banner offline">Sin conexión · mostrando lo último cargado</div>`}
+  return html`${!online && html`<div class="banner offline">Sin conexión · mostrando la última información cargada</div>`}
     ${ready && html`<div class="banner update"><span>Hay una versión nueva de La Fructosa</span><button onClick=${ready}>Actualizar</button></div>`}`;
 }
 

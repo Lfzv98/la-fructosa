@@ -29,7 +29,7 @@ export function Recurring() {
 
   if (missing.includes('recurring_expenses')) {
     return html`<div class="page"><${PageHeader} title="Pagos fijos" back="#/mas" />
-      <${Empty} art="database" title="Falta activar pagos fijos" text="Ejecuta supabase/migrations/002_mejoras.sql en el SQL Editor de Supabase y recarga." /></div>`;
+      <${Empty} art="database" title="Falta activar los pagos fijos" text="Ejecuta el archivo supabase/migrations/002_mejoras.sql en el SQL Editor de Supabase y vuelve a cargar la página." /></div>`;
   }
 
   const Row = ({ r, s }) => {
@@ -57,7 +57,7 @@ export function Recurring() {
       </div>
     </section>`}
 
-    ${items.length === 0 && html`<${Empty} art="calendar" title="Sin pagos fijos" text="Registra alquiler, internet, colegio o Netflix una sola vez. La app te recuerda cuándo vencen y los registra con un toque."
+    ${items.length === 0 && html`<${Empty} art="calendar" title="Sin pagos fijos" text="Registra alquiler, internet, colegio o Netflix una sola vez. La app te recuerda cuándo vencen y te permite registrar cada pago con un toque."
       action=${html`<button class="btn primary" onClick=${() => setForm({})}>Agregar pago fijo</button>`} />`}
 
     ${pending.length > 0 && html`<section><${SectionTitle}>Por pagar<//><div class="card list">${pending.map((x) => html`<${Row} key=${x.r.id} ...${x} />`)}</div></section>`}
@@ -78,7 +78,7 @@ function RecurringForm({ item, onClose }) {
 
   async function submit(close) {
     const amount = parseAmount(f.amount);
-    if (!f.name.trim()) return setErr('Ponle un nombre (ej. Alquiler).');
+    if (!f.name.trim()) return setErr('Escribe un nombre (por ejemplo, Alquiler).');
     if (!(amount > 0)) return setErr('Escribe el monto.');
     if (!f.account_id) return setErr('Elige desde qué cuenta lo pagas.');
     const day = Math.max(1, Math.min(31, Number(f.due_day) || 1));
@@ -103,7 +103,7 @@ function RecurringForm({ item, onClose }) {
           <input class="input num" inputmode="decimal" placeholder="0,00" value=${f.amount} onInput=${(e) => set('amount', e.target.value.replace(/[^\d.,]/g, ''))} /></div><//>
         <${Field} label="Día del mes"><input class="input num" type="number" min="1" max="31" inputmode="numeric" value=${f.due_day} onInput=${(e) => set('due_day', e.target.value)} /><//>
       </div>
-      <${Field} label="Moneda" hint=${region.rates ? 'Si es en Bs. y lo pagas desde una cuenta en $, al pagar se activa la calculadora de brecha.' : ''}>
+      <${Field} label="Moneda" hint=${region.rates ? 'Si el pago es en Bs. y lo haces desde una cuenta en $, al pagar se activa la calculadora de brecha.' : ''}>
         <${Segmented} value=${f.currency} onChange=${(v) => set('currency', v)} options=${[...new Set([...region.currencies, f.currency])].map((c) => [c, c])} />
       <//>
       <${Field} label="Se paga desde">
@@ -114,7 +114,7 @@ function RecurringForm({ item, onClose }) {
       <${Field} label="Categoría">
         <div class="chips">${CATEGORIES.expense.map((c) => html`<button key=${c.name} type="button" class=${'chip' + (f.category === c.name ? ' on' : '')} onClick=${() => set('category', c.name)}>${c.emoji} ${c.name}</button>`)}</div>
       <//>
-      ${editing && html`<${Switch} checked=${f.is_active} onChange=${(v) => set('is_active', v)} label="Activo" sub="Pausa los avisos sin borrarlo" />`}
+      ${editing && html`<${Switch} checked=${f.is_active} onChange=${(v) => set('is_active', v)} label="Activo" sub="Pausa los avisos sin borrar el pago" />`}
       ${err && html`<p class="form-error">${err}</p>`}
     </div>
   <//>`;

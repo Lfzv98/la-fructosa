@@ -55,8 +55,8 @@ export function Settings() {
     if (r === (profile.region || 'VE')) return;
     const reg = REGIONS[r];
     const ok = await confirmDialog({ title: `¿Cambiar a ${reg.flag} ${reg.label}?`,
-      body: reg.rates ? 'Verás tasas BCV/Paralelo/USDT y la calculadora de brecha. Tu moneda principal pasa a USD.'
-        : `Se ocultan tasas y brecha cambiaria y tu moneda principal pasa a ${reg.base}. Tus cuentas y movimientos no cambian.`, confirm: 'Cambiar país' });
+      body: reg.rates ? 'Verás las tasas BCV/Paralelo/USDT y la calculadora de brecha. Tu moneda principal pasa a USD.'
+        : `Se ocultan las tasas y la brecha cambiaria, y tu moneda principal pasa a ${reg.base}. Tus cuentas y movimientos no cambian.`, confirm: 'Cambiar país' });
     if (!ok) return;
     const patch = { region: r, preferred_currency: reg.base };
     save(patch, `Región: ${reg.label}`);
@@ -107,7 +107,7 @@ export function Settings() {
 
     <${SectionTitle}>Copiloto IA<//>
     <section class="card pad stack">
-      <p class="hint">Conecta tu propia clave de Gemini, Groq o Grok (xAI) para chatear con tus números. <a class="link" href="#/copiloto">Abrir el copiloto</a></p>
+      <p class="hint">Conecta tu propia clave de Google Gemini para conversar sobre tus finanzas. <a class="link" href="#/copiloto">Abrir el copiloto</a></p>
       <${AiSettings} />
     </section>
 
@@ -117,7 +117,7 @@ export function Settings() {
       <${LockSettings} uid=${profile.id} label=${profile.username ? '@' + profile.username : profile.display_name} />
       ${!isDemo && html`<button class="menu-row" onClick=${() => setPwd(true)}><${Icon} name="lock" /><span>Cambiar contraseña</span><${Icon} name="right" class="muted" /></button>`}
       <a class="menu-row" href="#/terminos"><${Icon} name="shield" /><span>Términos y privacidad<small>Qué guardamos, cómo lo protegemos y tus derechos</small></span><${Icon} name="right" class="muted" /></a>
-      <div class="menu-row static"><${Icon} name="info" /><span><b>Tus datos son solo tuyos.</b><small>Cada registro lleva tu identificador y la base de datos (Row Level Security) bloquea cualquier consulta de otra persona, incluso de la familia.</small></span></div>
+      <div class="menu-row static"><${Icon} name="info" /><span><b>Tus datos son solo tuyos.</b><small>Cada registro lleva tu identificador y la base de datos (seguridad a nivel de fila) bloquea cualquier consulta de otra persona, incluso de la familia.</small></span></div>
     </section>
 
     <${SectionTitle}>Respaldo<//>
@@ -176,7 +176,7 @@ function PushSettings({ region }) {
       : !sub ? html`<button class="menu-row" disabled=${busy} onClick=${turnOn}><${Icon} name="bell" /><span>Activar avisos en este teléfono<small>Pagos fijos que vencen, préstamos y más. Llegan a las 8:30 a. m.</small></span><${Icon} name="right" class="muted" /></button>`
       : html`
         <${Switch} checked=${prefs.bills} onChange=${(v) => setPref('bills', v)} label="Pagos fijos por vencer" sub="El día antes y el mismo día, si aún no los pagaste" />
-        <${Switch} checked=${prefs.loans} onChange=${(v) => setPref('loans', v)} label="Préstamos que vencen" sub="El día que vence lo que te deben o debes" />
+        <${Switch} checked=${prefs.loans} onChange=${(v) => setPref('loans', v)} label="Préstamos que vencen" sub="El día que vence lo que te deben o lo que debes" />
         <${Switch} checked=${prefs.backup !== false} onChange=${(v) => setPref('backup', v)} label="Recordatorio de respaldo" sub="Si pasan 7 días sin descargar tu Excel, te aviso" />
         ${region.rates && html`<${Switch} checked=${prefs.rates} onChange=${(v) => setPref('rates', v)} label="Tasas del día" sub="BCV, Paralelo, USDT y la brecha cada mañana" />`}
         <button class="menu-row danger-text" disabled=${busy} onClick=${turnOff}><${Icon} name="bell" /><span>Desactivar avisos en este teléfono</span></button>`}
@@ -227,7 +227,7 @@ function DeleteAccountSheet({ d, onClose }) {
       setTimeout(() => { location.hash = ''; location.reload(); }, 1200);
     } catch (e) {
       const missing = /delete_my_account|PGRST202|not find the function|404/i.test(String(e?.message || e?.code || e));
-      toast(missing ? 'Esta opción aún no está activada en el servidor. Pídele al administrador que corra la migración 009.' : errorText(e), { tone: 'bad' });
+      toast(missing ? 'Esta opción aún no está activada en el servidor. Pídele al administrador que ejecute la migración 009.' : errorText(e), { tone: 'bad' });
       setBusy(false);
     }
   };

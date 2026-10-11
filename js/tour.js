@@ -22,8 +22,8 @@ function stepsFor(region) {
     steps.push({
       target: '[data-tour="rates"]',
       emoji: '💱',
-      title: 'El dólar de hoy, sin vueltas',
-      text: 'Mira el dólar del BCV, el Paralelo y el USDT al mismo tiempo. La "brecha" es solo cuánto más cuesta el dólar en la calle que en el banco. Si la tocas, ves el detalle.',
+      title: 'El dólar de hoy, sin rodeos',
+      text: 'Mira el dólar del BCV, el Paralelo y el USDT al mismo tiempo. La "brecha" es solo cuánto más cuesta el dólar en el mercado que en el banco. Si la tocas, ves el detalle.',
     });
   }
   steps.push(
@@ -31,13 +31,13 @@ function stepsFor(region) {
       target: '[data-tour="insight"]',
       emoji: '💡',
       title: 'Consejos de Fructosa',
-      text: 'Arriba te aparece un aviso corto cuando hay algo que te conviene saber: si gastas mucho en mercado, si te acercas a tu tope o si el dólar se movió. ¿Ya lo leíste? Deslízalo hacia arriba o hacia un lado y desaparece.',
+      text: 'Arriba te aparece un aviso corto cuando hay algo que te conviene saber: si gastas mucho en el mercado, si te acercas a tu tope o si el dólar se movió. ¿Ya lo leíste? Deslízalo hacia arriba o hacia un lado y desaparece.',
     },
     {
       target: '[data-tour="fab"]',
       emoji: '➕',
       title: 'Anota en segundos',
-      text: 'Cada vez que pagues o te paguen, toca este botón, escribe el monto y listo. Entre más rápido lo anotes, menos se te olvida.',
+      text: 'Cada vez que pagues o te paguen, toca este botón, escribe el monto y listo. Cuanto antes lo anotes, menos se te olvida.',
     },
     {
       target: '[data-tour="copilot"]',

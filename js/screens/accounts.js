@@ -74,7 +74,7 @@ export function AccountForm({ account, onClose }) {
 
   async function submit(close) {
     const e = {};
-    if (!f.name.trim()) e.name = 'Ponle un nombre (ej. Zelle, Efectivo).';
+    if (!f.name.trim()) e.name = 'Escribe un nombre para la cuenta (por ejemplo, Zelle o Efectivo).';
     const ib = f.initial_balance === '' ? 0 : parseAmount(f.initial_balance);
     if (!isFinite(ib)) e.initial_balance = 'Monto no válido.';
     setErr(e);
@@ -96,7 +96,7 @@ export function AccountForm({ account, onClose }) {
   async function remove(close) {
     const ok = await confirmDialog({
       title: `¿Eliminar "${account.name}"?`,
-      body: used ? `Se borrarán también sus ${used} movimientos. Si solo ya no la usas, mejor archívala.` : 'Esta cuenta no tiene movimientos.',
+      body: used ? `Se ${used === 1 ? 'borrará también su único movimiento' : `borrarán también sus ${used} movimientos`}. Si ya no la usas, es mejor archivarla.` : 'Esta cuenta no tiene movimientos.',
       confirm: 'Eliminar', tone: 'danger',
     });
     if (!ok) return;
@@ -123,7 +123,7 @@ export function AccountForm({ account, onClose }) {
         <${Segmented} value=${f.kind} onChange=${(v) => set('kind', v)} options=${Object.entries(KINDS).map(([k, v]) => [k, v.label])} />
       <//>
       <${Field} label=${editing ? 'Saldo inicial' : 'Saldo actual'} error=${err.initial_balance}
-        hint=${editing ? 'Es el saldo con el que empezó la cuenta. Para corregir el saldo de hoy usa "Ajustar saldo".' : 'Lo que tienes hoy en esta cuenta. Puede ser 0.'}>
+        hint=${editing ? 'Es el saldo con el que empezó la cuenta. Para corregir el saldo de hoy, usa "Ajustar saldo".' : 'Lo que tienes hoy en esta cuenta. Puede ser 0.'}>
         <div class="input-affix"><span>${CURRENCIES[f.currency].symbol}</span>
           <input class="input num" inputmode="decimal" placeholder="0,00" value=${f.initial_balance} onInput=${(e) => set('initial_balance', e.target.value.replace(/[^\d.,-]/g, ''))} /></div>
       <//>
@@ -203,7 +203,7 @@ function AdjustSheet({ a, onClose, save }) {
   return html`<${Sheet} title="Ajustar saldo" onClose=${onClose}
     footer=${(close) => html`<button class="btn primary block" disabled=${busy || diff == null} onClick=${() => submit(close)}>Ajustar</button>`}>
     <div class="stack">
-      <p class="hint">Saldo en la app: <b class="num">${fmt(a.balance, a.currency)}</b>. Escribe el saldo que ves en tu banco o billetera. <${Learn} term="ajuste" /></p>
+      <p class="hint">Saldo en la app: <b class="num">${fmt(a.balance, a.currency)}</b>. Escribe el saldo que ves en tu banco o en tu billetera. <${Learn} term="ajuste" /></p>
       <${Field} label="Saldo real">
         <div class="input-affix"><span>${CURRENCIES[a.currency].symbol}</span>
           <input class="input num" autofocus inputmode="decimal" placeholder="0,00" value=${real} onInput=${(e) => setReal(e.target.value.replace(/[^\d.,-]/g, ''))} /></div>

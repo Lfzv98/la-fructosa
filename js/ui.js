@@ -321,11 +321,11 @@ export function SwipeBanner({ emoji, title, text, tone = 'info', action, onActio
 export function errorText(e) {
   const m = e?.message || String(e || '');
   if (/Invalid login/i.test(m)) return 'Usuario o contraseña incorrectos.';
-  if (/Email not confirmed/i.test(m)) return 'Confirma tu correo antes de entrar (revisa tu bandeja).';
-  if (/already registered/i.test(m)) return 'Ese correo ya tiene una cuenta. Entra o recupera la contraseña.';
+  if (/Email not confirmed/i.test(m)) return 'Confirma tu correo antes de entrar (revisa tu bandeja de entrada).';
+  if (/already registered/i.test(m)) return 'Ese correo ya tiene una cuenta. Inicia sesión o recupera tu contraseña.';
   if (/Password should be/i.test(m)) return 'La contraseña debe tener al menos 8 caracteres.';
-  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Sin conexión. Revisa tu internet e inténtalo de nuevo.';
-  if (/row-level security/i.test(m)) return 'Permiso denegado por seguridad (RLS).';
+  if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Sin conexión. Revisa tu conexión a internet e inténtalo de nuevo.';
+  if (/row-level security/i.test(m)) return 'No tienes permiso para realizar esta acción.';
   return m || 'Algo salió mal.';
 }
 

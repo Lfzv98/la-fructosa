@@ -11,28 +11,28 @@ export const TERMS_VERSION = 1;
 export const TERMS_DATE = '11 de octubre de 2026';
 
 const TRUST = [
-  ['lock', 'Tus datos son solo tuyos', 'Cada cuenta está separada y protegida en el servidor. Nadie más, ni otros usuarios ni quien vea el código de la app, puede ver tus saldos o movimientos.'],
+  ['lock', 'Tus datos son solo tuyos', 'Cada cuenta está separada y protegida en el servidor. Nadie más puede ver tus saldos ni tus movimientos: ni otros usuarios ni quien vea el código de la app.'],
   ['shield', 'No tocamos tu dinero', 'La Fructosa no se conecta a tu banco ni te pide claves bancarias. Solo guarda lo que tú anotas.'],
-  ['fingerprint', 'Tu contraseña, protegida', 'Se guarda cifrada: nadie la puede leer, ni siquiera el administrador. Además puedes bloquear la app con Face ID, huella o PIN.'],
-  ['sparkle', 'Fructosa (la IA) es opcional', 'Solo funciona si tú la activas. Lo que le escribes lo procesa Google para responderte, así que no le envíes claves ni datos que no quieras compartir.'],
-  ['download', 'Tus datos te pertenecen', 'Descarga un Excel con todo cuando quieras y, si un día decides irte, borras tu cuenta con todos sus datos desde Ajustes.'],
-  ['info', 'Una herramienta para ordenarte', 'Las tasas vienen de fuentes públicas y son de referencia. La app no es un banco ni da asesoría financiera.'],
+  ['fingerprint', 'Tu contraseña, protegida', 'Se guarda cifrada y nadie puede leerla, ni siquiera el administrador. Además, puedes bloquear la app con Face ID, huella digital o PIN.'],
+  ['sparkle', 'Fructosa (la IA) es opcional', 'Solo funciona si tú la activas. Google procesa lo que le escribes para poder responderte, así que no le envíes claves ni datos que no quieras compartir.'],
+  ['download', 'Tus datos te pertenecen', 'Descarga un archivo de Excel con todo cuando quieras y, si un día decides irte, puedes borrar tu cuenta con todos sus datos desde Ajustes.'],
+  ['info', 'Una herramienta para organizar tus finanzas', 'Las tasas provienen de fuentes públicas y son solo de referencia. La app no es un banco ni ofrece asesoría financiera.'],
 ];
 
 // Texto completo (también en Más › Ajustes › Términos y privacidad).
 export const TERMS = [
   ['1. Qué es La Fructosa', 'La Fructosa es una aplicación gratuita para llevar el control de tus finanzas personales: cuentas, gastos, ingresos, presupuestos, pagos fijos, metas, préstamos y tasas de cambio. No es un banco, no mueve dinero, no se conecta a tus cuentas bancarias y no ofrece asesoría financiera, legal ni fiscal.'],
-  ['2. Tu cuenta', 'Para usarla creas una cuenta con usuario, correo y contraseña. Eres responsable de mantener tu contraseña en secreto y de lo que se haga con tu cuenta. Si crees que alguien la conoce, cámbiala en Ajustes. Puedes activar el bloqueo con Face ID, huella o PIN en tu teléfono.'],
-  ['3. Qué datos guardamos', 'Guardamos lo que tú escribes en la app (cuentas, montos, categorías, descripciones, metas y préstamos), tu usuario, tu correo, tu país y tus preferencias. No pedimos ni guardamos claves bancarias, números de tarjeta ni documentos de identidad.'],
-  ['4. Cómo los protegemos', 'Tus datos viajan cifrados (HTTPS) y se guardan en Supabase, un servicio de bases de datos profesional. Cada fila está atada a tu cuenta con reglas de seguridad en el propio servidor: aunque el código de la app sea visible, nadie puede leer los datos de otra persona. Las contraseñas se guardan cifradas y no se pueden leer.'],
-  ['5. Con quién se comparten', 'No vendemos ni compartimos tus datos con nadie para publicidad. Solo intervienen los servicios que hacen funcionar la app: Supabase (base de datos y acceso), GitHub Pages (donde vive la app) y, solo si usas el copiloto, Google Gemini. Las tasas se consultan en fuentes públicas (DolarApi y Binance P2P) sin enviar ningún dato tuyo.'],
-  ['6. El copiloto con IA', 'Fructosa es opcional y te pide permiso antes de usarse. Para responderte envía a Google tu pregunta, las capturas que adjuntes y un resumen de tus cuentas. En la versión gratuita de Gemini, Google puede conservar esas conversaciones y revisarlas para mejorar sus servicios. Las respuestas de la IA pueden equivocarse: revisa siempre los montos antes de guardar un movimiento. Nunca le envíes contraseñas ni claves.'],
-  ['7. Tus derechos', 'Puedes ver y corregir tus datos en cualquier momento, descargarlos completos en Excel (Ajustes › Respaldo) y borrar tu cuenta con todos sus datos (Ajustes › Borrar mi cuenta). El borrado es inmediato y no se puede deshacer.'],
-  ['8. Respaldo y disponibilidad', 'Hacemos lo posible para que la app funcione siempre, pero puede haber fallas de internet, del servidor o de los servicios externos. Por eso te recordamos hacer tu respaldo en Excel cada semana y guardarlo en un lugar seguro.'],
-  ['9. Tasas de cambio', 'Las tasas BCV, Paralelo y USDT se toman de fuentes públicas varias veces al día y son solo de referencia. Pueden tener retrasos o diferencias con la tasa que te den en la calle o en tu banco.'],
-  ['10. Uso correcto', 'Te comprometes a usar la app solo para tus finanzas personales, a no intentar acceder a cuentas ajenas, no interferir con el servicio y no usarla para actividades ilegales. Podemos suspender cuentas que hagan mal uso.'],
-  ['11. Responsabilidad', 'La app se ofrece tal cual, sin costo. Las decisiones que tomes con tu dinero son tuyas. No respondemos por pérdidas causadas por datos mal anotados, tasas desactualizadas, respuestas de la IA o fallas de servicios externos.'],
-  ['12. Cambios', 'Si cambiamos estos términos, te los mostraremos de nuevo al entrar y tendrás que aceptarlos para seguir usando la app. Si no estás de acuerdo, puedes descargar tus datos y borrar tu cuenta.'],
+  ['2. Tu cuenta', 'Para usarla, creas una cuenta con un nombre de usuario, un correo electrónico y una contraseña. Eres responsable de mantener tu contraseña en secreto y de la actividad que ocurra en tu cuenta. Si crees que alguien la conoce, cámbiala en Ajustes. Puedes activar el bloqueo con Face ID, huella digital o PIN en tu teléfono.'],
+  ['3. Qué datos guardamos', 'Guardamos lo que tú escribes en la app (cuentas, montos, categorías, descripciones, metas y préstamos), además de tu nombre de usuario, tu correo electrónico, tu país y tus preferencias. No pedimos ni guardamos claves bancarias, números de tarjeta ni documentos de identidad.'],
+  ['4. Cómo los protegemos', 'Tus datos viajan cifrados (HTTPS) y se guardan en Supabase, un servicio profesional de bases de datos. Cada registro está vinculado a tu cuenta mediante reglas de seguridad en el propio servidor: aunque el código de la app sea visible, nadie puede leer los datos de otra persona. Las contraseñas se guardan cifradas y no se pueden leer.'],
+  ['5. Con quién se comparten', 'No vendemos tus datos ni los compartimos con nadie con fines publicitarios. Solo intervienen los servicios que hacen funcionar la app: Supabase (base de datos y acceso), GitHub Pages (donde está alojada la app) y, únicamente si usas el copiloto, Google Gemini. Las tasas se consultan en fuentes públicas (DolarApi y Binance P2P) sin enviar ningún dato tuyo.'],
+  ['6. El copiloto con IA', 'Fructosa, el copiloto con IA, es opcional y te pide permiso antes de usarse. Para responderte, envía a Google tu pregunta, las capturas que adjuntes y un resumen de tus cuentas. En la versión gratuita de Gemini, Google puede conservar esas conversaciones y revisarlas para mejorar sus servicios. Las respuestas de la IA pueden contener errores: revisa siempre los montos antes de guardar un movimiento. Nunca le envíes contraseñas ni claves.'],
+  ['7. Tus derechos', 'Puedes ver y corregir tus datos en cualquier momento, descargarlos completos en un archivo de Excel (Ajustes › Respaldo) y borrar tu cuenta con todos sus datos (Ajustes › Borrar mi cuenta). El borrado es inmediato y no se puede deshacer.'],
+  ['8. Respaldo y disponibilidad', 'Hacemos todo lo posible para que la app funcione de forma continua, pero pueden ocurrir fallas de internet, del servidor o de los servicios externos. Por eso te recordamos que hagas tu respaldo en Excel cada semana y lo guardes en un lugar seguro.'],
+  ['9. Tasas de cambio', 'Las tasas BCV, Paralelo y USDT se obtienen de fuentes públicas varias veces al día y son solo de referencia. Pueden tener retrasos o diferencias con la tasa que te ofrezcan en un comercio o en tu banco.'],
+  ['10. Uso correcto', 'Te comprometes a usar la app solo para tus finanzas personales, a no intentar acceder a cuentas ajenas, a no interferir con el servicio y a no usarla para actividades ilegales. Podemos suspender las cuentas que hagan un uso indebido.'],
+  ['11. Responsabilidad', 'La app se ofrece «tal cual» y sin costo. Las decisiones que tomes con tu dinero son responsabilidad tuya. No nos hacemos responsables de las pérdidas causadas por datos mal anotados, tasas desactualizadas, respuestas de la IA o fallas de servicios externos.'],
+  ['12. Cambios', 'Si cambiamos estos términos, te los mostraremos de nuevo al iniciar sesión y tendrás que aceptarlos para seguir usando la app. Si no estás de acuerdo, puedes descargar tus datos y borrar tu cuenta.'],
 ];
 
 const localKey = (uid) => 'fructosa-terms-' + (uid || 'demo');
@@ -78,7 +78,7 @@ export function TermsGate({ onAccept }) {
       <div class="terms-head">
         <span class="terms-badge"><${Icon} name="shield" size=${34} /></span>
         <h1 id="terms-title">Tu tranquilidad es lo primero</h1>
-        <p>Antes de empezar, esto es lo que debes saber de La Fructosa.</p>
+        <p>Antes de empezar, esto es lo que debes saber sobre La Fructosa.</p>
       </div>
       <ul class="trust-list">${TRUST.map(([icon, title, text]) => html`<li key=${title}>
         <span class="trust-ico"><${Icon} name=${icon} size=${20} /></span>

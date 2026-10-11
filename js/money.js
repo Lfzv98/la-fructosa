@@ -18,7 +18,7 @@ export const RATE_LABELS = {
 export const RATE_HELP = {
   BCV_USD:  'Tasa oficial del Banco Central de Venezuela. Es la que usan los comercios para cobrarte en bolívares.',
   BCV_EUR:  'Tasa oficial del BCV para el euro.',
-  PARALELO: 'Promedio del mercado no oficial (Monitor). Es lo que de verdad cuesta conseguir un dólar en la calle.',
+  PARALELO: 'Promedio del mercado no oficial (Monitor). Es lo que realmente cuesta conseguir un dólar en el mercado.',
   USDT:     'Precio del USDT en el mercado P2P (Binance). Útil si tu respaldo está en cripto.',
 };
 
@@ -36,7 +36,7 @@ export const KINDS = {
   crypto:  { label: 'Cripto',   emoji: '🪙' },
 };
 
-// Plantillas de cuentas típicas por región: crear una cuenta es un toque.
+// Plantillas de cuentas típicas por región: crear una cuenta toma un solo toque.
 export const ACCOUNT_TEMPLATES = {
   VE: [
     { name: 'Pago Móvil', currency: 'VES', kind: 'bank', icon: '📲' },
@@ -85,7 +85,7 @@ export const VE_BANKS = BANK_SUGGESTIONS.VE;
 
 export const ACCOUNT_COLORS = ['#A0C4FF', '#FFADAD', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#BDB2FF', '#FFC6FF', '#FFD6A5'];
 
-// Categorías: el texto es lo que se guarda en la BD; emoji y color son de la UI.
+// Categorías: el texto es lo que se guarda en la base de datos; el emoji y el color son solo de la interfaz.
 export const CATEGORIES = {
   expense: [
     { name: 'Comida', emoji: '🍔', color: '#FFADAD' },
@@ -182,7 +182,7 @@ export function spreadCalc(vesAmount, rates, rateApplied) {
   if (!vesAmount || !bcv || !used) return null;
   const usdAtBcv = vesAmount / bcv;       // lo que "vale" la compra según el BCV
   const realCost = vesAmount / used;      // lo que de verdad salió de tu cuenta
-  const diff = usdAtBcv - realCost;       // > 0: te favoreció · < 0: perdiste
+  const diff = usdAtBcv - realCost;       // > 0: te favoreció · < 0: perdiste dinero
   return {
     bcv, used, usdAtBcv, realCost, diff,
     diffPct: (diff / usdAtBcv) * 100,
@@ -191,7 +191,7 @@ export function spreadCalc(vesAmount, rates, rateApplied) {
 }
 
 // Comparador: el comercio fija un precio en $ y acepta Bs. a tasa BCV.
-// ¿Conviene pagar en divisas o cambiar y pagar en bolívares?
+// ¿Conviene pagar en divisas o cambiar el dinero y pagar en bolívares?
 export function payCompare(priceUsd, rates, sourceCurrency = 'USD') {
   const bcv = rates.BCV_USD;
   const market = marketRateFor(sourceCurrency, rates);

@@ -19,7 +19,7 @@ export function TxRow({ t, accById, showDate = false }) {
     <span class="tx-ico" style=${{ '--cat': meta.color }}>${meta.emoji}</span>
     <span class="tx-main">
       <b>${title}</b>
-      <small>${sub}${t.original_currency === 'VES' ? html` · <span class="num">${fmt(t.original_amount, 'VES', { decimals: 0 })}</span>` : ''}${showDate ? ' · ' + t.date.slice(8) + '/' + t.date.slice(5, 7) : ''}${t.pending ? html`<span class="tx-pending" title="Guardado en el teléfono; se subirá al volver la señal"> ⏳ por subir</span>` : ''}</small>
+      <small>${sub}${t.original_currency === 'VES' ? html` · <span class="num">${fmt(t.original_amount, 'VES', { decimals: 0 })}</span>` : ''}${showDate ? ' · ' + t.date.slice(8) + '/' + t.date.slice(5, 7) : ''}${t.pending ? html`<span class="tx-pending" title="Guardado en el teléfono; se subirá cuando vuelva la conexión"> ⏳ por subir</span>` : ''}</small>
     </span>
     <span class=${'tx-amt ' + t.type}>
       <${Money} v=${sign ? sign * t.amount : t.amount} c=${acc?.currency || 'USD'} sign=${sign !== 0} />

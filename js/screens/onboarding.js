@@ -5,9 +5,9 @@ import { useData, usePref } from '../store.js';
 import { ACCOUNT_TEMPLATES, BANK_SUGGESTIONS, CURRENCIES, KINDS, ACCOUNT_COLORS, VE_BANKS, parseAmount } from '../money.js';
 
 const SLIDES = [
-  { art: 'coins', title: 'Bienvenido a La Fructosa', text: 'Todo tu dinero en un solo lugar: efectivo, bancos, Zelle, Pago Móvil y cripto. Cada familiar tiene su cuenta y nadie ve la de los demás.' },
+  { art: 'coins', title: 'Bienvenido a La Fructosa', text: 'Todo tu dinero en un solo lugar: efectivo, bancos, Zelle, Pago Móvil y criptomonedas. Cada familiar tiene su cuenta y nadie ve la de los demás.' },
   { art: 'currencies', title: 'Varias monedas, un solo total', text: 'Cada cuenta lleva su moneda (USD, Bs., USDT o EUR). La app las convierte con la tasa del día y te dice cuánto tienes en total.' },
-  { art: 'growth', title: 'Registra en segundos', text: 'Toca + , escribe el monto y elige categoría. Si pagas en bolívares desde una cuenta en dólares, la app calcula el costo real y la brecha.' },
+  { art: 'growth', title: 'Registra en segundos', text: 'Toca +, escribe el monto y elige la categoría. Si pagas en bolívares desde una cuenta en dólares, la app calcula el costo real y la brecha.' },
   { art: 'target', title: 'Planifica y aprende', text: 'Pon topes por categoría, programa tus pagos fijos y revisa el Análisis del mes. Toca cualquier ⓘ para entender un concepto.' },
 ];
 

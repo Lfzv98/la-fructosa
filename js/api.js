@@ -1,5 +1,5 @@
 // Capa de datos. La interfaz solo habla con este módulo.
-// - Modo real: Supabase. RLS (auth.uid() = user_id) garantiza que cada quien vea solo lo suyo.
+// - Modo real: Supabase. RLS (auth.uid() = user_id) garantiza que cada persona vea solo sus propios datos.
 // - Modo demo (?demo o sin configurar): datos ficticios guardados en este navegador.
 import { todayISO } from './money.js';
 
@@ -21,7 +21,7 @@ function unwrap({ data, error }) {
   return data;
 }
 
-// Si la BD aún no tiene una columna nueva (migración pendiente), la quitamos y reintentamos.
+// Si la base de datos aún no tiene una columna nueva (migración pendiente), la quitamos y reintentamos.
 async function tolerant(run, row) {
   let payload = { ...row };
   for (let i = 0; i < 6; i++) {
@@ -30,13 +30,13 @@ async function tolerant(run, row) {
     if (!miss) return unwrap(res);
     delete payload[miss[1]];
   }
-  throw new Error('La base de datos rechazó el registro. Revisa la migración.');
+  throw new Error('La base de datos rechazó el registro. Revisa que la migración esté aplicada.');
 }
 
 // --- Perfil con plan B ---------------------------------------------------
 // Si guardar usuario y país en la tabla `profiles` falla o tarda, se guardan en
 // user_metadata de Supabase Auth y en localStorage para que nadie se quede en
-// "Guardando…". Al siguiente arranque se intenta sincronizar con la tabla.
+// "Guardando…". Al siguiente inicio se intenta sincronizar con la tabla.
 const withTimeout = (promise, ms) => Promise.race([
   promise,
   new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)),
@@ -71,7 +71,7 @@ function ratesFromRows(rows) {
       meta[r.rate_type] = r;
     }
   }
-  // Garantizar tasa USDT P2P para evitar mostrar '—'
+  // Garantiza una tasa USDT P2P para no mostrar '—'.
   if (!out.USDT && out.PARALELO) {
     out.USDT = Number((out.PARALELO * 0.995).toFixed(2));
     meta.USDT = { rate_type: 'USDT', rate: out.USDT, rate_date: meta.PARALELO?.rate_date || todayISO(), source: 'Mercado P2P (aprox.)' };
@@ -262,10 +262,10 @@ const real = {
     const c = await sb();
     const { data: { session } } = await c.auth.getSession();
     const user = session?.user;
-    if (!user) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+    if (!user) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
     const critical = 'username' in patch || 'region' in patch; // lo que decide si entras a la app
 
-    // Respaldo inmediato local y en auth user_metadata para que no se pierda
+    // Respaldo inmediato local y en user_metadata de Auth para que no se pierda.
     const fb = pickProfile(patch);
     if (Object.keys(fb).length) {
       writeFallback(user.id, fb);
@@ -298,7 +298,7 @@ const real = {
     // user_id = auth.uid() de la sesión actual, siempre explícito: la política RLS de insert
     // exige (auth.uid() = user_id) y no dependemos solo del default de la columna.
     const { data: { session } } = await c.auth.getSession();
-    if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+    if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
     return tolerant((p) => c.from(table).insert(p).select().single(), { ...row, user_id: session.user.id });
   },
   async update(table, id, patch) {
@@ -327,7 +327,7 @@ const real = {
     async save(row) {
       const c = await sb();
       const { data: { session } } = await c.auth.getSession();
-      if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a entrar.');
+      if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
       unwrap(await c.from('push_subscriptions').upsert({ ...row, user_id: session.user.id }, { onConflict: 'user_id,endpoint' }));
     },
     async update(endpoint, patch) {

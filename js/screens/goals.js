@@ -17,7 +17,7 @@ const EMOJIS = ['🎯', '🛟', '✈️', '🏠', '🚗', '🎓', '💻', '📱'
 
 function Missing({ title }) {
   return html`<div class="page"><${PageHeader} title=${title} back="#/mas" />
-    <${Empty} art="database" title=${`Falta activar ${title.toLowerCase()}`} text="Ejecuta supabase/migrations/007_metas_prestamos.sql en el SQL Editor de Supabase y recarga." /></div>`;
+    <${Empty} art="database" title=${`Falta activar la sección de ${title.toLowerCase()}`} text="Ejecuta el archivo supabase/migrations/007_metas_prestamos.sql en el SQL Editor de Supabase y vuelve a cargar la página." /></div>`;
 }
 
 function AmountInput({ currency, value, onChange, placeholder = '0' }) {
@@ -49,7 +49,7 @@ export function Goals() {
     </section>`}
 
     ${goals.length === 0
-      ? html`<${Empty} art="target" title="Ponle nombre a tu ahorro" text="Fondo de emergencia, un viaje, un teléfono… Crea una meta y ve sumando lo que apartas."
+      ? html`<${Empty} art="target" title="Dale un nombre a tu ahorro" text="Fondo de emergencia, un viaje, un teléfono… Crea una meta y ve sumando lo que vas apartando."
           action=${html`<button class="btn primary" onClick=${() => setForm({})}>Crear meta</button>`} />`
       : html`<div class="stack sm">${active.map((g) => {
           const ratio = n(g.saved_amount) / n(g.target_amount);
@@ -97,9 +97,9 @@ function GoalForm({ goal, onClose }) {
 
   async function submit(close) {
     const t = parseAmount(amount); const s = saved ? parseAmount(saved) : 0;
-    if (!name.trim()) return setErr('Ponle un nombre a la meta.');
+    if (!name.trim()) return setErr('Escribe un nombre para la meta.');
     if (!(t > 0)) return setErr('Escribe cuánto quieres ahorrar.');
-    if (!(s >= 0)) return setErr('Lo ahorrado no es válido.');
+    if (!(s >= 0)) return setErr('El monto ahorrado no es válido.');
     try {
       await actions.save('savings_goals', { name: name.trim(), emoji, currency, target_amount: t, saved_amount: s, target_date: date || null, done: s >= t }, goal?.id);
       close(); toast(editing ? 'Meta actualizada' : 'Meta creada');
@@ -118,9 +118,9 @@ function GoalForm({ goal, onClose }) {
       <${Field} label="¿Para qué ahorras?"><input class="input" maxLength="60" placeholder="Ej. Fondo de emergencia" value=${name} onInput=${(e) => { setName(e.target.value); setErr(''); }} /><//>
       <div class="emoji-pick">${EMOJIS.map((e) => html`<button key=${e} type="button" class=${'chip' + (emoji === e ? ' on' : '')} onClick=${() => setEmoji(e)}>${e}</button>`)}</div>
       <${Field} label="Moneda"><${Segmented} value=${currency} onChange=${setCurrency} options=${region.currencies.map((c) => [c, c])} /><//>
-      <${Field} label="Meta"><${AmountInput} currency=${currency} value=${amount} onChange=${(v) => { setAmount(v); setErr(''); }} /><//>
-      <${Field} label="Ya tengo ahorrado" hint="Opcional. Luego vas sumando con Abonar."><${AmountInput} currency=${currency} value=${saved} onChange=${setSaved} /><//>
-      <${Field} label="¿Para cuándo?" hint="Opcional. Te diremos cuánto apartar al mes."><input class="input" type="date" min=${todayISO()} value=${date} onInput=${(e) => setDate(e.target.value)} /><//>
+      <${Field} label="Monto de la meta"><${AmountInput} currency=${currency} value=${amount} onChange=${(v) => { setAmount(v); setErr(''); }} /><//>
+      <${Field} label="Ya tengo ahorrado" hint="Opcional. Después podrás sumar con el botón Abonar."><${AmountInput} currency=${currency} value=${saved} onChange=${setSaved} /><//>
+      <${Field} label="¿Para cuándo?" hint="Opcional. Te diremos cuánto debes apartar cada mes."><input class="input" type="date" min=${todayISO()} value=${date} onInput=${(e) => setDate(e.target.value)} /><//>
       ${err && html`<p class="form-error">${err}</p>`}
     </div>
   <//>`;
@@ -190,7 +190,7 @@ export function Loans() {
     </section>`}
 
     ${loans.length === 0
-      ? html`<${Empty} art="coins" title="¿Le prestaste a alguien?" text="Anota lo que prestas y lo que te prestan, con fecha y abonos, para que nadie se olvide."
+      ? html`<${Empty} art="coins" title="¿Le prestaste a alguien?" text="Anota lo que prestas y lo que te prestan, con fecha y abonos, para no olvidar nada."
           action=${html`<button class="btn primary" onClick=${() => setForm({})}>Anotar préstamo</button>`} />`
       : html`${open.length > 0 && html`<div class="card list">${open.map(row)}</div>`}
         ${closed.length > 0 && html`<section><${SectionTitle}>Saldados<//><div class="card list">${closed.map(row)}</div></section>`}`}
@@ -215,7 +215,7 @@ function LoanForm({ loan, onClose }) {
 
   async function submit(close) {
     const v = parseAmount(amount);
-    if (!person.trim()) return setErr('¿A quién le prestaste o quién te prestó?');
+    if (!person.trim()) return setErr('Escribe el nombre de la persona.');
     if (!(v > 0)) return setErr('Escribe un monto mayor que cero.');
     const paid = n(loan?.paid_amount);
     try {
@@ -243,7 +243,7 @@ function LoanForm({ loan, onClose }) {
         <${Field} label="Fecha"><input class="input" type="date" max=${todayISO()} value=${date} onInput=${(e) => setDate(e.target.value)} /><//>
         <${Field} label="Vence (opcional)"><input class="input" type="date" value=${due} onInput=${(e) => setDue(e.target.value)} /><//>
       </div>
-      <${Field} label="Nota (opcional)"><input class="input" maxLength="200" placeholder="Ej. Para el repuesto del carro" value=${note} onInput=${(e) => setNote(e.target.value)} /><//>
+      <${Field} label="Nota (opcional)"><input class="input" maxLength="200" placeholder="Ej. Para el repuesto del vehículo" value=${note} onInput=${(e) => setNote(e.target.value)} /><//>
       ${err && html`<p class="form-error">${err}</p>`}
     </div>
   <//>`;

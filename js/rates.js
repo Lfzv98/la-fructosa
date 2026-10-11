@@ -1,7 +1,7 @@
 // Respaldo en vivo: si la BD aún no tiene la tasa de hoy (o el monitor no
 // está activo), la app consulta directamente una API pública.
 // Solo se usa para mostrar y calcular; la escritura en exchange_rates
-// la hace la Edge Function con service role.
+// la hace la Edge Function con el rol de servicio (service role).
 import { todayISO } from './money.js';
 
 const CACHE_KEY = 'fructosa-live-rates';
@@ -72,7 +72,7 @@ export async function fetchLiveRates(force = false) {
       }
     }
     if (!rates.USDT && rates.PARALELO) {
-      // Si la API P2P directa no responde, aproximamos con el mercado paralelo
+      // Si la API P2P directa no responde, se aproxima con el mercado paralelo.
       put('USDT', Number((rates.PARALELO * 0.995).toFixed(2)), todayISO(), 'Mercado P2P (aprox.)');
     }
   }

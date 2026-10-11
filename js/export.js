@@ -23,7 +23,7 @@ export async function exportCSV(txs, accById, name = 'movimientos') {
   const file = new File([csv], filename, { type: 'text/csv' });
 
   if (!(await saveFile(file))) return;
-  toast(`Exportados ${txs.length} movimientos`);
+  toast(txs.length === 1 ? 'Se exportó 1 movimiento' : `Se exportaron ${txs.length} movimientos`);
 }
 
 // Guarda un archivo en el dispositivo. En el iPhone instalado como app, compartir es más fiable

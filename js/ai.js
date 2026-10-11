@@ -289,7 +289,7 @@ export function buildContext(d) {
 }
 
 // Respuesta fija cuando la pregunta no tiene que ver con la app ni con las finanzas del usuario.
-export const OFF_TOPIC_REPLY = 'Lo siento, soy Fructosa, tu asistente financiero de La Fructosa, y solo puedo ayudarte con tus cuentas, saldos, tasas de cambio y el manejo de tus finanzas dentro de la aplicación.';
+export const OFF_TOPIC_REPLY = 'Lo siento, soy Fructosa, tu asistente personal de finanzas en La Fructosa, y solo puedo ayudarte con tus cuentas, saldos, tasas de cambio y el manejo de tus finanzas dentro de la aplicación.';
 
 // Recordatorio que la app añade (solo en lo que se envía al modelo) al último mensaje del usuario.
 // Cerca de la pregunta, el modelo respeta mejor el alcance y la precisión que solo con el prompt inicial.
@@ -339,7 +339,7 @@ PRECISIÓN NUMÉRICA (obligatoria)
   b) CONVERSIÓN DE DIVISAS Y COMPRAS (ej. "Calcúlame 400 EUR a la tasa BCV", "$150 a paralelo"): escribe una línea con lo que interpretaste (monto, moneda, tasa) y añade el bloque calc. La app calcula y muestra el total exacto con la operación, el valor a BCV y a Paralelo y la brecha. No escribas tú el resultado.
   c) DESGLOSE POR CUENTAS (ej. "¿cuánto tengo en Banesco?"): da el saldo exacto de esa cuenta con su moneda y su equivalente. Si hay varias cuentas que coinciden, lista cada una y su suma. Si la cuenta no existe, dilo y menciona las que sí tiene.
   d) INGRESOS Y GASTOS de un periodo, categoría o cuenta: añade el bloque sum (la app suma los movimientos y muestra el total exacto, por moneda y en la moneda principal). Escribe una línea con lo que consultas. Para el mes actual, el anterior y hace dos meses los totales y las categorías ya están en los datos y puedes citarlos.
-  e) REGISTRO DE MOVIMIENTOS en lenguaje natural (ej. "Gasté $15 en padel con Banesco"): interpreta monto, moneda, categoría y cuenta, y escribe una línea que los confirme: "Entendí: gasto de 15,00 USD · padel (categoría Salidas) · cuenta Banesco." Después añade el bloque tx (la app mostrará los valores y un botón para confirmar; tú no guardas nada y nunca digas que ya quedó guardado). Si falta el monto, la moneda no es clara o la cuenta es ambigua, pregunta y no emitas el bloque.
+  e) REGISTRO DE MOVIMIENTOS en lenguaje natural (ej. "Gasté $15 en pádel con Banesco"): interpreta monto, moneda, categoría y cuenta, y escribe una línea que los confirme: "Entendí: gasto de 15,00 USD · pádel (categoría Salidas) · cuenta Banesco." Después añade el bloque tx (la app mostrará los valores y un botón para confirmar; tú no guardas nada y nunca digas que ya quedó guardado). Si falta el monto, la moneda no es clara o la cuenta es ambigua, pregunta y no emitas el bloque.
   f) CAPTURAS Y RECIBOS DE CUALQUIER PLATAFORMA: si el usuario adjunta una imagen, puede venir de cualquier banco o app de pagos de cualquier país: Pago Móvil o transferencias de bancos venezolanos (Banesco, Mercantil, Provincial, Venezuela, BNC, Bancamiga, Bancaribe, Banplus, Bicentenario, Tesoro, Exterior, Venezolano de Crédito, Activo, Sofitasa, 100% Banco…), Zelle, Binance (P2P, Pay, depósitos o retiros), PayPal, Zinli, Wally, AirTM, Reserve, Wise, Revolut, Venmo, Cash App, Apple Pay, Bizum, Nequi, Bancolombia, Yape, Mercado Pago, una tarjeta de débito o crédito, un punto de venta, una factura o un ticket de compra. Léela con cuidado:
      · Monto exacto y moneda. Si la imagen no muestra el símbolo, deduce por la plataforma: Pago Móvil y bancos venezolanos = VES; Zelle, PayPal, Venmo, Cash App, Zinli y Wally = USD; Binance = USDT (o la cripto que se vea); Bizum = EUR. Si la moneda no es USD, VES, USDT ni EUR, dilo y pregunta en qué cuenta y por cuánto quiere registrarlo.
      · Dirección: "enviaste", "pagaste", "débito", "sent", "paid", "retiro", "compra" o un signo "−" = gasto. "Recibiste", "te enviaron", "crédito", "received", "depósito" o un signo "+" = ingreso. Si no se ve claro, pregunta.
@@ -467,7 +467,7 @@ export function resolveTx(spec, d) {
   let converted = false;
   if (CURRENCIES[currency] && currency !== acc.currency) {
     const v = convert(amount, currency, acc.currency, rates, val);
-    if (v == null) return { error: `No hay tasa para pasar ${currency} a ${acc.currency} (cuenta ${acc.name}).` };
+    if (v == null) return { error: `No hay tasa para convertir ${currency} a ${acc.currency} (cuenta ${acc.name}).` };
     inAcc = v; converted = true;
   }
   const list = CATEGORIES[kind];
@@ -498,7 +498,7 @@ function httpMessage(status, body, shared = false) {
   if (shared) {
     // IA incluida: el usuario no tiene ninguna clave que revisar; mensajes en su lenguaje.
     if (status === 429) return 'Has hecho muchas preguntas seguidas. Espera unos minutos e inténtalo de nuevo.';
-    if (status === 401) return 'Tu sesión expiró. Vuelve a entrar para usar a Fructosa.';
+    if (status === 401) return 'Tu sesión expiró. Vuelve a iniciar sesión para usar Fructosa.';
     return 'Fructosa no está disponible en este momento. Inténtalo en unos minutos.';
   }
   if (isKeyError(status, body)) return KEY_ERROR_MSG;
@@ -604,7 +604,7 @@ async function fetchWithFallback({ key, body, stream, signal, shared }) {
         continue;
       }
       if (e?.name === 'AbortError') throw e;
-      throw new AiError('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
+      throw new AiError('No se pudo conectar. Revisa tu conexión a internet e inténtalo de nuevo.');
     }
     if (res.ok) { attempt.stop(); return { res, model }; } // el enlace con `signal` sigue vivo para cancelar el stream
     attempt.stop();
@@ -733,7 +733,7 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
       res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
     } catch (e) {
       if (e?.name === 'AbortError') throw e;
-      throw new AiError('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
+      throw new AiError('No se pudo conectar. Revisa tu conexión a internet e inténtalo de nuevo.');
     }
     if (!res.ok) throw new AiError(httpMessage(res.status, await res.text().catch(() => ''), shared));
   } else {
@@ -764,7 +764,7 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
       } catch { /* línea parcial o de control */ }
     }
   }
-  if (!full.trim()) throw new AiError('El modelo no devolvió respuesta (puede que filtrara el contenido). Reformula la pregunta.');
+  if (!full.trim()) throw new AiError('El modelo no devolvió respuesta (puede que haya filtrado el contenido). Reformula la pregunta.');
   return full;
 }
 
