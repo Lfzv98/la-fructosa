@@ -19,17 +19,18 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const UPSTREAMS: Record<string, { url: string; model: string }> = {
   groq: { url: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.3-70b-versatile' },
-  gemini: { url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-2.5-flash' },
+  gemini: { url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', model: 'gemini-3.6-flash' },
   xai: { url: 'https://api.x.ai/v1/chat/completions', model: 'grok-3-mini' },
 };
 
-const GEMINI_MODELS = 'gemini-2.0-flash,gemini-2.5-flash,gemini-flash-latest';
+// gemini-2.0-flash se apagó en junio de 2026 y los 2.5 solo están para cuentas que ya los usaban.
+const GEMINI_MODELS = 'gemini-3.6-flash,gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash-lite,gemini-2.5-flash';
 // Lo normal para Gemini: un solo secreto, GEMINI_API_KEY (AI_API_KEY + AI_UPSTREAM sigue valiendo para otros proveedores).
 const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
 const KEY = GEMINI_KEY || (Deno.env.get('AI_API_KEY') ?? '');
 const UP = UPSTREAMS[Deno.env.get('AI_UPSTREAM') ?? (GEMINI_KEY ? 'gemini' : 'groq')] ?? UPSTREAMS.groq;
 // AI_MODEL admite varios modelos separados por coma: se prueban en orden si uno no existe (404),
-// no tiene cupo (429), está saturado (5xx) o tarda más de 8 s en empezar a responder.
+// no tiene cupo (429), está saturado (5xx) o tarda más de FIRST_BYTE_MS en empezar a responder.
 const MODELS = (Deno.env.get('AI_MODEL') || (UP === UPSTREAMS.gemini ? GEMINI_MODELS : UP.model)).split(',').map((s) => s.trim()).filter(Boolean);
 const ORIGINS = (Deno.env.get('AI_ALLOWED_ORIGINS') ?? 'https://lfzv98.github.io,http://localhost:8000,http://127.0.0.1:8000')
   .split(',').map((s) => s.trim()).filter(Boolean);
@@ -37,7 +38,8 @@ const ORIGINS = (Deno.env.get('AI_ALLOWED_ORIGINS') ?? 'https://lfzv98.github.io
 const MAX_BODY = 90_000;           // bytes de la petición
 const MAX_MESSAGES = 30;
 const MAX_CHARS = 40_000;          // por mensaje (el prompt con datos es largo)
-const MAX_TOKENS = 700;            // respuesta
+const MAX_TOKENS = 2048;           // respuesta (en Gemini 3 incluye el "pensamiento": con 700 se quedaba sin texto)
+const FIRST_BYTE_MS = 30_000;      // Gemini 3 piensa antes de responder: 8 s cortaba respuestas buenas
 const LIMIT = 30;                  // peticiones…
 const WINDOW_MS = 10 * 60 * 1000;  // …cada 10 minutos por usuario
 
@@ -99,10 +101,11 @@ Deno.serve(async (req) => {
   for (const model of MODELS) {
     const payload = {
       model, stream: true, temperature: 0.3, max_tokens: MAX_TOKENS,
+      ...(UP === UPSTREAMS.gemini ? { reasoning_effort: 'low' } : {}),
       messages: [{ role: 'system', content: SERVER_GUARD }, ...messages],
     };
     const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 8_000); // solo hasta que empieza a responder
+    const timer = setTimeout(() => ctl.abort(), FIRST_BYTE_MS); // solo hasta que empieza a responder
     try {
       const res = await fetch(UP.url, {
         method: 'POST',
@@ -120,6 +123,7 @@ Deno.serve(async (req) => {
       clearTimeout(timer);
       lastStatus = 504;
       console.error('ai-proxy upstream', model, 'sin respuesta');
+      break; // si un modelo no respondió en FIRST_BYTE_MS, esperar otro tanto con el siguiente no ayuda
     }
   }
   if (!upstream) {

@@ -23,23 +23,28 @@ const SHARED_KEY = String(APP.AI_DEFAULT_KEY || '').trim();
 export const SHARED_AI = Boolean(SHARED_PROXY || SHARED_KEY);
 
 // Modelos de Gemini en orden de preferencia. Si uno falla por el modelo (404 no existe, 429 sin cupo,
-// 5xx saturado) o tarda más de ATTEMPT_TIMEOUT_MS en responder, se prueba el siguiente.
-// Los errores de clave (400 API_KEY_INVALID, 401, 403) no se reintentan.
-//  · Primero van los rápidos (gemini-2.0-flash y gemini-1.5-flash). Se quitaron los lentos u obsoletos
-//    (gemini-1.5-pro, gemini-2.0-flash-exp) para no perder segundos en intentos que no sirven.
-//  · Google ya retiró la familia 1.5 y, con claves nuevas, los 2.x dan 404: por eso la cadena sigue con los
-//    modelos vigentes (3.x y el alias gemini-flash-latest). Un 404 responde al instante y se recuerda.
+// 5xx saturado) se prueba el siguiente. Los errores de clave (400 API_KEY_INVALID, 401, 403) no se reintentan.
+//  · Solo modelos vigentes. Google apagó gemini-1.5-* y gemini-2.0-flash (junio 2026), y los 2.5 solo
+//    los da a cuentas que ya los usaban: van al final como respaldo.
 //  · Antes de llamar se consulta ListModels con la clave y se saltan los que esa clave no tiene.
+//  · Los Gemini 3 "piensan" antes de responder. Con el pensamiento en "low" (THINKING) responden rápido,
+//    pero el primer texto puede tardar varios segundos con el contexto financiero completo.
 export const AI_MODELS = [
-  'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash',
-  'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite',
+  'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite',
+  'gemini-2.5-flash', 'gemini-2.5-flash-lite',
 ];
 export const AI_MODEL = AI_MODELS[0];
-// Tiempo máximo para que un modelo empiece a responder (llegan los encabezados) antes de pasar al siguiente.
+// Nivel de pensamiento: "low" es rápido y suficiente (las cifras las calcula la app, no el modelo).
+const THINKING = { thinkingLevel: 'low' };
+// Tiempo máximo para que un modelo EMPIECE a responder (llegan los encabezados). Antes era 5 s y cortaba
+// respuestas buenas de los Gemini 3: por eso salía "Gemini está tardando demasiado". Los 404 llegan al
+// instante, así que este tiempo solo cuenta cuando el modelo de verdad está trabajando.
 // Una vez que empieza a responder no se corta: la respuesta puede tardar lo que necesite.
-const ATTEMPT_TIMEOUT_MS = 5000;
-// Si varios modelos seguidos no responden, el problema es la red o Google: no se sigue esperando 5 s por cada uno.
-const MAX_TIMEOUTS = 3;
+const ATTEMPT_TIMEOUT_MS = 45000;
+// Si un modelo agotó ese tiempo, el problema es la red o Google: no se espera otra vez con el siguiente.
+const MAX_TIMEOUTS = 1;
+// ListModels es una consulta liviana: si tarda más que esto, se sigue con la lista fija.
+const LIST_TIMEOUT_MS = 8000;
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const geminiUrl = (model, key, stream = true) => `${GEMINI_BASE}/models/${model}:${stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?'}key=${encodeURIComponent(key)}`;
 
@@ -507,7 +512,7 @@ export async function listModels(key, { signal } = {}) {
   if (MODEL_CACHE.has(key)) return MODEL_CACHE.get(key);
   const names = new Set();
   let pageToken = '';
-  const attempt = attemptSignal(signal, ATTEMPT_TIMEOUT_MS);
+  const attempt = attemptSignal(signal, LIST_TIMEOUT_MS);
   try {
     for (let page = 0; page < 5; page++) {
       const res = await fetch(`${GEMINI_BASE}/models?pageSize=1000&key=${encodeURIComponent(key)}${pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''}`, { signal: attempt.signal });
@@ -556,7 +561,8 @@ async function fetchWithFallback({ key, body, stream, signal, shared }) {
   const tried = [];
   let last = { status: 404, text: '', timedOut: false };
   let timeouts = 0;
-  for (const model of models) {
+  for (let i = 0; i < models.length; i++) {
+    const model = models[i];
     const attempt = attemptSignal(signal, ATTEMPT_TIMEOUT_MS);
     let res;
     try {
@@ -577,6 +583,13 @@ async function fetchWithFallback({ key, body, stream, signal, shared }) {
     attempt.stop();
     const text = await res.text().catch(() => '');
     attempt.release();
+    // Un modelo que no acepta el ajuste de pensamiento (400 "thinking"): se repite sin él.
+    if (res.status === 400 && /thinking/i.test(text) && body.generationConfig?.thinkingConfig) {
+      console.warn(`[IA] ${model} no acepta thinkingConfig; se repite sin él`);
+      body = { ...body, generationConfig: { ...body.generationConfig, thinkingConfig: undefined } };
+      i--;
+      continue;
+    }
     tried.push(`${model} (${res.status})`);
     last = { status: res.status, text, timedOut: false };
     if (res.status === 404) DEAD_MODELS.add(model);
@@ -633,7 +646,7 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
     });
     body = {
       systemInstruction: { parts: [{ text: system }] },
-      generationConfig: { temperature: 0.2 },
+      generationConfig: { temperature: 0.2, thinkingConfig: THINKING },
       contents,
     };
   }
@@ -939,39 +952,19 @@ export function isSpeaking() {
   return Boolean(typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking);
 }
 
-// Prueba rápida de la clave (Ajustes). Va directo a gemini-1.5-flash (endpoint v1beta, sin ListModels ni
-// cadena larga de modelos). Solo si ese modelo da 404 prueba gemini-2.0-flash. Timeout de 15 s.
-const TEST_MODELS = ['gemini-1.5-flash', 'gemini-2.0-flash'];
-const TEST_TIMEOUT_MS = 15000;
+// Prueba rápida de la clave (Ajustes). Valida la clave con ListModels y hace una llamada mínima a
+// generateContent con la misma cadena de modelos del chat. Devuelve el nombre del modelo que respondió.
 export async function testConnection(config) {
   const key = normalizeKey(config?.apiKey);
   if (!key) throw new AiError('Pega tu clave de API.');
-  const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), TEST_TIMEOUT_MS);
-  const body = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Responde únicamente con la palabra: ok' }] }] });
-  try {
-    let last = { status: 404, text: '' };
-    for (const model of TEST_MODELS) {
-      let res;
-      try {
-        res = await fetch(geminiUrl(model, key, false), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: ctl.signal });
-      } catch (e) {
-        if (e?.name === 'AbortError') throw e;
-        throw new AiError('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
-      }
-      if (res.ok) {
-        await res.json().catch(() => null);
-        return model;
-      }
-      const text = await res.text().catch(() => '');
-      last = { status: res.status, text };
-      if (res.status !== 404) break; // clave inválida, límite de uso, etc.: otro modelo no ayuda
-      console.warn(`[IA] ${model} no existe para esta clave (404); probando ${TEST_MODELS[TEST_MODELS.indexOf(model) + 1] || 'ninguno más'}`);
-    }
-    if (isKeyError(last.status, last.text)) console.warn('[IA] Gemini rechazó la clave:', last.status, errorDetail(last.text));
-    throw new AiError(httpMessage(last.status, last.text));
-  } catch (e) {
-    if (e?.name === 'AbortError') throw new AiError('Gemini tardó más de 15 segundos en responder. Inténtalo de nuevo.');
-    throw e;
-  } finally { clearTimeout(timer); }
+  const { res, model } = await fetchWithFallback({
+    key,
+    body: {
+      contents: [{ role: 'user', parts: [{ text: 'Responde únicamente con la palabra: ok' }] }],
+      generationConfig: { thinkingConfig: THINKING },
+    },
+    stream: false,
+  });
+  await res.json().catch(() => null);
+  return model;
 }
