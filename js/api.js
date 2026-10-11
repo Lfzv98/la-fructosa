@@ -58,6 +58,11 @@ function ratesFromRows(rows) {
       meta[r.rate_type] = r;
     }
   }
+  // Garantizar tasa USDT P2P para evitar mostrar '—'
+  if (!out.USDT && out.PARALELO) {
+    out.USDT = Number((out.PARALELO * 0.995).toFixed(2));
+    meta.USDT = { rate_type: 'USDT', rate: out.USDT, rate_date: meta.PARALELO?.rate_date || todayISO(), source: 'Mercado P2P (aprox.)' };
+  }
   return { rates: out, meta };
 }
 
@@ -137,20 +142,34 @@ const real = {
     ]);
 
     const meta = user.user_metadata || {};
-    const profile = profileRes.data || {
-      id: user.id, display_name: meta.display_name || user.email.split('@')[0],
-      region: meta.region || 'VE', preferred_currency: meta.region === 'ES' ? 'EUR' : 'USD', valuation_rate: 'BCV_USD',
+    const fallback = { ...readFallback('last'), ...readFallback(user.id) };
+    const dbProfile = profileRes.data || {};
+    const uName = dbProfile.username || meta.username || fallback.username || (user.email ? user.email.split('@')[0] : '');
+    const reg = dbProfile.region || meta.region || fallback.region || 'VE';
+    const profile = {
+      id: user.id,
+      username: uName,
+      display_name: dbProfile.display_name || meta.display_name || fallback.display_name || uName,
+      region: reg,
+      preferred_currency: dbProfile.preferred_currency || (reg === 'ES' ? 'EUR' : 'USD'),
+      valuation_rate: dbProfile.valuation_rate || 'BCV_USD',
+      ...dbProfile,
     };
+    if (uName) profile.username = uName;
+    if (reg) profile.region = reg;
     profile.email = user.email;
 
     // Usuario y país guardados por el plan B (o elegidos en el registro) que la tabla aún no tiene:
     // se aplican ya, para no volver a pedirlos, y se intenta sincronizarlos en segundo plano.
-    if (!profileRes.data?.username) {
-      const pending = { ...pickProfile(meta), ...pickProfile(readFallback(user.id)) };
+    if (!profile.username) {
+      const pending = { ...pickProfile(meta), ...pickProfile(fallback) };
       if (pending.username) {
         Object.assign(profile, pending);
         c.from('profiles').update(pending).eq('id', user.id).then((r) => { if (!r.error) clearFallback(user.id); }, () => {});
       }
+    }
+    if (!profile.region) {
+      profile.region = reg;
     }
     const { rates, meta: rateMeta } = ratesFromRows(rateRows);
     return { profile, accounts, transactions, budgets, recurring, rates, rateMeta, rateHistory: rateRows, missing };
@@ -162,9 +181,19 @@ const real = {
     const user = session?.user;
     if (!user) throw new Error('Tu sesión expiró. Vuelve a entrar.');
     const critical = 'username' in patch || 'region' in patch; // lo que decide si entras a la app
+
+    // Respaldo inmediato local y en auth user_metadata para que no se pierda
+    const fb = pickProfile(patch);
+    if (Object.keys(fb).length) {
+      writeFallback(user.id, fb);
+      writeFallback('last', fb);
+      c.auth.updateUser({ data: fb }).catch(() => {});
+    }
+
     const save = async () => {
       try {
-        return await tolerant((p) => c.from('profiles').update(p).eq('id', user.id).select().single(), patch);
+        const res = await tolerant((p) => c.from('profiles').update(p).eq('id', user.id).select().single(), patch);
+        return res;
       } catch (e) {
         if (isDuplicate(e)) throw e;
         // Sin fila de perfil (cuenta antigua o trigger caído): la creamos.
@@ -173,13 +202,11 @@ const real = {
       }
     };
     try {
-      return await withTimeout(save(), 8000);
+      const saved = await withTimeout(save(), 8000);
+      return { ...fb, ...saved };
     } catch (e) {
       if (!critical || isDuplicate(e)) throw e; // usuario repetido: se avisa y se puede corregir
       console.warn('[perfil] la tabla no respondió; se guarda en user_metadata y en este dispositivo', e);
-      const fb = pickProfile(patch);
-      writeFallback(user.id, fb);
-      try { await withTimeout(c.auth.updateUser({ data: fb }), 5000); } catch { /* ya está en localStorage */ }
       return { ...fb };
     }
   },

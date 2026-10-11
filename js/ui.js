@@ -69,6 +69,10 @@ const I = {
   cloud: '<path d="M17.5 19H7a5 5 0 0 1-.6-10A7 7 0 0 1 20 10.5a4.3 4.3 0 0 1-2.5 8.5z"/>',
   database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
   scale: '<path d="M16 16l3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1ZM2 16l3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1ZM7 21h10M12 3v18M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
+  mic: '<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>',
+  micOff: '<line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/>',
+  volume: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  volumeX: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/>',
 };
 
 export function Icon({ name, size = 20, stroke = 2, class: cls = '' }) {
@@ -244,6 +248,67 @@ export function Spinner() { return html`<span class="spinner" aria-label="Cargan
 
 export function SectionTitle({ children, action }) {
   return html`<div class="section-title"><h2>${children}</h2>${action}</div>`;
+}
+
+// ---------------------------------------------------------------------
+// Banner flotante de consejos (Smart Insight Banner).
+// Se descarta deslizándolo hacia arriba o hacia los lados (o con la ✕).
+// ---------------------------------------------------------------------
+export function SwipeBanner({ emoji, title, text, tone = 'info', action, onAction, onDismiss, tourId }) {
+  const [drag, setDrag] = useState({ x: 0, y: 0 });
+  const [gone, setGone] = useState(null); // { x, y } hacia dónde sale
+  const [dragging, setDragging] = useState(false);
+  const start = useRef(null);
+  const timer = useRef(null);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  const dismiss = (x, y) => {
+    if (gone) return;
+    vibrate(8);
+    setGone({ x, y });
+    timer.current = setTimeout(() => onDismiss?.(), 280);
+  };
+
+  const onDown = (e) => {
+    if (gone || e.target.closest('button, a')) return;
+    start.current = { x: e.clientX, y: e.clientY };
+    setDragging(true);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* nada */ }
+  };
+  const onMove = (e) => {
+    if (!start.current) return;
+    // Solo hacia arriba o hacia los lados: hacia abajo no se mueve.
+    setDrag({ x: e.clientX - start.current.x, y: Math.min(0, e.clientY - start.current.y) });
+  };
+  const onUp = () => {
+    if (!start.current) return;
+    start.current = null;
+    setDragging(false);
+    const { x, y } = drag;
+    if (y < -45) dismiss(0, -160);
+    else if (Math.abs(x) > 80) dismiss(x > 0 ? 480 : -480, 0);
+    else setDrag({ x: 0, y: 0 });
+  };
+
+  const live = gone || drag;
+  const fade = gone ? 0 : Math.max(0.35, 1 - Math.max(Math.abs(drag.x) / 320, Math.abs(drag.y) / 160));
+  const style = {
+    transform: `translate(${live.x}px, ${live.y}px) rotate(${(live.x / 40).toFixed(2)}deg)`,
+    opacity: fade,
+    transition: dragging ? 'none' : 'transform .28s ease, opacity .28s ease',
+  };
+
+  return html`<div class=${'insight ' + tone} style=${style} role="status" data-tour=${tourId}
+    onPointerDown=${onDown} onPointerMove=${onMove} onPointerUp=${onUp} onPointerCancel=${onUp}>
+    <span class="insight-emoji" aria-hidden="true">${emoji}</span>
+    <div class="insight-body">
+      <b>${title}</b>
+      <p>${text}</p>
+      ${action && html`<button type="button" class="insight-action" onClick=${onAction}>${action.label} <${Icon} name="right" size=${14} /></button>`}
+    </div>
+    <button type="button" class="insight-x" onClick=${() => dismiss(0, -160)} aria-label="Ocultar consejo"><${Icon} name="x" size=${16} /></button>
+    <span class="insight-grip" aria-hidden="true"></span>
+  </div>`;
 }
 
 // Mensaje legible a partir de errores de Supabase o del navegador.

@@ -39,34 +39,49 @@ export const KINDS = {
 // Plantillas de cuentas típicas por región: crear una cuenta es un toque.
 export const ACCOUNT_TEMPLATES = {
   VE: [
-    { name: 'Efectivo', currency: 'USD', kind: 'cash' },
-    { name: 'Zelle', currency: 'USD', kind: 'digital' },
-    { name: 'Pago Móvil', currency: 'VES', kind: 'bank' },
-    // bank: true → cada persona elige o escribe su propio banco.
-    { name: 'Mi banco', currency: 'VES', kind: 'bank', bank: true },
-    { name: 'Binance', currency: 'USDT', kind: 'crypto' },
-    { name: 'Efectivo Bs.', currency: 'VES', kind: 'cash' },
+    { name: 'Pago Móvil', currency: 'VES', kind: 'bank', icon: '📲' },
+    { name: 'Efectivo USD', currency: 'USD', kind: 'cash', icon: '💵' },
+    { name: 'Efectivo VES', currency: 'VES', kind: 'cash', icon: '💵' },
+    { name: 'Zelle', currency: 'USD', kind: 'digital', icon: '📱' },
+    { name: 'Binance (USDT)', currency: 'USDT', kind: 'crypto', icon: '🪙' },
+    { name: 'Banesco', currency: 'VES', kind: 'bank', icon: '🏦' },
+    { name: 'Mercantil', currency: 'VES', kind: 'bank', icon: '🏦' },
   ],
   US: [
-    { name: 'Bank of America', currency: 'USD', kind: 'bank' },
-    { name: 'Zelle', currency: 'USD', kind: 'digital' },
-    { name: 'Cash', currency: 'USD', kind: 'cash' },
-    { name: 'Binance', currency: 'USDT', kind: 'crypto' },
+    { name: 'Zelle', currency: 'USD', kind: 'digital', icon: '📱' },
+    { name: 'Venmo', currency: 'USD', kind: 'digital', icon: '📱' },
+    { name: 'Cash App', currency: 'USD', kind: 'digital', icon: '📱' },
+    { name: 'Apple Pay', currency: 'USD', kind: 'digital', icon: '📱' },
+    { name: 'Tarjeta de Crédito', currency: 'USD', kind: 'bank', icon: '💳' },
+    { name: 'Cuenta de Cheques (Checking Account)', currency: 'USD', kind: 'bank', icon: '🏦' },
+    { name: 'Cash', currency: 'USD', kind: 'cash', icon: '💵' },
   ],
   ES: [
-    { name: 'Banco', currency: 'EUR', kind: 'bank' },
-    { name: 'Bizum', currency: 'EUR', kind: 'digital' },
-    { name: 'Efectivo', currency: 'EUR', kind: 'cash' },
-    { name: 'Binance', currency: 'USDT', kind: 'crypto' },
+    { name: 'Bizum', currency: 'EUR', kind: 'digital', icon: '📱' },
+    { name: 'Cuenta IBAN / Transferencia', currency: 'EUR', kind: 'bank', icon: '🏦' },
+    { name: 'Tarjeta de Débito', currency: 'EUR', kind: 'bank', icon: '💳' },
+    { name: 'Efectivo EUR', currency: 'EUR', kind: 'cash', icon: '💶' },
+    { name: 'Binance', currency: 'USDT', kind: 'crypto', icon: '🪙' },
   ],
 };
 
-// Bancos de Venezuela más usados. Son sugerencias: también se puede escribir cualquier otro.
-export const VE_BANKS = [
-  'Banco de Venezuela', 'Banesco', 'Mercantil', 'BBVA Provincial', 'Banco Nacional de Crédito (BNC)',
-  'Banco Exterior', 'Bancamiga', 'Bancaribe', 'Banplus', 'Banco del Tesoro', 'Banco Bicentenario',
-  'Banco Venezolano de Crédito', 'Banco Activo', 'Bancrecer', '100% Banco', 'Banco Caroní', 'Banco Plaza',
-];
+// Bancos e instituciones sugeridas por región
+export const BANK_SUGGESTIONS = {
+  VE: [
+    'Banco de Venezuela', 'Banesco', 'Mercantil', 'BBVA Provincial', 'Banco Nacional de Crédito (BNC)',
+    'Banco Exterior', 'Bancamiga', 'Bancaribe', 'Banplus', 'Banco del Tesoro', 'Banco Bicentenario',
+    'Banco Venezolano de Crédito', 'Banco Activo', 'Bancrecer', '100% Banco', 'Banco Caroní', 'Banco Plaza',
+  ],
+  US: [
+    'Chase', 'Bank of America', 'Wells Fargo', 'Citibank', 'Capital One', 'PNC Bank', 'TD Bank', 'US Bank',
+  ],
+  ES: [
+    'BBVA', 'Banco Santander', 'CaixaBank', 'Banco Sabadell', 'ING', 'Revolut', 'N26', 'Openbank', 'Bankinter',
+  ],
+};
+
+// Compatibilidad
+export const VE_BANKS = BANK_SUGGESTIONS.VE;
 
 export const ACCOUNT_COLORS = ['#A0C4FF', '#FFADAD', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#BDB2FF', '#FFC6FF', '#FFD6A5'];
 
@@ -210,8 +225,9 @@ export function fmtCompact(amount, currency = 'USD') {
 }
 
 export function fmtRate(rate) {
-  if (!rate) return '—';
-  return numberFormat(2).format(Number(rate));
+  const n = Number(rate);
+  if (!rate || isNaN(n) || n <= 0) return '—';
+  return numberFormat(2).format(n);
 }
 
 export const fmtPct = (p, d = 1) => (p == null || !isFinite(p) ? '—' : `${numberFormat(d).format(p)}%`);

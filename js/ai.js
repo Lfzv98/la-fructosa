@@ -23,6 +23,9 @@ const SHARED_KEY = String(APP.AI_DEFAULT_KEY || '').trim();
 export const SHARED_AI = Boolean(SHARED_PROXY || SHARED_KEY);
 
 export const AI_MODEL = 'gemini-2.5-flash';
+export const PROVIDERS = {
+  gemini: { name: 'Google Gemini', label: 'Google Gemini', model: AI_MODEL, hint: 'Clave de Google AI Studio (aistudio.google.com). Empieza por AIza…' },
+};
 export const AI_INTRO = (userName = '') => 
   `Hola, soy Fructuosa, tu asistente personal de finanzas. ¿Cómo estás${userName ? ', ' + userName : ''}? ¿En qué te puedo ayudar hoy?`;
 
@@ -244,7 +247,10 @@ const GUARD_SUFFIX = '\n\n[Recordatorio automático de La Fructosa: responde sol
 export function withGuard(history) {
   const out = history.map((m) => ({ ...m }));
   for (let i = out.length - 1; i >= 0; i--) {
-    if (out[i].role === 'user') { out[i].text += GUARD_SUFFIX; break; }
+    if (out[i].role === 'user') {
+      out[i].text = (out[i].text ? out[i].text + '\n\n' : '') + GUARD_SUFFIX;
+      break;
+    }
   }
   return out;
 }
@@ -435,7 +441,7 @@ function httpMessage(status, body, shared = false) {
   return `Gemini rechazó la consulta (${status}).${detail ? ' ' + detail.slice(0, 140) : ''}`;
 }
 
-// history: [{ role: 'user'|'assistant', text }]. Devuelve el texto completo.
+// history: [{ role: 'user'|'assistant', text, audio? }]. Devuelve el texto completo.
 // config.provider: 'gemini' (directo, con clave) | 'proxy' (servidor propio con sesión de Supabase).
 export async function streamChat({ config, system, history, signal, onDelta }) {
   const proxy = config.provider === 'proxy';
@@ -448,12 +454,39 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
     if (endpointError(config.endpoint)) throw new AiError('Fructuosa no está disponible en este momento.');
     url = config.endpoint;
     headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${key}`, ...(APP.SUPABASE_ANON_KEY ? { apikey: APP.SUPABASE_ANON_KEY } : {}) };
-    body = { stream: true, messages: [{ role: 'system', content: system }, ...history.map((m) => ({ role: m.role, content: m.text }))] };
+    body = {
+      stream: true,
+      messages: [
+        { role: 'system', content: system },
+        ...history.map((m) => ({ role: m.role, content: m.text || (m.audio ? '[Mensaje de audio]' : '') })),
+      ],
+    };
   } else {
     url = `https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:streamGenerateContent?alt=sse`;
     headers = { 'Content-Type': 'application/json', 'x-goog-api-key': key };
-    body = { systemInstruction: { parts: [{ text: system }] }, generationConfig: { temperature: 0.2 },
-      contents: history.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.text }] })) };
+    const contents = history.map((m) => {
+      const role = m.role === 'assistant' ? 'model' : 'user';
+      const parts = [];
+      if (m.audio?.data && m.audio?.mimeType) {
+        parts.push({
+          inlineData: {
+            mimeType: m.audio.mimeType,
+            data: m.audio.data,
+          },
+        });
+      }
+      if (m.text) {
+        parts.push({ text: m.text });
+      } else if (m.audio) {
+        parts.push({ text: 'Escucha atentamente este audio del usuario y respóndele en español como Fructuosa.' });
+      }
+      return { role, parts: parts.length ? parts : [{ text: '' }] };
+    });
+    body = {
+      systemInstruction: { parts: [{ text: system }] },
+      generationConfig: { temperature: 0.2 },
+      contents,
+    };
   }
 
   let res;
@@ -490,6 +523,266 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
   }
   if (!full.trim()) throw new AiError('El modelo no devolvió respuesta (puede que filtrara el contenido). Reformula la pregunta.');
   return full;
+}
+
+// ---------------------------------------------------------------------
+// Reconocimiento de voz en vivo (Web Speech API)
+// ---------------------------------------------------------------------
+export function getSpeechRecognition() {
+  if (typeof window === 'undefined') return null;
+  return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+}
+
+export function createSpeechRecognizer({ onResult, onError, onEnd, onStart, lang = 'es-VE' } = {}) {
+  const Speech = getSpeechRecognition();
+  if (!Speech) return null;
+
+  const recognition = new Speech();
+  recognition.lang = lang;
+  recognition.continuous = true;
+  recognition.interimResults = true;
+
+  if (onStart) recognition.onstart = onStart;
+  if (onEnd) recognition.onend = onEnd;
+  if (onError) recognition.onerror = onError;
+
+  recognition.onresult = (ev) => {
+    let text = '';
+    for (let i = 0; i < ev.results.length; i++) {
+      text += ev.results[i][0].transcript;
+    }
+    onResult?.(text.trim());
+  };
+
+  return recognition;
+}
+
+// ---------------------------------------------------------------------
+// Interacción por voz con Fructuosa (Micrófono + Gemini)
+// ---------------------------------------------------------------------
+export class VoiceSession {
+  constructor({ onTranscript, onVolume, onError } = {}) {
+    this.onTranscript = onTranscript;
+    this.onVolume = onVolume;
+    this.onError = onError;
+    this.stream = null;
+    this.recorder = null;
+    this.recognition = null;
+    this.audioChunks = [];
+    this.transcript = '';
+    this.analyser = null;
+    this.animId = null;
+    this.audioCtx = null;
+  }
+
+  static isSupported() {
+    return Boolean(typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia);
+  }
+
+  async start() {
+    try {
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    } catch (e) {
+      const msg = e?.name === 'NotAllowedError' ? 'Permiso de micrófono denegado.' : 'No se pudo acceder al micrófono.';
+      this.onError?.(new Error(msg));
+      throw new Error(msg);
+    }
+
+    // Análisis de nivel de audio para la onda visual
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        this.audioCtx = new AudioCtx();
+        const source = this.audioCtx.createMediaStreamSource(this.stream);
+        this.analyser = this.audioCtx.createAnalyser();
+        this.analyser.fftSize = 64;
+        source.connect(this.analyser);
+        const dataArr = new Uint8Array(this.analyser.frequencyBinCount);
+        const loop = () => {
+          if (!this.analyser) return;
+          this.analyser.getByteFrequencyData(dataArr);
+          let sum = 0;
+          for (let i = 0; i < dataArr.length; i++) sum += dataArr[i];
+          const avg = sum / (dataArr.length * 255);
+          this.onVolume?.(avg);
+          this.animId = requestAnimationFrame(loop);
+        };
+        loop();
+      }
+    } catch { /* visualizador opcional */ }
+
+    // MediaRecorder para capturar audio que irá a la API de Gemini
+    const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav'];
+    const chosenMime = mimeTypes.find((m) => typeof window !== 'undefined' && window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
+    if (typeof window !== 'undefined' && window.MediaRecorder) {
+      try {
+        this.recorder = chosenMime ? new MediaRecorder(this.stream, { mimeType: chosenMime }) : new MediaRecorder(this.stream);
+        this.audioChunks = [];
+        this.recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) this.audioChunks.push(e.data);
+        };
+        this.recorder.start(100);
+      } catch (err) {
+        console.warn('Error al iniciar MediaRecorder:', err);
+      }
+    }
+
+    // Transcripción en vivo si el navegador tiene SpeechRecognition
+    const Speech = typeof window !== 'undefined' && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (Speech) {
+      try {
+        this.recognition = new Speech();
+        this.recognition.lang = 'es-VE';
+        this.recognition.continuous = true;
+        this.recognition.interimResults = true;
+        this.recognition.onresult = (ev) => {
+          let str = '';
+          for (let i = 0; i < ev.results.length; i++) {
+            str += ev.results[i][0].transcript;
+          }
+          this.transcript = str;
+          this.onTranscript?.(str);
+        };
+        this.recognition.onerror = (ev) => {
+          if (ev.error !== 'no-speech') console.warn('SpeechRecognition error:', ev.error);
+        };
+        this.recognition.start();
+      } catch { /* SpeechRecognition opcional */ }
+    }
+  }
+
+  async stop() {
+    if (this.animId) cancelAnimationFrame(this.animId);
+    this.analyser = null;
+    if (this.audioCtx) {
+      this.audioCtx.close().catch(() => {});
+      this.audioCtx = null;
+    }
+    if (this.recognition) {
+      try { this.recognition.stop(); } catch {}
+      this.recognition = null;
+    }
+
+    return new Promise((resolve) => {
+      const finalize = async (chunks, mime) => {
+        this._cleanup();
+        let base64 = '';
+        let blob = null;
+        if (chunks && chunks.length) {
+          blob = new Blob(chunks, { type: mime || 'audio/webm' });
+          try {
+            const buf = await blob.arrayBuffer();
+            let binary = '';
+            const bytes = new Uint8Array(buf);
+            for (let i = 0; i < bytes.byteLength; i++) {
+              binary += String.fromCharCode(bytes[i]);
+            }
+            base64 = btoa(binary);
+          } catch (e) {
+            console.warn('Error al codificar audio:', e);
+          }
+        }
+        resolve({
+          transcript: this.transcript.trim(),
+          blob,
+          audio: base64 ? { mimeType: (mime || 'audio/webm').split(';')[0], data: base64 } : null,
+        });
+      };
+
+      if (!this.recorder || this.recorder.state === 'inactive') {
+        finalize(this.audioChunks, this.recorder?.mimeType);
+        return;
+      }
+
+      this.recorder.onstop = () => {
+        finalize(this.audioChunks, this.recorder?.mimeType);
+      };
+      try {
+        this.recorder.stop();
+      } catch {
+        finalize(this.audioChunks, this.recorder?.mimeType);
+      }
+    });
+  }
+
+  cancel() {
+    if (this.animId) cancelAnimationFrame(this.animId);
+    if (this.audioCtx) {
+      this.audioCtx.close().catch(() => {});
+      this.audioCtx = null;
+    }
+    if (this.recognition) {
+      try { this.recognition.abort(); } catch {}
+      this.recognition = null;
+    }
+    if (this.recorder && this.recorder.state !== 'inactive') {
+      try { this.recorder.stop(); } catch {}
+    }
+    this._cleanup();
+  }
+
+  _cleanup() {
+    if (this.stream) {
+      this.stream.getTracks().forEach((t) => t.stop());
+      this.stream = null;
+    }
+  }
+}
+
+// ---------------------------------------------------------------------
+// Lectura de respuestas en voz alta (Text-to-Speech)
+// ---------------------------------------------------------------------
+export function cleanSpeechText(text) {
+  if (!text) return '';
+  return text
+    .replace(/<fructosa_calc>[\s\S]*?<\/fructosa_calc>/gi, '')
+    .replace(/<fructosa_tx>[\s\S]*?<\/fructosa_tx>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/[*#_~`]/g, '')
+    .replace(/\$([0-9.,]+)/g, '$1 dólares')
+    .replace(/Bs\.?\s*([0-9.,]+)/gi, '$1 bolívares')
+    .replace(/([0-9.,]+)\s*€/g, '$1 euros')
+    .replace(/USDT/g, 'USDT')
+    .replace(/BCV/g, 'B-C-V')
+    .replace(/\n+/g, '. ')
+    .trim();
+}
+
+let activeUtterance = null;
+export function speakReply(text, { onStart, onEnd } = {}) {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return () => {};
+  stopSpeech();
+  const clean = cleanSpeechText(text);
+  if (!clean) return () => {};
+
+  const u = new SpeechSynthesisUtterance(clean);
+  u.lang = 'es-VE';
+  u.rate = 1.05;
+  u.pitch = 1.02;
+
+  const voices = window.speechSynthesis.getVoices();
+  const esVoice = voices.find((v) => v.lang.startsWith('es-') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Paulina') || v.name.includes('Monica') || v.name.includes('Sabina') || v.name.includes('Sofia')))
+    || voices.find((v) => v.lang.startsWith('es'));
+  if (esVoice) u.voice = esVoice;
+
+  u.onstart = () => onStart?.();
+  u.onend = () => { activeUtterance = null; onEnd?.(); };
+  u.onerror = () => { activeUtterance = null; onEnd?.(); };
+
+  activeUtterance = u;
+  window.speechSynthesis.speak(u);
+  return () => stopSpeech();
+}
+
+export function stopSpeech() {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    activeUtterance = null;
+  }
+}
+
+export function isSpeaking() {
+  return Boolean(typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking);
 }
 
 // Prueba rápida de la clave (Ajustes).

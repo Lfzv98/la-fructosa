@@ -1,6 +1,6 @@
 // Tasas del día, su evolución, calculadora y comparador "¿pago en $ o en Bs.?".
 import { useMemo, useState } from 'react';
-import { html, Icon, Segmented, Field } from '../ui.js';
+import { html, Icon, Segmented, Field, toast } from '../ui.js';
 import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { Sparkline } from '../charts.js';
@@ -14,7 +14,24 @@ export function Rates() {
   const { rates, rateMeta, rateHistory, actions } = useData();
   const [range, setRange] = useState(30);
   const [open, setOpen] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
   const gap = rates.BCV_USD && rates.PARALELO ? ((rates.PARALELO - rates.BCV_USD) / rates.BCV_USD) * 100 : null;
+
+  const handleRefresh = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await actions.refreshRates();
+    } catch (e) {
+      console.warn('Error en segundo plano al actualizar tasas:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const series = useMemo(() => {
     const from = new Date(todayISO() + 'T12:00:00Z'); from.setUTCDate(from.getUTCDate() - range);
@@ -26,7 +43,7 @@ export function Rates() {
 
   return html`<div class="page">
     <${PageHeader} title="Tasas" sub="Bolívares por cada unidad" back="#/mas"
-      actions=${html`<button class="icon-btn" onClick=${() => actions.reload()} aria-label="Actualizar"><${Icon} name="refresh" /></button>`} />
+      actions=${html`<button type="button" class=${'icon-btn' + (refreshing ? ' spin' : '')} onClick=${handleRefresh} disabled=${refreshing} aria-label="Actualizar tasas"><${Icon} name="refresh" /></button>`} />
 
     ${gap != null && html`<section class="gap-card">
       <div><small>Brecha BCV vs. Paralelo <${Learn} term="brecha" /></small><b>${fmtPct(gap)}</b></div>

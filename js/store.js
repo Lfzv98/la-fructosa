@@ -3,7 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo } from './api.js';
 import { fetchLiveRates } from './rates.js';
-import { REGIONS, convert, consolidate, todayISO, monthKey } from './money.js';
+import { REGIONS, ACCOUNT_TEMPLATES, ACCOUNT_COLORS, KINDS, convert, consolidate, todayISO, monthKey } from './money.js';
 
 const Ctx = createContext(null);
 export const useData = () => useContext(Ctx);
@@ -46,15 +46,45 @@ export function DataProvider({ children }) {
 
   const reload = useCallback(async () => {
     setError(null);
-    try { setData(await api.loadAll()); } catch (e) { setError(e); }
+    try {
+      const next = await api.loadAll();
+      setData((prev) => {
+        if (prev?.profile) {
+          const u = prev.profile.username || next.profile?.username;
+          const r = prev.profile.region || next.profile?.region;
+          next.profile = { ...prev.profile, ...next.profile, ...(u ? { username: u } : {}), ...(r ? { region: r } : {}) };
+        }
+        return next;
+      });
+    } catch (e) { setError(e); }
   }, []);
   useEffect(() => { reload(); }, [reload]);
+
+  const refreshRates = useCallback(async () => {
+    try {
+      const liveRes = await fetchLiveRates(true);
+      if (liveRes) {
+        setLive(liveRes);
+        setData((d) => {
+          if (!d) return d;
+          return {
+            ...d,
+            rates: { ...d.rates, ...liveRes.rates },
+            rateMeta: { ...d.rateMeta, ...liveRes.meta },
+          };
+        });
+        return liveRes;
+      }
+    } catch (e) {
+      console.warn('Error al actualizar tasas en segundo plano:', e);
+    }
+  }, []);
 
   // Tasas en vivo si la BD no tiene las de hoy (solo en modo real y región VE).
   useEffect(() => {
     if (!data || isDemo || (data.profile.region || 'VE') !== 'VE') return;
     const today = todayISO();
-    const stale = ['BCV_USD', 'PARALELO'].some((k) => !data.rateMeta[k] || data.rateMeta[k].rate_date < today);
+    const stale = ['BCV_USD', 'PARALELO', 'USDT'].some((k) => !data.rateMeta[k] || data.rateMeta[k].rate_date < today || !data.rates[k]);
     if (stale) fetchLiveRates().then(setLive).catch(() => {});
   }, [data]);
 
@@ -62,13 +92,17 @@ export function DataProvider({ children }) {
     if (!data) return null;
     const profile = { region: 'VE', preferred_currency: 'USD', valuation_rate: 'BCV_USD', ...data.profile };
     const region = REGIONS[profile.region] || REGIONS.VE;
+    const accountTemplates = ACCOUNT_TEMPLATES[profile.region] || ACCOUNT_TEMPLATES.VE;
 
     // Tasas: BD primero; la API en vivo rellena huecos o días faltantes.
     const rates = { ...data.rates };
     const rateMeta = { ...data.rateMeta };
     if (live) {
       for (const [k, v] of Object.entries(live.rates)) {
-        if (!rateMeta[k] || rateMeta[k].rate_date < live.meta[k].rate_date) { rates[k] = v; rateMeta[k] = live.meta[k]; }
+        if (!rateMeta[k] || rateMeta[k].rate_date < live.meta[k].rate_date || !rates[k]) {
+          rates[k] = v;
+          rateMeta[k] = live.meta[k];
+        }
       }
     }
 
@@ -126,7 +160,7 @@ export function DataProvider({ children }) {
       return { income, expense, net: income - expense, byCat, spread };
     };
 
-    return { profile, region, rates, rateMeta, ratesOn, accounts, active, accById, txs, total, target, val, monthStats,
+    return { profile, region, accountTemplates, rates, rateMeta, ratesOn, accounts, active, accById, txs, total, target, val, monthStats,
       budgets: data.budgets, recurring: data.recurring, rateHistory: data.rateHistory, missing: data.missing };
   }, [data, live]);
 
@@ -145,6 +179,7 @@ export function DataProvider({ children }) {
 
   const actions = useMemo(() => ({
     reload,
+    refreshRates,
     async save(table, row, id) {
       const saved = id ? await api.update(table, id, row) : await api.insert(table, row);
       upsertLocal(table, saved);
@@ -153,6 +188,27 @@ export function DataProvider({ children }) {
     async remove(table, id) {
       await api.remove(table, id);
       dropLocal(table, id);
+    },
+    async createDefaultAccounts(customRegion) {
+      const reg = customRegion || dataRef.current?.profile?.region || 'VE';
+      const tpls = ACCOUNT_TEMPLATES[reg] || ACCOUNT_TEMPLATES.VE;
+      const created = [];
+      for (let i = 0; i < tpls.length; i++) {
+        const t = tpls[i];
+        const row = {
+          name: t.name,
+          currency: t.currency,
+          kind: t.kind,
+          initial_balance: 0,
+          icon: t.icon || KINDS[t.kind].emoji,
+          color: ACCOUNT_COLORS[i % ACCOUNT_COLORS.length],
+          sort_order: i,
+        };
+        const saved = await api.insert('accounts', row);
+        upsertLocal('accounts', saved);
+        created.push(saved);
+      }
+      return created;
     },
     // optimistic: aplica el cambio en pantalla al instante y lo revierte si la BD lo rechaza.
     async updateProfile(patch, { optimistic = false } = {}) {
@@ -166,7 +222,7 @@ export function DataProvider({ children }) {
         throw e;
       }
     },
-  }), [reload]);
+  }), [reload, refreshRates]);
 
   const value = useMemo(() => ({ ...(derived || {}), ready: Boolean(derived), error, actions }), [derived, error, actions]);
   return React.createElement(Ctx.Provider, { value }, children);

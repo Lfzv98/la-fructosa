@@ -5,7 +5,7 @@ import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { AccountRow, TxRow, PageHeader, openTx, go } from './common.js';
 import {
-  ACCOUNT_COLORS, ACCOUNT_TEMPLATES, ADJUST_CATEGORY, CURRENCIES, KINDS, VE_BANKS, convert, fmt, parseAmount, todayISO, monthKey,
+  ACCOUNT_COLORS, ACCOUNT_TEMPLATES, ADJUST_CATEGORY, BANK_SUGGESTIONS, CURRENCIES, KINDS, VE_BANKS, convert, fmt, parseAmount, todayISO, monthKey,
 } from '../money.js';
 
 const ICONS = ['💵', '🏦', '📱', '📲', '🪙', '💳', '🐷', '💼', '🏠', '✈️', '🎓', '💰'];
@@ -62,7 +62,14 @@ export function AccountForm({ account, onClose }) {
   const [err, setErr] = useState({});
   const [busy, setBusy] = useState(false);
   const set = (k, v) => { setF((x) => ({ ...x, [k]: v })); setErr({}); };
-  const templates = ACCOUNT_TEMPLATES[profile.region] || ACCOUNT_TEMPLATES.VE;
+  const userRegion = profile?.region || 'VE';
+  const templates = ACCOUNT_TEMPLATES[userRegion] || ACCOUNT_TEMPLATES.VE;
+  const bankList = BANK_SUGGESTIONS[userRegion] || BANK_SUGGESTIONS.VE;
+  const namePlaceholder = userRegion === 'US'
+    ? 'Ej. Checking Account, Venmo, Zelle…'
+    : userRegion === 'ES'
+      ? 'Ej. Bizum, Cuenta BBVA, Tarjeta…'
+      : 'Ej. Pago Móvil, Banesco, Zelle…';
   const used = txs.filter((t) => account && (t.account_id === account.id || t.to_account_id === account.id)).length;
 
   async function submit(close) {
@@ -100,14 +107,14 @@ export function AccountForm({ account, onClose }) {
     footer=${(close) => html`<button class="btn primary block" disabled=${busy} onClick=${() => submit(close)}>${busy ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear cuenta'}</button>`}>
     ${(close) => html`<div class="stack">
       ${!editing && html`<div>
-        <p class="field-label">Plantillas rápidas</p>
+        <p class="field-label">Plantillas rápidas según tu país</p>
         <div class="chips">${templates.map((t) => html`<button key=${t.name + t.currency} type="button" class=${'chip' + (f.name === t.name && f.currency === t.currency ? ' on' : '')}
-          onClick=${() => setF((x) => ({ ...x, ...t, icon: KINDS[t.kind].emoji }))}>${KINDS[t.kind].emoji} ${t.name} · ${t.currency}</button>`)}</div>
+          onClick=${() => setF((x) => ({ ...x, name: t.name, currency: t.currency, kind: t.kind, icon: t.icon || KINDS[t.kind].emoji }))}>${t.icon || KINDS[t.kind].emoji} ${t.name} · ${t.currency}</button>`)}</div>
       </div>`}
       <${Field} label="Nombre" error=${err.name}>
-        <input class="input" maxlength="60" placeholder="Ej. Pago Móvil Bancamiga" value=${f.name} onInput=${(e) => set('name', e.target.value)}
-          list=${profile.region === 'VE' && f.kind === 'bank' ? 'banks-ve-form' : undefined} />
-        <datalist id="banks-ve-form">${VE_BANKS.map((b) => html`<option key=${b} value=${b}></option>`)}</datalist>
+        <input class="input" maxlength="60" placeholder=${namePlaceholder} value=${f.name} onInput=${(e) => set('name', e.target.value)}
+          list=${f.kind === 'bank' ? 'banks-regional-form' : undefined} />
+        <datalist id="banks-regional-form">${bankList.map((b) => html`<option key=${b} value=${b}></option>`)}</datalist>
       <//>
       <${Field} label="Moneda" hint=${editing && used ? 'Cambiar la moneda no convierte los movimientos ya registrados.' : ''}>
         <${Segmented} value=${f.currency} onChange=${(v) => set('currency', v)} options=${[...new Set([...region.currencies, ...(editing ? [account.currency] : [])])].map((c) => [c, c])} />

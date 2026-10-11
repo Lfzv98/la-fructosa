@@ -1,11 +1,14 @@
 // Inicio: patrimonio, tasas, cómo va el mes, pagos próximos y últimos movimientos.
 import { useMemo } from 'react';
-import { html, Icon, Money, SectionTitle, Empty, Progress, toast } from '../ui.js';
+import { html, Icon, Money, SectionTitle, Empty, Progress, SwipeBanner, toast } from '../ui.js';
 import { useData, usePref } from '../store.js';
-import { Learn, pickTip } from '../learn.js';
+import { Learn, pickTip, pickInsights } from '../learn.js';
 import { AccountRow, TxRow, go, recurringStatus, dueLabel } from './common.js';
 import { payRecurring } from './recurring.js';
 import { REGIONS, RATE_LABELS, convert, fmtRate, fmtPct, todayISO, monthKey, monthLabel, daysInMonth, consolidate } from '../money.js';
+
+// Una vez descartado un consejo, no sale otro hasta la próxima vez que abras la app.
+let INSIGHT_CLOSED_THIS_SESSION = false;
 
 export function Home() {
   const d = useData();
@@ -39,7 +42,33 @@ export function Home() {
   const dayOfMonth = Number(todayISO().slice(8));
   const monthPct = dayOfMonth / daysInMonth(ym);
 
+  // Banner de consejos: el primero que no hayas descartado. Lo descartado se guarda en el
+  // dispositivo; los ids llevan el mes o el día, así que un consejo vuelve solo cuando cambia la situación.
+  const [dismissed, setDismissed] = usePref('dismissed-insights', {});
+  const insight = useMemo(() => {
+    if (INSIGHT_CLOSED_THIS_SESSION) return null;
+    const pd = new Date(todayISO() + 'T12:00:00Z'); pd.setUTCDate(1); pd.setUTCMonth(pd.getUTCMonth() - 1);
+    const prevStats = monthStats(monthKey(pd.toISOString().slice(0, 10)));
+    const seen = dismissed && typeof dismissed === 'object' ? dismissed : {};
+    return pickInsights({ stats, prevStats, budgetRows, upcoming: upcoming.length, savingsRate, gap, region, target, ym, today: todayISO(),
+      hasAccounts: active.length > 0, hasTx: txs.length > 0 }).find((i) => !seen[i.id]) || null;
+  }, [stats, budgets, txs, active.length, upcoming.length, gap, dismissed, target]);
+  const closeInsight = (id) => {
+    INSIGHT_CLOSED_THIS_SESSION = true;
+    setDismissed((old) => {
+      const next = { ...(old && typeof old === 'object' ? old : {}), [id]: todayISO() };
+      // Limpieza: solo guardamos los últimos 60 consejos descartados.
+      const keys = Object.keys(next);
+      if (keys.length > 60) keys.sort((a, b) => next[a].localeCompare(next[b])).slice(0, keys.length - 60).forEach((k) => delete next[k]);
+      return next;
+    });
+  };
+
   return html`<div class="page">
+    ${insight && html`<div class="insight-wrap">
+      <${SwipeBanner} key=${insight.id} tourId="insight" emoji=${insight.emoji} title=${insight.title} text=${insight.text} tone=${insight.tone}
+        action=${insight.action} onAction=${() => go(insight.action.href)} onDismiss=${() => closeInsight(insight.id)} />
+    </div>`}
     <header class="home-head">
       <div>
         <p class="eyebrow">${greet}${name ? ',' : ''}</p>
@@ -53,7 +82,7 @@ export function Home() {
       </div>
     </header>
 
-    <section class="hero">
+    <section class="hero" data-tour="hero">
       <div class="hero-top">
         <span class="hero-label">Patrimonio total <${Learn} term="consolidado" /></span>
         <div class="cur-switch">
@@ -74,7 +103,7 @@ export function Home() {
       </div>
     </section>
 
-    ${region.rates && html`<button class="rates-strip" onClick=${() => go('#/tasas')}>
+    ${region.rates && html`<button class="rates-strip" data-tour="rates" onClick=${() => go('#/tasas')}>
       ${['BCV_USD', 'PARALELO', 'USDT', 'BCV_EUR'].map((k) => html`<div key=${k} class="rate-mini">
         <small>${RATE_LABELS[k].replace('Dólar ', '').replace(' P2P', '')}</small>
         <b class="num">${fmtRate(rates[k])}</b>

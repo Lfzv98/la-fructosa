@@ -12,8 +12,10 @@ import { Budgets } from './screens/budgets.js';
 import { Recurring } from './screens/recurring.js';
 import { Rates } from './screens/rates.js';
 import { Insights } from './screens/insights.js';
-import { More, Settings, LearnPage, PasswordSheet } from './screens/settings.js';
+import { More, Settings, PasswordSheet } from './screens/settings.js';
 import { Onboarding } from './screens/onboarding.js';
+import { Tour, useTour } from './tour.js';
+import { LearnPage } from './screens/learn.js';
 import { TxForm } from './screens/txform.js';
 import { Copilot } from './screens/copilot.js';
 
@@ -48,7 +50,7 @@ const TAB_OF = { cuentas: 'mas', cuenta: 'mas', presupuestos: 'mas', fijos: 'mas
 function TabBar({ current, onNew }) {
   return html`<nav class="tabbar" aria-label="Navegación principal"><ul>
     ${TABS.map(([name, icon, label]) => {
-      if (name === 'nuevo') return html`<li key=${name}><button class="fab" onClick=${onNew} aria-label="Registrar movimiento"><${Icon} name="plus" size=${26} stroke=${2.5} /></button></li>`;
+      if (name === 'nuevo') return html`<li key=${name}><button class="fab" data-tour="fab" onClick=${onNew} aria-label="Registrar movimiento"><${Icon} name="plus" size=${26} stroke=${2.5} /></button></li>`;
       const on = (TAB_OF[current] || current) === name;
       return html`<li key=${name}><a href=${'#/' + (name === 'inicio' ? '' : name)} class=${on ? 'on' : ''} aria-current=${on ? 'page' : undefined}>
         <${Icon} name=${icon} size=${22} /><span>${label}</span></a></li>`;
@@ -78,6 +80,7 @@ function Shell({ recovery, clearRecovery }) {
   const route = useRoute();
   const [tx, setTx] = useState(null);
   const [onboarded] = usePref('onboarded', false);
+  const [tourDone, setTourDone] = useTour();
 
   useEffect(() => {
     const on = (e) => setTx(e.detail || {});
@@ -96,13 +99,17 @@ function Shell({ recovery, clearRecovery }) {
   // Usuario y país son obligatorios: cuentas antiguas los eligen una vez.
   if (!isDemo && !d.profile.username) return html`<${CompleteProfile} />`;
 
+  const hasUserData = (d.accounts && d.accounts.length > 0) || (d.txs && d.txs.length > 0);
+  const showOnboard = !onboarded && !hasUserData;
+
   return html`<div class="app">
     ${isDemo && html`<div class="demo-badge" title="Datos de ejemplo guardados solo en este navegador">DEMO</div>`}
     <main class="main" key=${route.key}><${Screen} route=${route} /></main>
-    ${['inicio', 'analisis'].includes(route.name) && html`<a class="ai-fab" href="#/copiloto" aria-label="Abrir Copiloto IA"><${Icon} name="sparkle" size=${20} /><span>Copiloto IA</span></a>`}
+    ${['inicio', 'analisis'].includes(route.name) && html`<a class="ai-fab" data-tour="copilot" href="#/copiloto" aria-label="Abrir Copiloto IA"><${Icon} name="sparkle" size=${20} /><span>Copiloto IA</span></a>`}
     <${TabBar} current=${route.name} onNew=${() => setTx({})} />
     ${tx && html`<${TxForm} key=${tx.tx?.id || 'new'} tx=${tx.tx} preset=${tx.preset} onClose=${() => setTx(null)} />`}
-    ${!onboarded && html`<${Onboarding} />`}
+    ${showOnboard && html`<${Onboarding} />`}
+    ${(onboarded || hasUserData) && !tourDone && !showOnboard && !recovery && !tx && route.name === 'inicio' && html`<${Tour} region=${d.region} onClose=${() => setTourDone(true)} />`}
     ${recovery && html`<${PasswordSheet} title="Crea tu nueva contraseña" onClose=${clearRecovery} />`}
   </div>`;
 }

@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { html, Icon, Segmented, Switch, Sheet, Field, SectionTitle, toast, confirmDialog, errorText } from '../ui.js';
 import { useData, usePref } from '../store.js';
-import { GLOSSARY, Learn } from '../learn.js';
+import { Learn } from '../learn.js';
 import { PageHeader, go } from './common.js';
 import { exportCSV } from '../export.js';
 import { api, isDemo } from '../api.js';
@@ -19,7 +19,7 @@ export function More() {
     ['#/fijos', 'repeat', 'Pagos fijos', `${recurring.filter((r) => r.is_active !== false).length} programados`, '#FDFFB6'],
     region.rates && ['#/tasas', 'trend', 'Tasas y calculadora', 'BCV, Paralelo, USDT', '#CAFFBF'],
     ['#/copiloto', 'sparkle', 'Copiloto IA', 'Pregunta por tus finanzas', '#FFC6FF'],
-    ['#/aprende', 'book', 'Aprende', 'Guía y glosario', '#BDB2FF'],
+    ['#/aprende', 'book', 'Manual de uso', 'Guía fácil y tour', '#BDB2FF'],
     ['#/ajustes', 'sliders', 'Ajustes', 'Perfil, moneda, privacidad', '#9BF6FF'],
   ].filter(Boolean);
   return html`<div class="page">
@@ -27,29 +27,6 @@ export function More() {
     <div class="tiles">${tiles.map(([h, i, t, s, c]) => html`<a key=${h} href=${h} class="tile" style=${{ '--tc': c }}>
       <span class="tile-ico"><${Icon} name=${i} /></span><b>${t}</b><small>${s}</small></a>`)}</div>
     <button class="btn soft block" onClick=${() => exportCSV(txs, accById, 'todo')} disabled=${!txs.length}><${Icon} name="download" size=${18} /> Exportar todos los movimientos (CSV)</button>
-  </div>`;
-}
-
-export function LearnPage() {
-  const [, setOnboarded] = usePref('onboarded', false);
-  return html`<div class="page">
-    <${PageHeader} title="Aprende" sub="Finanzas personales, en corto" back="#/mas" />
-    <button class="card pad tour-cta" onClick=${() => setOnboarded(false)}>
-      <span class="tile-ico" style=${{ '--tc': '#FFADAD' }}><${Icon} name="sparkle" /></span>
-      <span><b>Ver el recorrido de bienvenida</b><small>Cómo funciona La Fructosa en 1 minuto</small></span>
-      <${Icon} name="right" class="muted" />
-    </button>
-    <${SectionTitle}>Glosario<//>
-    <div class="stack sm">${Object.entries(GLOSSARY).map(([k, g]) => html`<details key=${k} class="card pad glossary">
-      <summary><b>${g.title}</b><${Icon} name="down" size=${18} /></summary>
-      <div class="prose">${g.body.map((p, i) => html`<p key=${i}>${p}</p>`)}</div>
-    </details>`)}</div>
-    <${SectionTitle}>Tres hábitos que funcionan<//>
-    <div class="card pad prose">
-      <p><b>1. Registra al momento.</b> Diez segundos después de pagar es más fácil que reconstruir el día por la noche.</p>
-      <p><b>2. Revisa los lunes.</b> Abre Análisis, mira tu mayor categoría y compárala con tu presupuesto.</p>
-      <p><b>3. Págate primero.</b> Cuando llegue el sueldo, mueve tu ahorro a una cuenta aparte antes de gastar.</p>
-    </div>
   </div>`;
 }
 
@@ -124,7 +101,7 @@ export function Settings() {
     <${SectionTitle}>App<//>
     <section class="card list">
       ${install.state !== 'installed' && html`<button class="menu-row" onClick=${install.run}><${Icon} name="phone" /><span>Instalar en este teléfono<small>${install.state === 'ios' ? 'Safari → Compartir → Agregar a inicio' : 'Abre como app, a pantalla completa'}</small></span><${Icon} name="right" class="muted" /></button>`}
-      <a class="menu-row" href="#/aprende"><${Icon} name="book" /><span>Guía y glosario</span><${Icon} name="right" class="muted" /></a>
+      <a class="menu-row" href="#/aprende"><${Icon} name="book" /><span>Manual de uso y tour</span><${Icon} name="right" class="muted" /></a>
       ${isDemo && html`<button class="menu-row" onClick=${resetDemo}><${Icon} name="refresh" /><span>Reiniciar datos de ejemplo</span></button>`}
       <button class="menu-row danger-text" onClick=${signOut}><${Icon} name="logout" /><span>${isDemo ? 'Salir del demo' : 'Cerrar sesión'}</span></button>
     </section>

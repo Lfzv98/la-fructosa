@@ -2,12 +2,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { html, Icon, Sheet, Field, toast, errorText, vibrate } from '../ui.js';
 import { api } from '../api.js';
-import { useData } from '../store.js';
+import { useData, usePref } from '../store.js';
 import { go } from './common.js';
 import { categoryMeta, fmt, fmtRate } from '../money.js';
 import {
-  PROVIDERS, SHARED_AI, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, resolveAi, endpointError, systemPrompt, withGuard, parseReply,
+  PROVIDERS, SHARED_AI, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, resolveAi, systemPrompt, withGuard, parseReply,
   runCalc, resolveTx, streamChat, testConnection,
+  getSpeechRecognition, VoiceSession, speakReply, stopSpeech, cleanSpeechText,
 } from '../ai.js';
 
 // La conversación vive en memoria (no se guarda) y se borra si cambia el usuario.
@@ -24,17 +25,12 @@ export function AiSettings({ onSaved }) {
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState({});
   const [armed, setArmed] = useState(false); // el campo de clave no acepta autocompletado hasta que lo tocas
-  const p = PROVIDERS[cfg.provider];
+  const p = PROVIDERS.gemini;
   const set = (k, v) => { setCfg((c) => ({ ...c, [k]: v })); setErr({}); };
 
   function validate() {
     const e = {};
     if (!cfg.apiKey.trim()) e.apiKey = SHARED_AI ? 'Pega tu clave, o cierra esta ventana para usar la IA incluida.' : 'Pega tu clave de API.';
-    if (cfg.provider === 'custom') {
-      const be = endpointError(cfg.endpoint.trim());
-      if (be) e.endpoint = be;
-      if (!cfg.model.trim()) e.model = 'Escribe el nombre del modelo.';
-    }
     setErr(e);
     return !Object.keys(e).length;
   }
@@ -59,12 +55,7 @@ export function AiSettings({ onSaved }) {
   }
 
   return html`<div class="stack">
-    ${SHARED_AI && html`<div class="callout good">✓ El copiloto ya funciona sin configurar nada. Esto es <b>opcional</b>: úsalo solo si prefieres tu propia clave o elegir otro modelo.</div>`}
-    <${Field} label="Proveedor">
-      <select class="input select block" value=${cfg.provider} onChange=${(e) => { setCfg((c) => ({ ...c, provider: e.target.value, model: '' })); setErr({}); }}>
-        ${Object.entries(PROVIDERS).map(([k, v]) => html`<option key=${k} value=${k}>${v.label}</option>`)}
-      </select>
-    <//>
+    ${SHARED_AI && html`<div class="callout good">✓ El copiloto ya funciona sin configurar nada. Esto es <b>opcional</b>: úsalo solo si prefieres usar tu propia clave de Google Gemini.</div>`}
     <${Field} label="Clave de API" error=${err.apiKey} hint=${p.hint}>
       <div class="input-affix right">
         <input class="input" type=${show ? 'text' : 'password'} name="fructosa-ai-key" autocomplete="off" autocapitalize="none" spellcheck="false"
@@ -73,12 +64,6 @@ export function AiSettings({ onSaved }) {
         <button type="button" class="icon-btn sm" onClick=${() => setShow(!show)} aria-label=${show ? 'Ocultar clave' : 'Mostrar clave'}><${Icon} name=${show ? 'eyeOff' : 'eye'} size=${18} /></button>
       </div>
     <//>
-    <${Field} label="Modelo" error=${err.model} hint=${p.model ? `Por defecto: ${p.model}` : 'Obligatorio para este proveedor.'}>
-      <input class="input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder=${p.model || 'nombre-del-modelo'} value=${cfg.model} onInput=${(e) => set('model', e.target.value)} />
-    <//>
-    ${cfg.provider === 'custom' && html`<${Field} label="URL base del servicio" error=${err.endpoint} hint="Ej. https://api.openai.com/v1 (se llama a /chat/completions)">
-      <input class="input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="https://…/v1" value=${cfg.endpoint} onInput=${(e) => set('endpoint', e.target.value)} />
-    <//>`}
     <p class="hint ai-note">🔒 Al preguntar, un resumen de tus cuentas, tasas y últimos movimientos se envía a ${p.name} para responder. La clave se guarda solo en este dispositivo. No guardamos la conversación.</p>
     ${err.form && html`<p class="form-error">${err.form}</p>`}
     <div class="row-btns">
@@ -139,10 +124,22 @@ function TxCard({ spec, d, state, onConfirm, onDismiss }) {
   </div>`;
 }
 
-function Bubble({ m, d, onBlock }) {
-  if (m.role === 'user') return html`<div class="msg user"><${Rich} text=${m.text} /></div>`;
+function Bubble({ m, d, onBlock, speaking, onToggleSpeak }) {
+  if (m.role === 'user') {
+    return html`<div class="msg user">
+      ${m.audio && html`<div class="msg-voice-tag"><${Icon} name="mic" size=${13} /> <span>Voz</span></div>`}
+      <${Rich} text=${m.text || (m.audio ? '🎤 Mensaje de voz' : '')} />
+    </div>`;
+  }
   const parts = parseReply(m.text || '');
   return html`<div class="msg ai">
+    <div class="msg-ai-header">
+      <small class="muted msg-name">Fructuosa</small>
+      ${m.text && html`<button type="button" class=${'icon-btn sm speech-btn' + (speaking ? ' speaking' : '')}
+        onClick=${() => onToggleSpeak(m)} aria-label=${speaking ? 'Detener voz' : 'Escuchar en voz alta'} title=${speaking ? 'Detener voz' : 'Escuchar respuesta'}>
+        <${Icon} name=${speaking ? 'volumeX' : 'volume'} size=${15} />
+      </button>`}
+    </div>
     ${!parts.length && !m.error && html`<span class="typing" aria-label="Escribiendo"><i></i><i></i><i></i></span>`}
     ${parts.map((p, i) => (p.kind === 'text'
       ? html`<${Rich} key=${i} text=${p.text} />`
@@ -166,13 +163,36 @@ export function Copilot() {
   const [busy, setBusy] = useState(false);
   const [cfg, setCfg] = useState(loadAiConfig);
   const [setup, setSetup] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recordSeconds, setRecordSeconds] = useState(0);
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [audioVolume, setAudioVolume] = useState(0);
+  const [voiceMode, setVoiceMode] = usePref('voice-mode', true);
+  const [speakingId, setSpeakingId] = useState(null);
+  const [listening, setListening] = useState(false);
+  const recognizerRef = useRef(null);
+  const initialVoiceTextRef = useRef('');
+  const voiceSessionRef = useRef(null);
+  const recordTimerRef = useRef(null);
   const ctl = useRef(null);
   const log = useRef(null);
   const box = useRef(null);
   const ready = aiReady(cfg) || SHARED_AI; // con IA incluida el chat funciona sin configurar nada
 
   useEffect(() => { const el = log.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs]);
-  useEffect(() => () => ctl.current?.abort(), []);
+  useEffect(() => () => {
+    ctl.current?.abort();
+    stopSpeech();
+    if (recognizerRef.current) {
+      try { recognizerRef.current.stop(); } catch {}
+      recognizerRef.current = null;
+    }
+    if (voiceSessionRef.current) {
+      voiceSessionRef.current.cancel();
+      voiceSessionRef.current = null;
+    }
+    if (recordTimerRef.current) clearInterval(recordTimerRef.current);
+  }, []);
 
   const base = region.base;
   const sym = base === 'EUR' ? '20 €' : '$20';
@@ -183,30 +203,191 @@ export function Copilot() {
     region.rates ? '¿Cuánto es mi patrimonio en bolívares?' : 'Dame un consejo para ahorrar más',
   ];
 
-  async function send(text) {
-    const q = String(text ?? input).trim();
-    if (!q || busy) return;
+  async function send(payload) {
+    const isObj = typeof payload === 'object' && payload !== null;
+    const q = isObj ? String(payload.text || '').trim() : String(payload ?? input).trim();
+    const audio = isObj ? payload.audio : null;
+    const isVoice = Boolean(isObj ? payload.isVoice || payload.audio : false);
+
+    if ((!q && !audio) || busy) return;
+    if (recognizerRef.current) {
+      try { recognizerRef.current.stop(); } catch {}
+      recognizerRef.current = null;
+      setListening(false);
+    }
     // Fuente de la clave: personal → proxy seguro → clave global. Sin ninguna, se ofrece conectar la propia.
     const { config, source } = await resolveAi(() => api.auth.accessToken());
     if (!source) { setSetup(true); return; }
-    const user = { id: ++uid, role: 'user', text: q };
-    const bot = { id: ++uid, role: 'assistant', text: '' };
-    const history = [...msgs, user].filter((m) => m.text && !m.error).slice(-14).map((m) => ({ role: m.role, text: m.text }));
+
+    stopSpeech();
+    setSpeakingId(null);
+
+    const user = { id: ++uid, role: 'user', text: q, audio, isVoice };
+    const bot = { id: ++uid, role: 'assistant', text: '', isVoice };
+    const history = [...msgs, user].filter((m) => (m.text || m.audio) && !m.error).slice(-14).map((m) => ({ role: m.role, text: m.text, audio: m.audio }));
     while (history.length && history[0].role !== 'user') history.shift();
+
     setMsgs([...msgs, user, bot]);
     setInput('');
     setBusy(true);
+
     const c = new AbortController();
     ctl.current = c;
+    let fullReply = '';
+
     try {
-      await streamChat({
+      fullReply = await streamChat({
         config, system: systemPrompt(d), history: withGuard(history), signal: c.signal,
-        onDelta: (t) => setMsgs((cur) => cur.map((m) => (m.id === bot.id ? { ...m, text: m.text + t } : m))),
+        onDelta: (t) => {
+          fullReply += t;
+          setMsgs((cur) => cur.map((m) => (m.id === bot.id ? { ...m, text: m.text + t } : m)));
+        },
       });
+
+      // Si la interacción fue por voz o el modo voz está activo, Fructuosa lee su respuesta en voz alta
+      if ((isVoice || voiceMode) && fullReply) {
+        setSpeakingId(bot.id);
+        speakReply(fullReply, {
+          onEnd: () => setSpeakingId((cur) => (cur === bot.id ? null : cur)),
+        });
+      }
     } catch (e) {
       if (e?.name !== 'AbortError') setMsgs((cur) => cur.map((m) => (m.id === bot.id ? { ...m, error: errorText(e) } : m)));
     } finally { setBusy(false); ctl.current = null; box.current?.focus(); }
   }
+
+  const toggleVoice = () => {
+    if (listening) {
+      if (recognizerRef.current) {
+        try { recognizerRef.current.stop(); } catch {}
+        recognizerRef.current = null;
+      }
+      setListening(false);
+      box.current?.focus();
+      return;
+    }
+
+    const Speech = getSpeechRecognition();
+    if (!Speech) {
+      toast('Tu navegador no soporta reconocimiento de voz (Web Speech API). Usa Chrome, Safari o Edge.', { tone: 'bad' });
+      return;
+    }
+
+    stopSpeech();
+    setSpeakingId(null);
+
+    try {
+      const recog = new Speech();
+      recog.lang = 'es-VE';
+      recog.continuous = true;
+      recog.interimResults = true;
+
+      initialVoiceTextRef.current = input ? input.trim() + ' ' : '';
+
+      recog.onstart = () => {
+        setListening(true);
+      };
+
+      recog.onresult = (ev) => {
+        let transcript = '';
+        for (let i = 0; i < ev.results.length; i++) {
+          transcript += ev.results[i][0].transcript;
+        }
+        const full = (initialVoiceTextRef.current + transcript).trimStart();
+        setInput(full);
+        if (box.current) {
+          box.current.style.height = 'auto';
+          box.current.style.height = Math.min(box.current.scrollHeight, 120) + 'px';
+          box.current.scrollTop = box.current.scrollHeight;
+        }
+      };
+
+      recog.onerror = (ev) => {
+        if (ev.error === 'not-allowed') {
+          toast('Permiso de micrófono denegado en el navegador.', { tone: 'bad' });
+        } else if (ev.error !== 'no-speech') {
+          console.warn('SpeechRecognition error:', ev.error);
+        }
+      };
+
+      recog.onend = () => {
+        setListening(false);
+        recognizerRef.current = null;
+      };
+
+      recognizerRef.current = recog;
+      recog.start();
+    } catch (err) {
+      console.warn('Error al iniciar micrófono:', err);
+      setListening(false);
+      recognizerRef.current = null;
+      toast('No se pudo acceder al micrófono.', { tone: 'bad' });
+    }
+  };
+
+  const startVoice = async () => {
+    if (recording) return;
+    stopSpeech();
+    setSpeakingId(null);
+    try {
+      const session = new VoiceSession({
+        onTranscript: (t) => setLiveTranscript(t),
+        onVolume: (v) => setAudioVolume(v),
+        onError: (err) => toast(err.message, { tone: 'bad' }),
+      });
+      voiceSessionRef.current = session;
+      await session.start();
+      setRecording(true);
+      setRecordSeconds(0);
+      setLiveTranscript('');
+      recordTimerRef.current = setInterval(() => setRecordSeconds((s) => s + 1), 1000);
+    } catch (e) {
+      toast(errorText(e), { tone: 'bad' });
+    }
+  };
+
+  const stopVoice = async (sendNow = true) => {
+    if (!voiceSessionRef.current) return;
+    clearInterval(recordTimerRef.current);
+    const session = voiceSessionRef.current;
+    voiceSessionRef.current = null;
+    setRecording(false);
+    setAudioVolume(0);
+
+    try {
+      const res = await session.stop();
+      const text = (res.transcript || liveTranscript || '').trim();
+      if (sendNow && (text || res.audio)) {
+        await send({ text, audio: res.audio, isVoice: true });
+      }
+    } catch (e) {
+      toast('Error al capturar audio', { tone: 'bad' });
+    }
+  };
+
+  const cancelVoice = () => {
+    if (voiceSessionRef.current) {
+      clearInterval(recordTimerRef.current);
+      voiceSessionRef.current.cancel();
+      voiceSessionRef.current = null;
+    }
+    setRecording(false);
+    setAudioVolume(0);
+    setLiveTranscript('');
+  };
+
+  const onToggleSpeak = (msg) => {
+    if (speakingId === msg.id) {
+      stopSpeech();
+      setSpeakingId(null);
+    } else {
+      stopSpeech();
+      setSpeakingId(msg.id);
+      speakReply(msg.text, {
+        onEnd: () => setSpeakingId((cur) => (cur === msg.id ? null : cur)),
+      });
+    }
+  };
 
   async function onBlock(msgId, idx, what, row, prev) {
     const mark = (s) => setMsgs((cur) => cur.map((m) => (m.id === msgId ? { ...m, blocks: { ...m.blocks, [idx]: s } } : m)));
@@ -221,13 +402,14 @@ export function Copilot() {
     } catch (e) { mark(undefined); toast(errorText(e), { tone: 'bad' }); }
   }
 
-  const reset = () => { ctl.current?.abort(); setMsgs([]); setBusy(false); };
+  const reset = () => { ctl.current?.abort(); stopSpeech(); setSpeakingId(null); setMsgs([]); setBusy(false); };
   const back = () => (history.length > 1 ? history.back() : go('#/'));
 
   return html`<div class="chat" role="region" aria-label="Copiloto IA">
     <header class="chat-head">
       <button class="icon-btn" onClick=${back} aria-label="Volver"><${Icon} name="left" /></button>
-      <div class="grow"><b>La Fructosa AI</b><small class="muted">Tu copiloto financiero</small></div>
+      <div class="grow"><b>Fructuosa</b><small class="muted">Tu asistente personal de finanzas</small></div>
+      <button class=${'icon-btn' + (voiceMode ? ' on' : '')} onClick=${() => { setVoiceMode(!voiceMode); if (speakingId) { stopSpeech(); setSpeakingId(null); } }} title=${voiceMode ? 'Voz de Fructuosa activada' : 'Voz de Fructuosa silenciada'} aria-label="Modo de voz"><${Icon} name=${voiceMode ? 'volume' : 'volumeX'} size=${18} /></button>
       ${msgs.length > 0 && html`<button class="icon-btn" onClick=${reset} aria-label="Nueva conversación"><${Icon} name="refresh" size=${18} /></button>`}
       <button class="icon-btn" onClick=${() => setSetup(true)} aria-label="Configurar IA"><${Icon} name="sliders" size=${18} /></button>
     </header>
@@ -236,21 +418,28 @@ export function Copilot() {
       ${!msgs.length && html`<div class="chat-empty">
         <div class="chat-spark"><${Icon} name="sparkle" size=${30} /></div>
         <h2>Hola${profile.display_name ? ', ' + profile.display_name : ''} 👋</h2>
-        <p>Pregúntame por tus números, pídeme conversiones con las tasas de hoy o dime un gasto para registrarlo.</p>
+        <p>Soy Fructuosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento.</p>
         ${!ready && html`<button class="btn primary" onClick=${() => setSetup(true)}><${Icon} name="lock" size=${16} /> Conectar mi IA</button>`}
-        <p class="chat-note">🔒 Para responderte se envía a la IA un resumen de tus cuentas, tasas y últimos movimientos. No se guarda la conversación.</p>
+        <p class="chat-note">🔒 Para responderte se analiza un resumen de tus cuentas, tasas y últimos movimientos. No se guarda la conversación.</p>
         <div class="chat-sugg">${suggestions.map((s) => html`<button key=${s} class="chip" onClick=${() => send(s)}>${s}</button>`)}</div>
       </div>`}
-      ${msgs.map((m) => html`<${Bubble} key=${m.id} m=${m} d=${d} onBlock=${onBlock} />`)}
+      ${msgs.map((m) => html`<${Bubble} key=${m.id} m=${m} d=${d} onBlock=${onBlock} speaking=${speakingId === m.id} onToggleSpeak=${onToggleSpeak} />`)}
     </div>
 
     <form class="chat-input" onSubmit=${(e) => { e.preventDefault(); send(); }}>
-      <textarea ref=${box} rows="1" class="input" placeholder="Escribe tu pregunta…" value=${input} maxLength="600"
+      <textarea ref=${box} rows="1" class="input"
+        placeholder=${listening ? "Escuchando tu voz… habla ahora" : "Pregunta o habla con Fructuosa…"}
+        value=${input} maxLength="600"
         onInput=${(e) => { setInput(e.target.value); e.target.style.height = 'auto'; e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px'; }}
         onKeyDown=${(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}></textarea>
+      <button type="button" class=${'icon-btn mic' + (listening ? ' listening' : '')} onClick=${toggleVoice}
+        aria-label=${listening ? "Detener micrófono" : "Hablar con Fructuosa por micrófono"}
+        title=${listening ? "Detener micrófono" : "Hablar con Fructuosa (Micrófono)"}>
+        <${Icon} name=${listening ? 'micOff' : 'mic'} size=${19} />
+      </button>
       ${busy
-        ? html`<button type="button" class="icon-btn send stop" onClick=${() => ctl.current?.abort()} aria-label="Detener"><${Icon} name="x" size=${20} /></button>`
-        : html`<button type="submit" class="icon-btn send" disabled=${!input.trim()} aria-label="Enviar"><${Icon} name="send" size=${19} /></button>`}
+        ? html`<button type="button" class="icon-btn send stop" onClick=${() => { ctl.current?.abort(); stopSpeech(); }} aria-label="Detener"><${Icon} name="x" size=${20} /></button>`
+        : html`<button type="submit" class="icon-btn send" disabled=${!input.trim()} aria-label="Enviar a Gemini"><${Icon} name="send" size=${19} /></button>`}
     </form>
 
     ${setup && html`<${Sheet} title=${SHARED_AI ? 'Copiloto IA · opcional' : 'Copiloto IA'} onClose=${() => setSetup(false)}>
