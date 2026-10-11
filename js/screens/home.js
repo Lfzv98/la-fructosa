@@ -113,7 +113,7 @@ export function Home() {
     <section>
       <${SectionTitle} action=${html`<a href="#/cuentas">Gestionar</a>`}>Cuentas<//>
       ${active.length === 0
-        ? html`<${Empty} emoji="🏦" title="Crea tu primera cuenta" text="Efectivo, Zelle, Pago Móvil, Binance… cada una con su moneda."
+        ? html`<${Empty} art="bank" title="Crea tu primera cuenta" text="Efectivo, Zelle, Pago Móvil, Binance… cada una con su moneda."
             action=${html`<button class="btn primary" onClick=${() => go('#/cuentas?nueva=1')}>Crear cuenta</button>`} />`
         : html`<div class="card list">${active.map((a) => html`<${AccountRow} key=${a.id} a=${a} target=${target}
             converted=${convert(a.balance, a.currency, target, rates, val)} onClick=${() => go('#/cuenta/' + a.id)} />`)}</div>`}
@@ -122,7 +122,7 @@ export function Home() {
     <section>
       <${SectionTitle} action=${txs.length > 0 && html`<a href="#/movimientos">Ver todos</a>`}>Últimos movimientos<//>
       ${txs.length === 0
-        ? html`<${Empty} emoji="✍️" title="Aún no hay movimientos" text="Toca el botón + para registrar tu primer gasto o ingreso." />`
+        ? html`<${Empty} art="receipt" title="Aún no hay movimientos" text="Toca el botón + para registrar tu primer gasto o ingreso." />`
         : html`<div class="card list">${txs.slice(0, 6).map((t) => html`<${TxRow} key=${t.id} t=${t} accById=${accById} showDate />`)}</div>`}
     </section>
   </div>`;

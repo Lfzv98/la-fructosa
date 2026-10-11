@@ -36,7 +36,7 @@ export function Budgets() {
 
   if (missing.includes('budgets')) {
     return html`<div class="page"><${PageHeader} title="Presupuestos" back="#/mas" />
-      <${Empty} emoji="🛠️" title="Falta activar presupuestos" text="Ejecuta supabase/migrations/002_mejoras.sql en el SQL Editor de Supabase y recarga." /></div>`;
+      <${Empty} art="database" title="Falta activar presupuestos" text="Ejecuta supabase/migrations/002_mejoras.sql en el SQL Editor de Supabase y recarga." /></div>`;
   }
 
   return html`<div class="page">
@@ -51,7 +51,7 @@ export function Budgets() {
     </section>`}
 
     ${rows.length === 0
-      ? html`<${Empty} emoji="🎯" title="Sin presupuestos" text="Ponle un tope mensual a las categorías donde más gastas. La app te avisa antes de pasarte."
+      ? html`<${Empty} art="target" title="Sin presupuestos" text="Ponle un tope mensual a las categorías donde más gastas. La app te avisa antes de pasarte."
           action=${html`<button class="btn primary" onClick=${() => setForm({})}>Crear presupuesto</button>`} />`
       : html`<div class="stack sm">${rows.map(({ b, spent, ratio, left, perDay, projected }) => {
           const meta = categoryMeta(b.category);

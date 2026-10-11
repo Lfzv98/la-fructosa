@@ -40,7 +40,7 @@ export function Accounts({ query }) {
     </section>`}
 
     ${active.length === 0
-      ? html`<${Empty} emoji="🏦" title="Sin cuentas todavía" text="Crea una cuenta por cada lugar donde guardas dinero: efectivo, banco, Zelle, Binance…"
+      ? html`<${Empty} art="bank" title="Sin cuentas todavía" text="Crea una cuenta por cada lugar donde guardas dinero: efectivo, banco, Zelle, Binance…"
           action=${html`<button class="btn primary" onClick=${() => setForm({})}>Crear cuenta</button>`} />`
       : html`<div class="card list">${active.map((a) => html`<${AccountRow} key=${a.id} a=${a} target=${target}
           converted=${convert(a.balance, a.currency, target, rates, val)} onClick=${() => go('#/cuenta/' + a.id)} />`)}</div>`}
@@ -138,7 +138,7 @@ export function AccountDetail({ id }) {
   const a = accById[id];
   const [edit, setEdit] = useState(false);
   const [adjust, setAdjust] = useState(false);
-  if (!a) return html`<div class="page"><${PageHeader} title="Cuenta" back="#/cuentas" /><${Empty} emoji="🤷" title="Esta cuenta ya no existe" /></div>`;
+  if (!a) return html`<div class="page"><${PageHeader} title="Cuenta" back="#/cuentas" /><${Empty} art="search" title="Esta cuenta ya no existe" /></div>`;
   const list = txs.filter((t) => t.account_id === id || t.to_account_id === id);
   const ym = monthKey(todayISO());
   let inc = 0, out = 0;
@@ -170,7 +170,7 @@ export function AccountDetail({ id }) {
     </div>
     <${SectionTitle}>Historial<//>
     ${list.length === 0
-      ? html`<${Empty} emoji="🌱" title="Sin movimientos" text="Los gastos, ingresos y transferencias de esta cuenta aparecerán aquí." />`
+      ? html`<${Empty} art="receipt" title="Sin movimientos" text="Los gastos, ingresos y transferencias de esta cuenta aparecerán aquí." />`
       : html`<div class="card list">${list.slice(0, 200).map((t) => html`<${TxRow} key=${t.id} t=${t} accById=${accById} showDate />`)}</div>`}
     ${edit && html`<${AccountForm} account=${a} onClose=${() => setEdit(false)} />`}
     ${adjust && html`<${AdjustSheet} a=${a} onClose=${() => setAdjust(false)} save=${actions.save} />`}

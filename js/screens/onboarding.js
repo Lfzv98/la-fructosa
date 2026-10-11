@@ -1,14 +1,14 @@
 // Recorrido de bienvenida + configuración rápida de cuentas.
 import { useState } from 'react';
-import { html, Icon, toast, errorText } from '../ui.js';
+import { html, Icon, Art, toast, errorText } from '../ui.js';
 import { useData, usePref } from '../store.js';
 import { ACCOUNT_TEMPLATES, CURRENCIES, KINDS, ACCOUNT_COLORS, VE_BANKS, parseAmount } from '../money.js';
 
 const SLIDES = [
-  { emoji: '🍊', title: 'Bienvenido a La Fructosa', text: 'Todo tu dinero en un solo lugar: efectivo, bancos, Zelle, Pago Móvil y cripto. Cada familiar tiene su cuenta y nadie ve la de los demás.' },
-  { emoji: '💱', title: 'Varias monedas, un solo total', text: 'Cada cuenta lleva su moneda (USD, Bs., USDT o EUR). La app las convierte con la tasa del día y te dice cuánto tienes en total.' },
-  { emoji: '⚡', title: 'Registra en segundos', text: 'Toca + , escribe el monto y elige categoría. Si pagas en bolívares desde una cuenta en dólares, la app calcula el costo real y la brecha.' },
-  { emoji: '🎯', title: 'Planifica y aprende', text: 'Pon topes por categoría, programa tus pagos fijos y revisa el Análisis del mes. Toca cualquier ⓘ para entender un concepto.' },
+  { art: 'coins', title: 'Bienvenido a La Fructosa', text: 'Todo tu dinero en un solo lugar: efectivo, bancos, Zelle, Pago Móvil y cripto. Cada familiar tiene su cuenta y nadie ve la de los demás.' },
+  { art: 'currencies', title: 'Varias monedas, un solo total', text: 'Cada cuenta lleva su moneda (USD, Bs., USDT o EUR). La app las convierte con la tasa del día y te dice cuánto tienes en total.' },
+  { art: 'growth', title: 'Registra en segundos', text: 'Toca + , escribe el monto y elige categoría. Si pagas en bolívares desde una cuenta en dólares, la app calcula el costo real y la brecha.' },
+  { art: 'target', title: 'Planifica y aprende', text: 'Pon topes por categoría, programa tus pagos fijos y revisa el Análisis del mes. Toca cualquier ⓘ para entender un concepto.' },
 ];
 
 export function Onboarding() {
@@ -23,7 +23,7 @@ export function Onboarding() {
     <button class="onboard-skip" onClick=${finish}>Saltar</button>
     ${i < SLIDES.length
       ? html`<div class="onboard-slide" key=${i}>
-          <div class="onboard-art">${SLIDES[i].emoji}</div>
+          <div class="onboard-art"><${Art} name=${SLIDES[i].art} size=${92} /></div>
           <h1>${SLIDES[i].title}</h1>
           <p>${SLIDES[i].text}</p>
         </div>`

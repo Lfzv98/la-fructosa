@@ -1,7 +1,7 @@
 // Registrar / editar un movimiento: gasto, ingreso o transferencia,
 // con la calculadora de brecha integrada al pagar en bolívares.
 import { useMemo, useState } from 'react';
-import { html, Icon, Sheet, Segmented, Field, Money, toast, confirmDialog, errorText, vibrate } from '../ui.js';
+import { html, Icon, Art, Sheet, Segmented, Field, Money, toast, confirmDialog, errorText, vibrate } from '../ui.js';
 import { useData, usePref } from '../store.js';
 import { Learn } from '../learn.js';
 import {
@@ -142,7 +142,7 @@ export function TxForm({ tx, preset = {}, onClose }) {
 
   if (!active.length) {
     return html`<${Sheet} title="Nuevo movimiento" onClose=${onClose}>
-      <div class="empty"><div class="empty-emoji">🏦</div><h3>Primero crea una cuenta</h3>
+      <div class="empty"><${Art} name="bank" class="empty-art" /><h3>Primero crea una cuenta</h3>
       <p>Todo movimiento sale o entra de una cuenta (efectivo, banco, Zelle…).</p>
       <button class="btn primary" onClick=${() => { onClose(); setTimeout(() => { location.hash = '#/cuentas?nueva=1'; }, 150); }}>Crear cuenta</button></div>
     <//>`;

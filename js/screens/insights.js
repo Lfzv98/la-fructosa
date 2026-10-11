@@ -66,7 +66,7 @@ export function Insights() {
     <section class="card pad">
       <h2 class="card-title"><${Icon} name="pie" size=${18} /> ¿En qué se fue?</h2>
       ${cats.length === 0
-        ? html`<${Empty} emoji="🧾" title="Sin gastos este mes" />`
+        ? html`<${Empty} art="growth" title="Sin gastos este mes" />`
         : html`<div class="donut-wrap">
             <${Donut} data=${donut} center=${html`<small>Gastos</small><b class="num"><${Money} v=${stats.expense} c=${target} /></b>`} />
             <ul class="legend-list">${cats.map(([c, v]) => html`<li key=${c}>

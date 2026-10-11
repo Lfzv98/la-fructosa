@@ -395,7 +395,6 @@ b.big { font-size: 20px; }
 
 /* ---------- Vacíos y carga ---------- */
 .empty { text-align: center; padding: 28px 20px; border: 1.5px dashed var(--line-2); border-radius: var(--r-lg); display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.empty-emoji { font-size: 38px; }
 .empty h3 { font-size: 16px; }
 .empty p { font-size: 13.5px; color: var(--muted); max-width: 300px; }
 .empty .btn { margin-top: 8px; }
@@ -581,3 +580,11 @@ b.big { font-size: 20px; }
   background-repeat: no-repeat; background-position: right 14px center; }
 .chat-note { font-size: 12.5px; color: var(--faint); max-width: 340px; }
 .ai-note { margin: 0; }
+
+/* ---------- Ilustraciones financieras (art.js) ---------- */
+.art { color: var(--blue); flex-shrink: 0; }
+.art .f1 { fill: var(--blue); fill-opacity: .16; stroke: none; }
+.art .f2 { fill: var(--salmon); fill-opacity: .2; stroke: none; }
+.art .f3 { fill: var(--mint); fill-opacity: .2; stroke: none; }
+.empty-art { margin-bottom: 4px; opacity: .95; }
+.onboard-art { font-size: inherit; color: var(--blue); }

@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import htm from 'htm';
 import { fmt } from './money.js';
 import { usePref } from './store.js';
+import { ART } from './art.js';
 
 // htm escribe atributos como en HTML (class, stroke-width…); aquí los pasamos a React.
 const ATTR = { class: 'className', for: 'htmlFor', autofocus: 'autoFocus', maxlength: 'maxLength', minlength: 'minLength',
@@ -64,6 +65,9 @@ const I = {
   sparkle: '<path d="M12 3 13.9 8.8 20 10.7 14.1 12.6 12 18.4 10.1 12.6 4 10.7 9.9 8.8Z"/><path d="M19 3v4M21 5h-4"/>',
   filter: '<path d="M22 3H2l8 9.5V19l4 2v-8.5z"/>',
   send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>',
+  shield: '<path d="M12 2 4 5v6c0 5 3.4 9 8 11 4.6-2 8-6 8-11V5z"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
+  cloud: '<path d="M17.5 19H7a5 5 0 0 1-.6-10A7 7 0 0 1 20 10.5a4.3 4.3 0 0 1-2.5 8.5z"/>',
+  database: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>',
   scale: '<path d="M16 16l3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1ZM2 16l3-8 3 8c-.9.7-1.9 1-3 1s-2.1-.3-3-1ZM7 21h10M12 3v18M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"/>',
 };
 
@@ -214,9 +218,16 @@ export function Switch({ checked, onChange, label, sub }) {
   </button>`;
 }
 
-export function Empty({ emoji = '🍊', title, text, action }) {
+// Ilustración financiera de línea fina (ver art.js).
+export function Art({ name, size = 88, class: cls = '' }) {
+  return html`<svg class=${'art ' + cls} width=${size} height=${size} viewBox="0 0 96 96" fill="none" stroke="currentColor"
+    stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+    dangerouslySetInnerHTML=${{ __html: ART[name] || '' }} />`;
+}
+
+export function Empty({ art = 'coins', title, text, action }) {
   return html`<div class="empty">
-    <div class="empty-emoji">${emoji}</div>
+    <${Art} name=${art} class="empty-art" />
     <h3>${title}</h3>
     ${text && html`<p>${text}</p>`}
     ${action}

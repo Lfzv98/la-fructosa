@@ -1,7 +1,7 @@
 // La Fructosa · punto de entrada: sesión, rutas, navegación y servicios globales.
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { html, Icon, ToastHost, ConfirmHost, Spinner, errorText } from './ui.js';
+import { html, Icon, Art, ToastHost, ConfirmHost, Spinner, errorText } from './ui.js';
 import { api, isDemo } from './api.js';
 import { DataProvider, useData, usePref } from './store.js';
 import { AuthScreen, CompleteProfile } from './screens/auth.js';
@@ -87,7 +87,7 @@ function Shell({ recovery, clearRecovery }) {
 
   if (d.error) {
     return html`<main class="center-screen"><div class="empty">
-      <div class="empty-emoji">📡</div><h3>No pudimos cargar tus datos</h3><p>${errorText(d.error)}</p>
+      <${Art} name="offline" class="empty-art" /><h3>No pudimos cargar tus datos</h3><p>${errorText(d.error)}</p>
       <button class="btn primary" onClick=${d.actions.reload}>Reintentar</button>
       <button class="btn ghost" onClick=${() => api.auth.signOut()}>Cerrar sesión</button>
     </div></main>`;

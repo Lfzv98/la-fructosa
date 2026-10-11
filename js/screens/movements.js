@@ -76,7 +76,7 @@ export function Movements({ query }) {
     </div>
 
     ${groups.length === 0
-      ? html`<${Empty} emoji=${q ? '🔎' : '🗓️'} title=${q ? 'Sin resultados' : 'Nada por aquí'}
+      ? html`<${Empty} art=${q ? 'search' : 'receipt'} title=${q ? 'Sin resultados' : 'Nada por aquí'}
           text=${q ? `No hay movimientos que coincidan con "${q}".` : 'No hay movimientos con estos filtros en este mes.'} />`
       : groups.map((g) => html`<section key=${g.date} class="day-group">
           <div class="day-head"><span>${dayLabel(g.date)}</span><span class="num"><${Money} v=${dayNet(g.items)} c=${target} sign /></span></div>

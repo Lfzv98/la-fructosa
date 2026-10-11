@@ -29,7 +29,7 @@ export function Recurring() {
 
   if (missing.includes('recurring_expenses')) {
     return html`<div class="page"><${PageHeader} title="Pagos fijos" back="#/mas" />
-      <${Empty} emoji="🛠️" title="Falta activar pagos fijos" text="Ejecuta supabase/migrations/002_mejoras.sql en el SQL Editor de Supabase y recarga." /></div>`;
+      <${Empty} art="database" title="Falta activar pagos fijos" text="Ejecuta supabase/migrations/002_mejoras.sql en el SQL Editor de Supabase y recarga." /></div>`;
   }
 
   const Row = ({ r, s }) => {
@@ -57,7 +57,7 @@ export function Recurring() {
       </div>
     </section>`}
 
-    ${items.length === 0 && html`<${Empty} emoji="📅" title="Sin pagos fijos" text="Registra alquiler, internet, colegio o Netflix una sola vez. La app te recuerda cuándo vencen y los registra con un toque."
+    ${items.length === 0 && html`<${Empty} art="calendar" title="Sin pagos fijos" text="Registra alquiler, internet, colegio o Netflix una sola vez. La app te recuerda cuándo vencen y los registra con un toque."
       action=${html`<button class="btn primary" onClick=${() => setForm({})}>Agregar pago fijo</button>`} />`}
 
     ${pending.length > 0 && html`<section><${SectionTitle}>Por pagar<//><div class="card list">${pending.map((x) => html`<${Row} key=${x.r.id} ...${x} />`)}</div></section>`}
