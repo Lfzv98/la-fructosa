@@ -2,10 +2,10 @@
 import { useState } from 'react';
 import { html, Icon, Art, toast, errorText } from '../ui.js';
 import { useData, usePref } from '../store.js';
-import { ACCOUNT_TEMPLATES, BANK_SUGGESTIONS, CURRENCIES, KINDS, ACCOUNT_COLORS, VE_BANKS, parseAmount } from '../money.js';
+import { ACCOUNT_TEMPLATES, BANK_GROUPS, BANK_PICK_TEMPLATES, BANK_SUGGESTIONS, CURRENCIES, KINDS, ACCOUNT_COLORS, parseAmount } from '../money.js';
 
 const SLIDES = [
-  { art: 'coins', title: 'Bienvenido a La Fructosa', text: 'Todo tu dinero en un solo lugar: efectivo, bancos, Zelle, Pago Móvil y criptomonedas. Cada familiar tiene su cuenta y nadie ve la de los demás.' },
+  { art: 'coins', title: 'Bienvenido a La Fructosa', text: 'Todo tu dinero en un solo lugar: efectivo, bancos, Zelle, Pago Móvil y criptomonedas. Cada cuenta es independiente y nadie ve la de los demás.' },
   { art: 'currencies', title: 'Varias monedas, un solo total', text: 'Cada cuenta lleva su moneda (USD, Bs., USDT o EUR). La app las convierte con la tasa del día y te dice cuánto tienes en total.' },
   { art: 'growth', title: 'Registra en segundos', text: 'Toca +, escribe el monto y elige la categoría. Si pagas en bolívares desde una cuenta en dólares, la app calcula el costo real y la brecha.' },
   { art: 'target', title: 'Planifica y aprende', text: 'Pon topes por categoría, programa tus pagos fijos y revisa el Análisis del mes. Toca cualquier ⓘ para entender un concepto.' },
@@ -36,9 +36,30 @@ export function Onboarding() {
   </div>`;
 }
 
+// Lista de bancos en secciones desplegables (con flecha). Se toca un banco para elegirlo;
+// si el tuyo no aparece, lo escribes abajo.
+function BankPicker({ groups, value, onChange }) {
+  const chosen = value.trim();
+  return html`<div class="bank-picker">
+    ${chosen && html`<p class="bank-chosen">Banco elegido: <b>${chosen}</b></p>`}
+    ${groups.map((g) => html`<details key=${g.title} class="bank-group" open=${g.banks.includes(chosen)}>
+      <summary><span>${g.title}</span><${Icon} name="down" size=${18} /></summary>
+      <div class="bank-chips">${g.banks.map((b) => html`<button key=${b} type="button" class=${'bank-chip' + (b === chosen ? ' on' : '')}
+        aria-pressed=${b === chosen} onClick=${() => onChange(b === chosen ? '' : b)}>${b}</button>`)}</div>
+    </details>`)}
+    <input class="input" maxlength="60" autocomplete="off" aria-label="Otro banco" placeholder="¿No aparece tu banco? Escríbelo aquí"
+      value=${value} onInput=${(e) => onChange(e.target.value)} />
+  </div>`;
+}
+
 function QuickSetup({ region, onDone, save }) {
-  const templates = ACCOUNT_TEMPLATES[region] || ACCOUNT_TEMPLATES.VE;
-  const bankSuggestions = BANK_SUGGESTIONS[region] || BANK_SUGGESTIONS.VE;
+  const reg = ACCOUNT_TEMPLATES[region] ? region : 'VE';
+  // Las plantillas con nombre de banco fijo (Banesco, Mercantil…) se reemplazan por filas donde se elige el banco exacto.
+  const templates = [
+    ...ACCOUNT_TEMPLATES[reg].filter((t) => !(t.kind === 'bank' && BANK_SUGGESTIONS[reg].includes(t.name))),
+    ...BANK_PICK_TEMPLATES[reg],
+  ];
+  const bankGroups = BANK_GROUPS[reg];
   // picked[k] = { bal: saldo escrito, bank: nombre del banco (solo plantillas con bank: true) }
   const [picked, setPicked] = useState({});
   const [busy, setBusy] = useState(false);
@@ -82,13 +103,11 @@ function QuickSetup({ region, onDone, save }) {
           <span class="check">${on && html`<${Icon} name="check" size=${14} stroke=${3} />`}</span>
           <span>${t.icon || KINDS[t.kind].emoji} <b>${t.bank && picked[k]?.bank.trim() ? picked[k].bank.trim() : t.name}</b> <small>${t.currency}</small></span>
         </button>
-        ${on && t.bank && html`<input class="input" list="banks-regional" maxlength="60" autocomplete="off" aria-label="Banco"
-          placeholder="Elige tu banco o escríbelo" value=${picked[k].bank} onInput=${(e) => patch(k, { bank: e.target.value })} />`}
+        ${on && t.bank && html`<${BankPicker} groups=${bankGroups} value=${picked[k].bank} onChange=${(v) => patch(k, { bank: v })} />`}
         ${on && html`<div class="input-affix"><span>${CURRENCIES[t.currency].symbol}</span>
           <input class="input num" inputmode="decimal" placeholder="Saldo hoy" value=${picked[k].bal} onInput=${(e) => patch(k, { bal: e.target.value.replace(/[^\d.,]/g, '') })} /></div>`}
       </div>`;
     })}</div>
-    <datalist id="banks-regional">${bankSuggestions.map((b) => html`<option key=${b} value=${b}></option>`)}</datalist>
     <button class="btn primary lg block" disabled=${!keys.length || busy} onClick=${create}>${busy ? 'Creando…' : keys.length ? `Crear ${keys.length} cuenta${keys.length === 1 ? '' : 's'}` : 'Elige al menos una'}</button>
     <button class="btn ghost block" onClick=${onDone}>Lo haré después</button>
   </div>`;

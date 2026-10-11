@@ -65,23 +65,55 @@ export const ACCOUNT_TEMPLATES = {
   ],
 };
 
-// Bancos e instituciones sugeridas por región
-export const BANK_SUGGESTIONS = {
+// Filas de "elige tu banco" en la pantalla de bienvenida: en vez de un banco fijo, la persona
+// toca el suyo en la lista desplegable (bank: true). Reemplazan a las plantillas con nombre de banco.
+export const BANK_PICK_TEMPLATES = {
   VE: [
-    'Banco de Venezuela', 'Banesco', 'Mercantil', 'BBVA Provincial', 'Banco Nacional de Crédito (BNC)',
-    'Banco Exterior', 'Bancamiga', 'Bancaribe', 'Banplus', 'Banco del Tesoro', 'Banco Bicentenario',
-    'Banco Venezolano de Crédito', 'Banco Activo', 'Bancrecer', '100% Banco', 'Banco Caroní', 'Banco Plaza',
+    { name: 'Cuenta en un banco', currency: 'VES', kind: 'bank', icon: '🏦', bank: true },
+    { name: 'Banco o app en dólares', currency: 'USD', kind: 'bank', icon: '🏦', bank: true },
+  ],
+  US: [{ name: 'Cuenta en un banco', currency: 'USD', kind: 'bank', icon: '🏦', bank: true }],
+  ES: [{ name: 'Cuenta en un banco', currency: 'EUR', kind: 'bank', icon: '🏦', bank: true }],
+};
+
+// Bancos e instituciones por región, agrupados en secciones desplegables (pantalla "¿Dónde tienes tu dinero?").
+// Cada nombre es el que se guarda como nombre de la cuenta.
+const INTERNATIONAL = [
+  'Bank of America (BOFA)', 'Chase', 'Wells Fargo', 'Citibank', 'Capital One', 'Zelle', 'PayPal', 'Wise', 'Revolut',
+  'Binance', 'Zinli', 'Airtm', 'Reserve', 'Meru',
+];
+export const BANK_GROUPS = {
+  VE: [
+    { title: 'Bancos de Venezuela', banks: [
+      'Banesco', 'Banco de Venezuela (BDV)', 'Mercantil', 'BBVA Provincial', 'Banco Nacional de Crédito (BNC)', 'Bancamiga',
+      'Bancaribe', 'Banco Occidental de Descuento (BOD)', 'Banco Fondo Común (BFC)', 'Banplus', 'Banco del Tesoro', 'Banco Bicentenario',
+      'Banco Exterior', 'Banco Venezolano de Crédito', 'Banco Activo', 'Bancrecer', '100% Banco', 'Banco Caroní', 'Banco Plaza',
+      'Banco Sofitasa', 'DelSur', 'Banco Agrícola de Venezuela', 'Banfanb', 'Bangente',
+    ] },
+    { title: 'Bancos e internacionales', banks: INTERNATIONAL },
   ],
   US: [
-    'Chase', 'Bank of America', 'Wells Fargo', 'Citibank', 'Capital One', 'PNC Bank', 'TD Bank', 'US Bank',
+    { title: 'Bancos de Estados Unidos', banks: [
+      'Chase', 'Bank of America (BOFA)', 'Wells Fargo', 'Citibank', 'Capital One', 'PNC Bank', 'TD Bank', 'US Bank',
+      'Truist', 'Navy Federal', 'Ally Bank', 'Discover',
+    ] },
+    { title: 'Internacionales y apps de pago', banks: ['Zelle', 'PayPal', 'Wise', 'Revolut', 'Binance', 'Zinli', 'Airtm'] },
   ],
   ES: [
-    'BBVA', 'Banco Santander', 'CaixaBank', 'Banco Sabadell', 'ING', 'Revolut', 'N26', 'Openbank', 'Bankinter',
+    { title: 'Bancos de España', banks: [
+      'BBVA', 'Banco Santander', 'CaixaBank', 'Banco Sabadell', 'ING', 'Openbank', 'Bankinter', 'Unicaja', 'Abanca', 'Ibercaja',
+    ] },
+    { title: 'Internacionales y apps de pago', banks: ['Revolut', 'N26', 'Wise', 'PayPal', 'Binance', 'Zinli'] },
   ],
 };
 
+// Lista plana (para los campos con sugerencias): todos los bancos de la región, sin repetir.
+export const BANK_SUGGESTIONS = Object.fromEntries(
+  Object.entries(BANK_GROUPS).map(([region, groups]) => [region, [...new Set(groups.flatMap((g) => g.banks))]]),
+);
+
 // Compatibilidad
-export const VE_BANKS = BANK_SUGGESTIONS.VE;
+export const VE_BANKS = BANK_GROUPS.VE[0].banks;
 
 export const ACCOUNT_COLORS = ['#A0C4FF', '#FFADAD', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#BDB2FF', '#FFC6FF', '#FFD6A5'];
 

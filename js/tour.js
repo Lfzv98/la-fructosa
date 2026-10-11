@@ -78,7 +78,7 @@ export function Tour({ region, onClose }) {
   }, [i]);
 
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e) => { if (e.key === 'Escape' && !document.querySelector('.learn-layer')) onClose(); }; // con una ayuda ⓘ abierta, Esc cierra solo la ayuda
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
@@ -90,7 +90,12 @@ export function Tour({ region, onClose }) {
 
   return html`<div class="tour" role="dialog" aria-modal="true" aria-label="Recorrido de bienvenida">
     ${hole
-      ? html`<div class="tour-hole" style=${{ top: hole.top + 'px', left: hole.left + 'px', width: hole.width + 'px', height: hole.height + 'px' }}></div>`
+      ? html`<div class="tour-hole" style=${{ top: hole.top + 'px', left: hole.left + 'px', width: hole.width + 'px', height: hole.height + 'px' }}></div>
+        <!-- Cuatro paneles tapan todo menos lo resaltado: así los iconos ⓘ de esa zona se pueden tocar -->
+        <div class="tour-block" style=${{ top: 0, left: 0, right: 0, height: Math.max(0, hole.top) + 'px' }}></div>
+        <div class="tour-block" style=${{ top: Math.max(0, hole.top) + hole.height + 'px', left: 0, right: 0, bottom: 0 }}></div>
+        <div class="tour-block" style=${{ top: Math.max(0, hole.top) + 'px', left: 0, width: Math.max(0, hole.left) + 'px', height: hole.height + 'px' }}></div>
+        <div class="tour-block" style=${{ top: Math.max(0, hole.top) + 'px', left: Math.max(0, hole.left) + hole.width + 'px', right: 0, height: hole.height + 'px' }}></div>`
       : html`<div class="tour-dim"></div>`}
     <div class=${'tour-card ' + (!hole ? 'center' : cardAtTop ? 'top' : 'bottom')} key=${i}>
       <div class="tour-head">

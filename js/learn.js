@@ -1,5 +1,6 @@
 // Contenido didáctico: glosario corto, ayudas contextuales y consejos.
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { html, Icon, Sheet } from './ui.js';
 import { fmt, fmtPct } from './money.js';
 
@@ -75,9 +76,16 @@ export function Learn({ term, label }) {
       aria-label=${'¿Qué es ' + g.title + '?'}>
       <${Icon} name="info" size=${15} />${label && html`<span>${label}</span>`}
     </button>
-    ${open && html`<${Sheet} title=${g.title} onClose=${() => setOpen(false)}>
-      <div class="prose">${g.body.map((p, i) => html`<p key=${i}>${p}</p>`)}</div>
-    <//>`}`;
+    ${open && createPortal(
+      // La ventana se dibuja en <body>, fuera de la tarjeta donde está el ⓘ: así ninguna tarjeta, recorrido
+      // ni pantalla de bienvenida la tapa. El div frena los toques para que no lleguen a la tarjeta de abajo.
+      html`<div class="learn-layer" onClick=${(e) => e.stopPropagation()}>
+        <${Sheet} title=${g.title} onClose=${() => setOpen(false)}>
+          <div class="prose">${g.body.map((p, i) => html`<p key=${i}>${p}</p>`)}</div>
+        <//>
+      </div>`,
+      document.body,
+    )}`;
 }
 
 // Consejo contextual para el inicio, según cómo va el mes.

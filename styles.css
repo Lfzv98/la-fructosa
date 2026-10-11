@@ -516,6 +516,18 @@ b.big { font-size: 20px; }
 .setup-row .input-affix > span { left: 22px; }
 .setup-pick { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px; text-align: left; }
 .setup-pick small { color: var(--muted); }
+/* Lista de bancos en secciones desplegables */
+.bank-picker { display: flex; flex-direction: column; gap: 8px; padding: 0 8px 8px; }
+.bank-chosen { margin: 0; font-size: 13.5px; color: var(--muted); }
+.bank-chosen b { color: var(--blue); }
+.bank-group { background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px; }
+.bank-group > summary { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 11px 12px; cursor: pointer; list-style: none; font-weight: 700; font-size: 14px; }
+.bank-group > summary::-webkit-details-marker { display: none; }
+.bank-group > summary svg { transition: transform .2s ease; color: var(--muted); flex-shrink: 0; }
+.bank-group[open] > summary svg { transform: rotate(180deg); }
+.bank-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 10px 12px; }
+.bank-chip { padding: 8px 12px; border-radius: 999px; border: 1.5px solid var(--line-2); background: var(--surface); font-size: 13px; font-weight: 600; color: var(--text, inherit); }
+.bank-chip.on { background: var(--blue); border-color: var(--blue); color: var(--ink); }
 .check { width: 22px; height: 22px; border-radius: 7px; border: 2px solid var(--line-2); display: grid; place-items: center; flex-shrink: 0; }
 .setup-row.on .check { background: var(--blue); border-color: var(--blue); color: var(--ink); }
 
@@ -636,7 +648,11 @@ b.big { font-size: 20px; }
 @media (prefers-reduced-motion: reduce) { .insight-wrap { animation: none; } .insight { transition: none !important; } }
 
 /* ---------- Tour guiado ---------- */
-.tour { position: fixed; inset: 0; z-index: 65; }
+.tour { position: fixed; inset: 0; z-index: 65; pointer-events: none; }
+.tour-dim, .tour-block, .tour-card { pointer-events: auto; }
+.tour-block { position: fixed; }
+/* Ventanas de ayuda (i): siempre por encima del recorrido y de la bienvenida */
+.learn-layer { position: relative; z-index: 75; }
 .tour-dim { position: absolute; inset: 0; background: rgba(8, 12, 22, .78); }
 .tour-hole { position: fixed; border-radius: 22px; box-shadow: 0 0 0 9999px rgba(8, 12, 22, .78), 0 0 0 2px var(--blue), 0 0 24px rgba(160, 196, 255, .45);
   transition: top .35s ease, left .35s ease, width .35s ease, height .35s ease; pointer-events: none; }
