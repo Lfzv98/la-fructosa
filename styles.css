@@ -1,7 +1,7 @@
 /* Portada de acceso: fondo oscuro + tarjeta pastel, contraste fijo. */
 .auth-page {
   min-height: 100vh;
-  background: #152033;
+  background: #0f172a;
   color: #152033;
 }
 
@@ -104,6 +104,18 @@
   box-shadow: 0 0 0 2px #FFADAD;
 }
 
+.auth-required { color: #B04343; }
+
+.auth-input-pass { padding-right: 3rem; }
+
+.auth-notice {
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  background: #FEFCBF;
+  color: #152033;
+}
+
 .auth-eye {
   position: absolute;
   right: 0.35rem;
@@ -139,7 +151,7 @@
 /* Dashboard: pastel sobre fondo oscuro */
 .dash-shell {
   min-height: 100vh;
-  background: #152033;
+  background: #0f172a;
   color: #F7FAFF;
 }
 
@@ -264,6 +276,17 @@
   color: #BEE3F8;
 }
 
+.dash-empty-cta {
+  margin-top: 1rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: #FFADAD;
+  color: #152033;
+  font-weight: 700;
+  font-size: 0.875rem;
+  padding: 0.65rem 1.25rem;
+}
+
 .dash-account {
   width: 100%;
   display: flex;
@@ -278,7 +301,7 @@
 }
 
 .dash-dock {
-  background: rgba(21, 32, 51, 0.96);
+  background: rgba(15, 23, 42, 0.96);
   border-top: 1px solid #1E3A5F;
   backdrop-filter: blur(10px);
 }

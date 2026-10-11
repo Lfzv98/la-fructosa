@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -8,8 +8,8 @@
 
   <!-- PWA -->
   <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#A0C4FF" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#152033" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./icons/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
 
@@ -25,7 +25,7 @@
   <script src="https://cdn.tailwindcss.com/3.4.16"></script>
   <script>
     tailwind.config = {
-      darkMode: 'media',
+      darkMode: 'class',
       theme: {
         extend: {
           colors: {
@@ -72,8 +72,7 @@
     };
   </script>
   <style>
-    html, body { background: #F4F8FF; color-scheme: light dark; }
-    @media (prefers-color-scheme: dark) { html, body { background: #152033; } }
+    html, body { background: #0f172a; color: #F7FAFF; color-scheme: dark; }
     body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
     .safe-top    { padding-top: env(safe-area-inset-top); }
     .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
@@ -93,7 +92,7 @@
     }
   </script>
 </head>
-<body class="min-h-screen text-azul-900 dark:text-papel antialiased">
+<body class="min-h-screen text-papel antialiased">
   <div id="root">
     <!-- Splash mientras cargan los módulos -->
     <div class="min-h-screen grid place-items-center">

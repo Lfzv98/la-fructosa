@@ -61,8 +61,8 @@ export const REGIONS = {
   VE: {
     id: 'VE',
     flag: '🇻🇪',
-    label: 'Venezuela (Multimoneda / VES)',
-    cover: 'Venezuela (Multimoneda / VES - Tasa BCV/Paralelo)',
+    label: 'Venezuela (Multimoneda / VES - Tasa BCV y Paralelo)',
+    cover: 'Venezuela (Multimoneda / VES - Tasa BCV y Paralelo)',
     hint: 'USD, VES y USDT · BCV y paralelo',
     currency: 'USD',
     showRates: true,

@@ -219,7 +219,7 @@ function AuthScreen() {
 
   const regionBlock = html`
     <div class="space-y-2">
-      <p class="auth-label text-sm font-medium">Región y moneda base <span style="color:#B04343">*</span></p>
+      <p class="auth-label text-sm font-medium">Región y moneda base <span class="auth-required">*</span></p>
       <div class="space-y-2" role="radiogroup" aria-label="Región y moneda base">
         ${Object.values(REGIONS).map((r) => html`
           <button key=${r.id} type="button" role="radio" aria-checked=${region === r.id}
@@ -249,7 +249,7 @@ function AuthScreen() {
 
           ${mode === 'signup' && html`
             <label class="block space-y-1">
-              <span class="text-sm font-medium">Nombre</span>
+              <span class="text-sm font-medium">Nombre completo</span>
               <input class="auth-input" required value=${name} onInput=${(e) => setName(e.target.value)}
                 autocomplete="name" name="name" placeholder="Inserta tu nombre aquí" />
             </label>`}
@@ -265,7 +265,7 @@ function AuthScreen() {
           <label class="block space-y-1">
             <span class="text-sm font-medium">Contraseña</span>
             <div class="relative">
-              <input class="auth-input" style="padding-right:3rem" type=${showPass ? 'text' : 'password'} required minlength="8"
+              <input class="auth-input auth-input-pass" type=${showPass ? 'text' : 'password'} required minlength="8"
                 name=${mode === 'login' ? 'password' : 'new-password'} value=${password} placeholder="Mínimo 8 caracteres"
                 onInput=${(e) => setPassword(e.target.value)}
                 autocomplete=${mode === 'login' ? 'current-password' : 'new-password'} />
@@ -277,7 +277,7 @@ function AuthScreen() {
           </label>
 
           <${ErrorBox} error=${error} />
-          ${notice && html`<p class="text-sm rounded-xl p-2" style="background:#FEFCBF;color:#152033">${notice}</p>`}
+          ${notice && html`<p class="auth-notice">${notice}</p>`}
 
           <button class="auth-submit" disabled=${!canSubmit}>
             ${busy ? '…' : mode === 'login' ? 'Entrar' : 'Registrarse'}
@@ -346,14 +346,15 @@ function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleC
 
       <div class="flex items-center justify-between">
         <h2 class="font-semibold text-papel">Cuentas</h2>
-        <button onClick=${onAddAccount} class="text-sm font-semibold" style=${{ color: '#FFADAD' }}>+ Nueva</button>
+        <button type="button" onClick=${onAddAccount} class="text-sm font-semibold" style=${{ color: '#FFADAD' }}>+ Nueva cuenta</button>
       </div>
       ${balances.length === 0 && html`
-        <button type="button" onClick=${onAddAccount} class="dash-empty w-full">
+        <div class="dash-empty w-full">
           <p class="text-2xl" aria-hidden="true">💳</p>
           <h3>Crea tu primera cuenta</h3>
           <p>Zelle, PayPal, Wise, Efectivo, Wire o Pago Móvil.</p>
-        </button>`}
+          <button type="button" onClick=${onAddAccount} class="dash-empty-cta">+ Nueva cuenta</button>
+        </div>`}
       <ul class="space-y-2">
         ${balances.map((a) => html`
           <li key=${a.id}>
@@ -1196,10 +1197,11 @@ function More({ profile, onSave, balances, rateRows, rates, onRefresh, ratesBusy
 // ---------------------------------------------------------------------
 // Shell con navegación inferior
 // ---------------------------------------------------------------------
+// 'new' no es una pestaña: abre el modal de movimiento rápido.
 const TABS = [
   ['home', 'Inicio', '🏠'],
   ['movs', 'Movs', '📒'],
-  ['new', 'Nuevo', '➕'],
+  ['new', 'Nuevo', '＋'],
   ['plan', 'Plan', '📊'],
   ['more', 'Más', '✨'],
 ];
@@ -1304,7 +1306,6 @@ function MainApp() {
           onToggleCurrency=${() => saveProfile({ preferred_currency: profile.preferred_currency === 'USD' ? 'VES' : 'USD' })}
           onRefreshRates=${applyLiveRates} ratesBusy=${ratesBusy} ratesNote=${ratesNote} />`}
         ${tab === 'movs' && html`<${Movements} txs=${txs} balances=${balances} />`}
-        ${tab === 'new' && html`<${NewTransaction} balances=${balances} rates=${rates} profile=${profile} onDone=${() => { load(); setTab('movs'); }} />`}
         ${tab === 'plan' && html`<${Plan} budgets=${budgets} recurring=${recurring} txs=${txs}
           balances=${balances} rates=${rates} profile=${profile} onChanged=${load} />`}
         ${tab === 'more' && html`<${More} profile=${profile} onSave=${saveProfile} balances=${balances}
@@ -1316,7 +1317,8 @@ function MainApp() {
         <ul class="max-w-md mx-auto">
           ${TABS.map(([k, label, icon]) => html`
             <li key=${k}>
-              <button type="button" onClick=${() => setTab(k)} class=${tab === k ? 'is-on' : ''}>
+              <button type="button" onClick=${() => (k === 'new' ? setSheet({ mode: 'tx' }) : setTab(k))}
+                aria-current=${tab === k ? 'page' : undefined} class=${tab === k ? 'is-on' : ''}>
                 <span class=${'dock-ico' + (k === 'new' ? ' is-new' : '')}>${icon}</span>
                 ${label}
               </button>
@@ -1327,9 +1329,19 @@ function MainApp() {
       ${calcOpen && html`<${Calculator} onClose=${() => setCalcOpen(false)} />`}
       ${sheet && html`
         <div class="fixed inset-0 z-20 bg-black/40 flex items-end" onClick=${() => setSheet(null)}>
-          <div class="sheet w-full max-w-md mx-auto bg-papel dark:bg-azul-900 rounded-t-3xl p-5 safe-bottom" onClick=${(e) => e.stopPropagation()}>
-            <${AccountForm} account=${sheet.mode === 'edit' ? sheet.account : null} region=${profile.region}
-              onCancel=${() => setSheet(null)} onDone=${() => { setSheet(null); load(); }} />
+          <div class="sheet w-full max-w-md mx-auto bg-azul-900 border-t border-azul-700 text-papel rounded-t-3xl p-5 safe-bottom" onClick=${(e) => e.stopPropagation()}>
+            ${sheet.mode === 'tx'
+              ? html`
+                <div class="space-y-4">
+                  <div class="flex items-center justify-between">
+                    <h2 class="text-xl font-bold">Nuevo movimiento</h2>
+                    <button type="button" class="dash-icon-btn" onClick=${() => setSheet(null)} aria-label="Cerrar">✕</button>
+                  </div>
+                  <${NewTransaction} balances=${balances} rates=${rates} profile=${profile}
+                    onDone=${() => { setSheet(null); load(); setTab('movs'); }} />
+                </div>`
+              : html`<${AccountForm} account=${sheet.mode === 'edit' ? sheet.account : null} region=${profile.region}
+                  onCancel=${() => setSheet(null)} onDone=${() => { setSheet(null); load(); }} />`}
           </div>
         </div>`}
     </div>`;
@@ -1339,7 +1351,9 @@ function App() {
   const [session, setSession] = useState(undefined);
   useEffect(() => {
     if (isDemo) return;
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    supabase.auth.getSession()
+      .then(({ data }) => setSession(data.session ?? null))
+      .catch(() => setSession(null));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -1354,4 +1368,22 @@ function App() {
   return session ? html`<${MainApp} key=${session.user.id} />` : html`<${AuthScreen} />`;
 }
 
-createRoot(document.getElementById('root')).render(html`<${App} />`);
+// Evita la pantalla en blanco: cualquier fallo de render se muestra y se puede reintentar.
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error) { console.error('La Fructosa:', error); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return html`
+      <main class="auth-page px-5 grid place-items-center">
+        <div class="auth-card max-w-sm w-full space-y-3">
+          <h1 class="text-lg font-bold">Algo salió mal</h1>
+          <p class="text-sm">${String(this.state.error?.message || this.state.error)}</p>
+          <button class="auth-submit" onClick=${() => location.reload()}>Reintentar</button>
+        </div>
+      </main>`;
+  }
+}
+
+createRoot(document.getElementById('root')).render(html`<${ErrorBoundary}><${App} /><//>`);
