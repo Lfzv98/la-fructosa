@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { html, Icon, Art, toast, errorText } from '../ui.js';
 import { useData, usePref } from '../store.js';
-import { ACCOUNT_TEMPLATES, BANK_GROUPS, BANK_PICK_TEMPLATES, BANK_SUGGESTIONS, CURRENCIES, KINDS, ACCOUNT_COLORS, parseAmount } from '../money.js';
+import { ACCOUNT_TEMPLATES, BANK_PICK_TEMPLATES, bankGroupsFor, BANK_SUGGESTIONS, CURRENCIES, KINDS, ACCOUNT_COLORS, parseAmount } from '../money.js';
 
 const SLIDES = [
   { art: 'coins', title: 'Bienvenido a La Fructosa', text: 'Todo tu dinero en un solo lugar: efectivo, bancos, Zelle, Pago Móvil y criptomonedas. Cada cuenta es independiente y nadie ve la de los demás.' },
@@ -59,7 +59,6 @@ function QuickSetup({ region, onDone, save }) {
     ...ACCOUNT_TEMPLATES[reg].filter((t) => !(t.kind === 'bank' && BANK_SUGGESTIONS[reg].includes(t.name))),
     ...BANK_PICK_TEMPLATES[reg],
   ];
-  const bankGroups = BANK_GROUPS[reg];
   // picked[k] = { bal: saldo escrito, bank: nombre del banco (solo plantillas con bank: true) }
   const [picked, setPicked] = useState({});
   const [busy, setBusy] = useState(false);
@@ -103,7 +102,7 @@ function QuickSetup({ region, onDone, save }) {
           <span class="check">${on && html`<${Icon} name="check" size=${14} stroke=${3} />`}</span>
           <span>${t.icon || KINDS[t.kind].emoji} <b>${t.bank && picked[k]?.bank.trim() ? picked[k].bank.trim() : t.name}</b> <small>${t.currency}</small></span>
         </button>
-        ${on && t.bank && html`<${BankPicker} groups=${bankGroups} value=${picked[k].bank} onChange=${(v) => patch(k, { bank: v })} />`}
+        ${on && t.bank && html`<${BankPicker} groups=${bankGroupsFor(reg, t.currency)} value=${picked[k].bank} onChange=${(v) => patch(k, { bank: v })} />`}
         ${on && html`<div class="input-affix"><span>${CURRENCIES[t.currency].symbol}</span>
           <input class="input num" inputmode="decimal" placeholder="Saldo hoy" value=${picked[k].bal} onInput=${(e) => patch(k, { bal: e.target.value.replace(/[^\d.,]/g, '') })} /></div>`}
       </div>`;

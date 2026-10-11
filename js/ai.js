@@ -459,9 +459,14 @@ export function resolveTx(spec, d) {
   if (!active.length) return { error: 'Primero crea una cuenta para poder registrar movimientos.' };
 
   const currency = String(spec.currency || '').toUpperCase();
+  // Cuenta: primero por id; luego por nombre exacto; luego por parecido; si no, la primera en esa moneda.
+  const wantedId = String(spec.account_id || '').trim();
   const wanted = norm(spec.account);
-  const byName = wanted && (active.find((a) => norm(a.name) === wanted) || active.find((a) => norm(a.name).includes(wanted) || wanted.includes(norm(a.name))));
-  const acc = byName || active.find((a) => a.currency === currency) || active[0];
+  const acc = (wantedId && active.find((a) => String(a.id) === wantedId))
+    || (wanted && active.find((a) => norm(a.name) === wanted))
+    || (wanted && active.find((a) => norm(a.name).includes(wanted) || wanted.includes(norm(a.name))))
+    || active.find((a) => a.currency === currency) || active[0];
+  if (!acc?.id) return { error: 'No encontré la cuenta para registrar este movimiento.' };
 
   let inAcc = amount;
   let converted = false;
@@ -476,8 +481,9 @@ export function resolveTx(spec, d) {
   // Fecha opcional (p. ej. leída de una captura): solo si es válida, no futura y de los últimos 90 días.
   const today = todayISO();
   const date = /^\d{4}-\d{2}-\d{2}$/.test(String(spec.date || '')) && spec.date <= today && spec.date >= addDays(today, -90) ? spec.date : today;
+  if (!(n2(inAcc) > 0)) return { error: 'El monto convertido es demasiado pequeño para registrarlo.' };
   const row = {
-    type: kind, account_id: acc.id, amount: n2(inAcc), category, description, occurred_on: date,
+    type: kind, account_id: String(acc.id), amount: n2(inAcc), category, description, occurred_on: date,
     to_account_id: null, to_amount: null, original_amount: null, original_currency: null,
     rate_applied: null, rate_bcv: null, rate_paralelo: null,
   };

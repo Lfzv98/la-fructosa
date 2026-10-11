@@ -69,8 +69,8 @@ export const ACCOUNT_TEMPLATES = {
 // toca el suyo en la lista desplegable (bank: true). Reemplazan a las plantillas con nombre de banco.
 export const BANK_PICK_TEMPLATES = {
   VE: [
-    { name: 'Cuenta en un banco', currency: 'VES', kind: 'bank', icon: '🏦', bank: true },
-    { name: 'Banco o app en dólares', currency: 'USD', kind: 'bank', icon: '🏦', bank: true },
+    { name: 'Banco venezolano (Bs.)', currency: 'VES', kind: 'bank', icon: '🏦', bank: true },
+    { name: 'Banco o app internacional (USD)', currency: 'USD', kind: 'bank', icon: '🏦', bank: true },
   ],
   US: [{ name: 'Cuenta en un banco', currency: 'USD', kind: 'bank', icon: '🏦', bank: true }],
   ES: [{ name: 'Cuenta en un banco', currency: 'EUR', kind: 'bank', icon: '🏦', bank: true }],
@@ -111,6 +111,14 @@ export const BANK_GROUPS = {
 export const BANK_SUGGESTIONS = Object.fromEntries(
   Object.entries(BANK_GROUPS).map(([region, groups]) => [region, [...new Set(groups.flatMap((g) => g.banks))]]),
 );
+
+// Secciones que se muestran según la moneda de la cuenta. En Venezuela se separan estrictamente:
+// cuentas en Bs. → solo bancos venezolanos; cuentas en divisas → solo bancos y apps internacionales.
+export function bankGroupsFor(region, currency) {
+  const groups = BANK_GROUPS[region] || BANK_GROUPS.VE;
+  if ((region || 'VE') !== 'VE' || !currency) return groups;
+  return currency === 'VES' ? [groups[0]] : [groups[1]];
+}
 
 // Compatibilidad
 export const VE_BANKS = BANK_GROUPS.VE[0].banks;

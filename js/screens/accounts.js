@@ -5,7 +5,7 @@ import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { AccountRow, TxRow, PageHeader, openTx, go } from './common.js';
 import {
-  ACCOUNT_COLORS, ACCOUNT_TEMPLATES, ADJUST_CATEGORY, BANK_SUGGESTIONS, CURRENCIES, KINDS, VE_BANKS, convert, fmt, parseAmount, todayISO, monthKey,
+  ACCOUNT_COLORS, ACCOUNT_TEMPLATES, ADJUST_CATEGORY, bankGroupsFor, CURRENCIES, KINDS, VE_BANKS, convert, fmt, parseAmount, todayISO, monthKey,
 } from '../money.js';
 
 const ICONS = ['💵', '🏦', '📱', '📲', '🪙', '💳', '🐷', '💼', '🏠', '✈️', '🎓', '💰'];
@@ -64,7 +64,8 @@ export function AccountForm({ account, onClose }) {
   const set = (k, v) => { setF((x) => ({ ...x, [k]: v })); setErr({}); };
   const userRegion = profile?.region || 'VE';
   const templates = ACCOUNT_TEMPLATES[userRegion] || ACCOUNT_TEMPLATES.VE;
-  const bankList = BANK_SUGGESTIONS[userRegion] || BANK_SUGGESTIONS.VE;
+  // Sugerencias según la moneda: en Venezuela, Bs. → bancos venezolanos; divisas → internacionales.
+  const bankList = [...new Set(bankGroupsFor(userRegion, f.currency).flatMap((g) => g.banks))];
   const namePlaceholder = userRegion === 'US'
     ? 'Ej. Checking Account, Venmo, Zelle…'
     : userRegion === 'ES'

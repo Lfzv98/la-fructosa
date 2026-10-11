@@ -24,14 +24,22 @@ function unwrap({ data, error }) {
 // Si la base de datos aún no tiene una columna nueva (migración pendiente), la quitamos y reintentamos.
 async function tolerant(run, row) {
   let payload = { ...row };
-  for (let i = 0; i < 6; i++) {
+  const dropped = [];
+  for (let i = 0; i <= Object.keys(row).length; i++) {
     const res = await run(payload);
     const miss = res.error?.message?.match(/Could not find the '([^']+)' column/);
     if (!miss) return unwrap(res);
+    // Columna que no estamos enviando (caché de esquema desactualizada): reintentar no sirve.
+    if (!(miss[1] in payload)) break;
     delete payload[miss[1]];
+    dropped.push(miss[1]);
   }
-  throw new Error('La base de datos rechazó el registro. Revisa que la migración esté aplicada.');
+  throw new Error(`La base de datos rechazó el registro${dropped.length ? ` (faltan columnas: ${dropped.join(', ')})` : ''}. Revisa que la migración esté aplicada.`);
 }
+
+// Al crear una fila, los campos vacíos (null) no se envían: la columna ya vale null por defecto,
+// y así un movimiento simple no depende de columnas opcionales (brecha, transferencias).
+const withoutNulls = (row) => Object.fromEntries(Object.entries(row).filter(([, v]) => v !== null && v !== undefined));
 
 // --- Perfil con plan B ---------------------------------------------------
 // Si guardar usuario y país en la tabla `profiles` falla o tarda, se guardan en
@@ -299,7 +307,7 @@ const real = {
     // exige (auth.uid() = user_id) y no dependemos solo del default de la columna.
     const { data: { session } } = await c.auth.getSession();
     if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
-    return tolerant((p) => c.from(table).insert(p).select().single(), { ...row, user_id: session.user.id });
+    return tolerant((p) => c.from(table).insert(p).select().single(), { ...withoutNulls(row), user_id: session.user.id });
   },
   async update(table, id, patch) {
     const c = await sb();
