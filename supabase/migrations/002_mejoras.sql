@@ -76,7 +76,7 @@ do $$ begin
 end $$;
 create index if not exists transactions_recurring_idx on public.transactions (recurring_id) where recurring_id is not null;
 
--- 6. RLS: cada quien solo lo suyo (también en las tablas nuevas) --------
+-- 6. RLS: cada persona ve solo sus datos (también en las tablas nuevas) --------
 alter table public.budgets            enable row level security;
 alter table public.recurring_expenses enable row level security;
 

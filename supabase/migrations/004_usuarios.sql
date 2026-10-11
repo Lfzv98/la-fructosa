@@ -1,7 +1,7 @@
 -- =====================================================================
 --  La Fructosa · Migración 004: entrar con nombre de usuario (app 2.1)
 --  Ejecutar UNA vez en Supabase > SQL Editor (después de la 002).
---  Idempotente. Las cuentas existentes eligen usuario y país al entrar.
+--  Idempotente. Quienes ya tienen cuenta eligen su usuario y país al entrar.
 -- =====================================================================
 
 -- 1. Usuario único (sin distinguir mayúsculas) ---------------------------

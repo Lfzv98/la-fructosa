@@ -1,16 +1,16 @@
-# La Fructosa 3.1: lo que te toca hacer
+# La Fructosa 3.1: lo que debes hacer
 
 Todo está en tu carpeta **La Fructosa** del escritorio. Sigue los pasos en orden. Cada bloque gris se copia y se pega tal cual.
 
 > **Dónde va cada cosa**
-> - **Terminal de Cursor**: en Cursor, menú *Terminal › New Terminal*. Tiene que estar abierta en la carpeta La Fructosa.
-> - **SQL Editor de Supabase**: supabase.com › tu proyecto › *SQL Editor* › *New query*. Pegas, y le das a **Run**.
+> - **Terminal de Cursor**: en Cursor, menú *Terminal › New Terminal*. Debe estar abierta en la carpeta La Fructosa.
+> - **SQL Editor de Supabase**: supabase.com › tu proyecto › *SQL Editor* › *New query*. Pega el contenido y presiona **Run**.
 
 ---
 
 ## Paso 1. Subir la app a GitHub
 
-En la terminal de Cursor, pega esto. Saca del repositorio público el zip viejo, los `.DS_Store` y las copias sueltas de SQL. Siguen en tu computadora, solo dejan de publicarse:
+En la terminal de Cursor, pega esto. Quita del repositorio público el zip anterior, los `.DS_Store` y las copias sueltas de SQL. Siguen en tu computadora, solo dejan de publicarse:
 
 ```
 git rm -r --cached --ignore-unmatch -q .DS_Store js/.DS_Store supabase/.DS_Store la-fructosa-v2.zip 004_usuarios.sql 005_conversaciones.sql 006_login_seguro.sql 007_metas_prestamos.sql 008_avisos.sql
@@ -24,7 +24,7 @@ git commit -m "La Fructosa 3.1: confianza, capturas de cualquier pago, respaldo 
 git push
 ```
 
-Espera 1 o 2 minutos y abre la app. Cuando salga **"Hay una versión nueva"**, toca **Actualizar**.
+Espera 1 o 2 minutos y abre la app. Cuando aparezca **"Hay una versión nueva"**, toca **Actualizar**.
 
 ---
 
@@ -44,20 +44,20 @@ supabase functions deploy update-rates --no-verify-jwt
 
 ---
 
-## Paso 3. Probar el login y cerrar la puerta vieja
+## Paso 3. Probar el inicio de sesión y cerrar el acceso anterior
 
 1. Abre la app, sal de tu sesión y vuelve a **entrar con tu usuario** (no con el correo).
-2. Si entraste bien, en el **SQL Editor** de Supabase abre el archivo `supabase/migrations/006_login_seguro.sql`, copia todo su contenido, pégalo y dale a **Run**.
+2. Si entraste bien, en el **SQL Editor** de Supabase abre el archivo `supabase/migrations/006_login_seguro.sql`, copia todo su contenido, pégalo y presiona **Run**.
 
 Si ya lo habías hecho antes, sáltate este paso. Repetirlo no daña nada.
 
 ---
 
-## Paso 4. Correr las migraciones nuevas
+## Paso 4. Ejecutar las migraciones nuevas
 
-En el **SQL Editor**, una por una (copia todo el archivo, pégalo y dale a **Run**):
+En el **SQL Editor**, una por una (copia todo el archivo, pégalo y presiona **Run**):
 
-1. `supabase/migrations/007_metas_prestamos.sql`: activa Metas de ahorro y Préstamos. Sáltalo si ya lo corriste.
+1. `supabase/migrations/007_metas_prestamos.sql`: activa Metas de ahorro y Préstamos. Sáltalo si ya lo ejecutaste.
 2. `supabase/migrations/009_confianza.sql`: no hay que cambiarle nada. Hace tres cosas:
    - las tasas se buscan 4 veces al día en vez de 2 (8 a. m., 11 a. m., 2 p. m. y 6 p. m.);
    - prepara el aviso semanal de respaldo;
@@ -67,7 +67,7 @@ En el **SQL Editor**, una por una (copia todo el archivo, pégalo y dale a **Run
 
 ## Paso 5. Revisar que las tasas se guardan todos los días
 
-En el **SQL Editor** pega esto y dale a **Run**:
+En el **SQL Editor** pega esto y presiona **Run**:
 
 ```sql
 select rate_date, rate_type, rate, source, fetched_at
@@ -76,7 +76,7 @@ order by rate_date desc, rate_type
 limit 12;
 ```
 
-Tienes que ver filas con la **fecha de hoy**. Si las últimas son de días atrás, pega esto para ver qué respondió el servidor las últimas veces:
+Deberías ver filas con la **fecha de hoy**. Si las últimas son de días anteriores, pega esto para ver qué respondió el servidor las últimas veces:
 
 ```sql
 select status_code, left(content::text, 200) as respuesta, created
@@ -88,7 +88,7 @@ limit 5;
 - Un **401** significa que el reloj no tenía permiso. Con el Paso 2 (`--no-verify-jwt`) queda resuelto.
 - Un **200** significa que funciona bien.
 
-Igual, desde esta versión, si al abrir la app no hay tasas de hoy, la app las pide al servidor ella sola.
+Además, desde esta versión, si al abrir la app no hay tasas de hoy, la app las solicita sola al servidor.
 
 ---
 
@@ -127,9 +127,9 @@ supabase functions deploy send-reminders --no-verify-jwt
 - `TU-PROYECTO` por `bkausossugbbyfsersmb`;
 - `TU-CRON-SECRET` por la clave del 6.2.
 
-Cópialo completo en el **SQL Editor** y dale a **Run**.
+Cópialo completo en el **SQL Editor** y presiona **Run**.
 
-**6.6** En la app: **Ajustes › Avisos › Activar**. En iPhone primero instala la app en la pantalla de inicio (Safari › Compartir › Agregar a inicio).
+**6.6** En la app: **Ajustes › Avisos › Activar**. En iPhone primero instala la app en la pantalla de inicio (Safari › Compartir › Agregar a pantalla de inicio).
 
 ---
 
@@ -141,10 +141,10 @@ En github.com › tu repositorio **la-fructosa** › *Settings* › *Advanced Se
 
 ---
 
-## Listo. Lo que pasa solo a partir de ahora
+## Listo. Lo que ocurre automáticamente a partir de ahora
 
-- **Tasas**: se actualizan 4 veces al día. Si una fuente falla, se recupera en la siguiente vuelta, y la app también las pide al abrirse.
-- **IA**: si Google apaga un modelo o saca uno nuevo, Fructosa usa el Flash más nuevo disponible sin que toques nada.
+- **Tasas**: se actualizan 4 veces al día. Si una fuente falla, se recupera en la siguiente actualización, y la app también las solicita al abrirse.
+- **IA**: si Google apaga un modelo o saca uno nuevo, Fructosa usa el modelo Flash más reciente disponible sin que tengas que hacer nada.
 - **Respaldo**: a los 7 días sin respaldo aparecen la tarjeta en Inicio, el aviso arriba en las demás pantallas y, si activaste avisos, la notificación.
 - **Usuarios nuevos y actuales**: antes del tour ven la pantalla **"Tu tranquilidad es lo primero"** y aceptan los términos (una sola vez).
 

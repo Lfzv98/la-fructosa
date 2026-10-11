@@ -1,7 +1,7 @@
 -- =====================================================================
 --  La Fructosa · Migración 005: guardar las conversaciones con Fructosa
 --  Ejecutar UNA vez en Supabase > SQL Editor. Idempotente.
---  Una fila por usuario con sus últimos mensajes. RLS: cada quien ve solo la suya.
+--  Una fila por usuario con sus últimos mensajes. RLS: cada persona ve solo la suya.
 -- =====================================================================
 
 create table if not exists public.ai_chats (

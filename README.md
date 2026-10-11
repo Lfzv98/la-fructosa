@@ -2,7 +2,7 @@
 
 PWA de finanzas personales para la familia: cuentas en USD, Bs., USDT y EUR,
 tasas BCV / Paralelo / USDT, calculadora de brecha cambiaria, presupuestos,
-pagos fijos y análisis del mes. Cada familiar entra con su correo y **solo ve lo suyo**
+pagos fijos y análisis del mes. Cada familiar entra con su correo y **solo ve su propia información**
 (Row Level Security en Supabase).
 
 Producción: https://lfzv98.github.io/la-fructosa/ · Demo: agrega `?demo` a la URL.
@@ -33,7 +33,7 @@ Novedades 2.2: saldos correctos con más de 1.000 movimientos, **respaldo en Exc
 con recordatorio semanal en Inicio), aviso de privacidad del copiloto que cada persona acepta antes de usarlo,
 y entrar con usuario sin revelar el correo de nadie (Edge Function `login`).
 
-Novedades 2.3: **registrar sin internet** (el movimiento queda en el teléfono y se sube solo al volver la señal;
+Novedades 2.3: **registrar sin internet** (el movimiento queda en el teléfono y se sube automáticamente al volver la conexión;
 la app también abre sin conexión con la última copia), **bloqueo con PIN y Face ID / huella** (Ajustes → Privacidad)
 y **leer capturas de Pago Móvil o recibos** con el botón 📷 de Fructosa (requiere desplegar de nuevo `ai-proxy`).
 
@@ -50,7 +50,7 @@ tasas fuera de Venezuela.
 
 ```
 la-fructosa/
-├── index.html              # Shell PWA + import map (React, htm, supabase-js desde esm.sh)
+├── index.html              # Estructura base de la PWA + import map (React, htm, supabase-js desde esm.sh)
 ├── styles.css              # Sistema de diseño propio (sin Tailwind CDN)
 ├── manifest.webmanifest    # Instalable a pantalla completa, con accesos directos
 ├── sw.js                   # Caché de la app; avisa cuando hay versión nueva
@@ -61,7 +61,7 @@ la-fructosa/
 │   ├── api.js              # Capa de datos: Supabase real o demo en localStorage
 │   ├── store.js            # Estado global: saldos, conversión por fecha, estadísticas
 │   ├── money.js            # Monedas, regiones, categorías, conversión, brecha, formatos
-│   ├── rates.js            # Respaldo de tasas en vivo (DolarApi) si la BD no tiene las de hoy
+│   ├── rates.js            # Respaldo de tasas en vivo (DolarApi) si la base de datos no tiene las de hoy
 │   ├── ui.js · charts.js   # Componentes y gráficos SVG
 │   ├── learn.js            # Glosario y consejos
 │   ├── export.js           # CSV para Excel / Sheets
@@ -85,7 +85,7 @@ la-fructosa/
 1. **No borres `js/config.js`**: tiene tus claves y el zip no lo trae a propósito.
    Copia todo lo demás encima de tu repositorio.
 2. Supabase → SQL Editor → ejecuta `supabase/migrations/002_mejoras.sql` y luego
-   `supabase/migrations/004_usuarios.sql` y `supabase/migrations/005_conversaciones.sql` (no borran nada; puedes correrlas de nuevo sin problema).
+   `supabase/migrations/004_usuarios.sql` y `supabase/migrations/005_conversaciones.sql` (no borran nada; puedes ejecutarlas de nuevo sin problema).
 3. Sube a GitHub (`main`). Al abrir la app verás "Hay una versión nueva" → Actualizar.
 
 ## Instalación desde cero
@@ -99,15 +99,15 @@ la-fructosa/
 ## Novedades 3.1
 
 - **Confianza y términos**: al entrar por primera vez (y quien ya tenía cuenta, una vez) aparece una pantalla
-  que explica en palabras simples por qué sus datos están seguros, con los términos completos y la casilla
+  que explica con palabras sencillas por qué sus datos están seguros, con los términos completos y la casilla
   "Acepto". La aceptación se guarda en la cuenta (`user_metadata.terms_v`). Para pedirla de nuevo tras cambiar
   los términos, sube `TERMS_VERSION` en `js/terms.js`.
 - **Capturas de cualquier plataforma**: Fructosa lee comprobantes de cualquier banco o app (Pago Móvil, Zelle,
   Binance, PayPal, Zinli, Venmo, Bizum, facturas…), detecta moneda, dirección, fecha y comisión.
 - **Respaldo**: banner en todas las pantallas a los 7 días y aviso push semanal (`send-reminders`).
 - **Borrar mi cuenta** (Ajustes): función `delete_my_account` de la migración 009.
-- **IA a prueba de cambios**: el proxy y la app consultan la lista de modelos de Google y usan el Flash
-  más nuevo disponible si uno de la lista se apaga.
+- **IA a prueba de cambios**: el proxy y la app consultan la lista de modelos de Google y usan el modelo Flash
+  más reciente disponible si alguno de la lista deja de funcionar.
 
 ## Tasas automáticas
 
@@ -115,15 +115,15 @@ la-fructosa/
 2. Edita y ejecuta `supabase/migrations/003_tasas_automaticas.sql`; la 009 lo pasa a 4 veces al día
    (8 a. m., 11 a. m., 2 p. m. y 6 p. m. de Caracas).
 
-Si al abrir la app no hay tasas de hoy, la app las muestra en vivo (DolarApi) y además le pide a
+Si al abrir la app no hay tasas de hoy, se muestran en vivo (DolarApi) y además se le pide a
 `update-rates` que las guarde, como mucho una vez cada 2 horas por teléfono; así el historial se completa
-aunque el cron falle. Para revisar: ver las consultas al final de `009_confianza.sql`.
+aunque el cron falle. Para comprobarlo, usa las consultas que están al final de `009_confianza.sql`.
 
 ## Seguridad
 
 - Toda tabla con datos personales tiene RLS `auth.uid() = user_id`; las FK compuestas impiden
   usar cuentas de otra persona. `exchange_rates` es de solo lectura para usuarios.
-- La anon key es pública por diseño; nunca pongas la service_role key en el frontend.
+- La anon key es pública por diseño; nunca pongas la service_role key en el código de la app.
 - El service worker nunca guarda respuestas de Supabase.
 - Entrar con usuario pasa por la Edge Function `login` (`supabase functions deploy login --no-verify-jwt`);
   después, `006_login_seguro.sql` quita el acceso público a `email_for_login`.

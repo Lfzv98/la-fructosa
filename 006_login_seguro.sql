@@ -6,8 +6,8 @@
 --  Idempotente. Si algo falla, se revierte con la última línea comentada.
 -- =====================================================================
 
--- email_for_login devolvía el correo de cualquier usuario a quien lo pidiera, incluso sin sesión.
--- Ahora la Edge Function "login" lo consulta por dentro con la service role y nunca lo devuelve.
+-- email_for_login devolvía el correo de cualquier usuario a cualquiera que lo pidiera, incluso sin sesión.
+-- Ahora la Edge Function "login" lo consulta por dentro con el rol de servicio (service role) y nunca lo devuelve.
 revoke execute on function public.email_for_login(text) from anon, authenticated, public;
 
 -- Verificación: debe devolver false en ambas columnas.

@@ -1,7 +1,7 @@
 -- =====================================================================
 --  La Fructosa · Migración 007: metas de ahorro y préstamos (app 3.0)
 --  Ejecutar UNA vez en Supabase > SQL Editor. Idempotente: no borra nada.
---  RLS: cada quien ve y edita solo lo suyo, igual que el resto de la app.
+--  RLS: cada persona ve y edita solo sus datos, igual que en el resto de la app.
 -- =====================================================================
 
 -- 1. Metas de ahorro -------------------------------------------------------

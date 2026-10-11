@@ -1,11 +1,11 @@
 -- =====================================================================
 --  La Fructosa · Migración 009: tasas más seguidas, recordatorio de respaldo y borrar cuenta
---  No hay nada que reemplazar: copia todo, pégalo en el SQL Editor y dale a Run.
---  Idempotente: puedes correrlo de nuevo. Si aún no corriste 003 u 008, esas partes se saltan solas.
+--  No hay nada que reemplazar: copia todo, pégalo en el SQL Editor y presiona Run.
+--  Idempotente: puedes ejecutarlo de nuevo. Si aún no ejecutaste la 003 o la 008, esas partes se omiten automáticamente.
 -- =====================================================================
 
--- 1. Tasas: el monitor (003) corre 4 veces al día en vez de 2, para que si una fuente falla
---    a las 8 se recupere sola más tarde. 8:00, 11:00, 2:00 p. m. y 6:00 p. m. hora de Caracas.
+-- 1. Tasas: el monitor (003) se ejecuta 4 veces al día en vez de 2, para que si una fuente falla
+--    a las 8 se recupere automáticamente más tarde. 8:00, 11:00, 2:00 p. m. y 6:00 p. m. hora de Caracas.
 do $$
 begin
   if exists (select 1 from pg_namespace where nspname = 'cron')
@@ -41,7 +41,7 @@ $$;
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
 
--- Para revisar que las tasas se están guardando todos los días:
+-- Para comprobar que las tasas se guardan todos los días:
 -- select rate_date, rate_type, rate, source, fetched_at from public.exchange_rates order by rate_date desc, rate_type limit 12;
 -- select status, start_time, return_message from cron.job_run_details
 --   where jobid = (select jobid from cron.job where jobname = 'fructosa-tasas') order by start_time desc limit 8;

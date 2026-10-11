@@ -3,10 +3,10 @@
 --  Antes: desplegar la función (pasos en supabase/functions/send-reminders/index.ts).
 --  1) Ejecuta este archivo completo. 2) Reemplaza TU-PROYECTO y TU-CRON-SECRET
 --     (el mismo valor que pusiste en  supabase secrets set CRON_SECRET=...).
---  Idempotente: puedes correrlo de nuevo.
+--  Idempotente: puedes ejecutarlo de nuevo.
 -- =====================================================================
 
--- 1. Suscripciones: una fila por persona y teléfono. RLS: cada quien ve solo las suyas.
+-- 1. Suscripciones: una fila por persona y teléfono. RLS: cada persona ve solo las suyas.
 create table if not exists public.push_subscriptions (
   id            uuid primary key default gen_random_uuid(),
   user_id       uuid not null default auth.uid() references auth.users (id) on delete cascade,
@@ -46,6 +46,6 @@ select cron.schedule(
   $$
 );
 
--- Para probar ya mismo (mira el resultado en net._http_response):
+-- Para probar de inmediato (consulta el resultado en net._http_response):
 -- select net.http_post(url := 'https://TU-PROYECTO.supabase.co/functions/v1/send-reminders',
 --   headers := jsonb_build_object('x-cron-secret', 'TU-CRON-SECRET'), body := '{}'::jsonb);

@@ -122,11 +122,11 @@ Deno.serve(async (req) => {
   if (!user) return reply(401, 'Inicia sesión para usar el copiloto');
 
   // 2. Límite por usuario
-  if (limited(user.id)) return reply(429, 'Demasiadas preguntas seguidas. Espera unos minutos.');
+  if (limited(user.id)) return reply(429, 'Has hecho demasiadas preguntas seguidas. Espera unos minutos e inténtalo de nuevo.');
 
   // 3. Petición validada y reducida a lo imprescindible
   const raw = await req.text();
-  if (raw.length > MAX_BODY) return reply(413, 'Petición demasiado grande');
+  if (raw.length > MAX_BODY) return reply(413, 'La solicitud es demasiado grande');
   let body: { messages?: { role?: string; content?: unknown }[] };
   try { body = JSON.parse(raw); } catch { return reply(400, 'JSON no válido'); }
   if (!Array.isArray(body.messages) || !body.messages.length) return reply(400, 'Faltan mensajes');
@@ -187,7 +187,7 @@ Deno.serve(async (req) => {
     }
   }
   if (!upstream) {
-    return reply(lastStatus === 429 ? 429 : 502, lastStatus === 429 ? 'El proveedor alcanzó su límite. Inténtalo más tarde.' : 'El proveedor de IA no respondió. Inténtalo de nuevo.');
+    return reply(lastStatus === 429 ? 429 : 502, lastStatus === 429 ? 'El proveedor alcanzó su límite de uso. Inténtalo más tarde.' : 'El proveedor de IA no respondió. Inténtalo de nuevo.');
   }
   return new Response(upstream.body, {
     status: 200,

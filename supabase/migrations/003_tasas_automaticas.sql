@@ -22,7 +22,7 @@ select cron.schedule(
   $$
 );
 
--- Para probar ya mismo (devuelve un id; mira el resultado en net._http_response):
+-- Para probar de inmediato (devuelve un id; consulta el resultado en net._http_response):
 -- select net.http_post(url := 'https://TU-PROYECTO.supabase.co/functions/v1/update-rates',
 --   headers := jsonb_build_object('Authorization', 'Bearer TU-ANON-KEY'), body := '{}'::jsonb);
 -- select * from public.latest_rates;
