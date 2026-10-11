@@ -7,7 +7,7 @@ import { go } from './common.js';
 import { categoryMeta, fmt, fmtRate } from '../money.js';
 import {
   PROVIDERS, SHARED_AI, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, resolveAi, systemPrompt, withGuard, parseReply,
-  runCalc, resolveTx, streamChat, testConnection,
+  runCalc, resolveTx, streamChat, testConnection, normalizeKey, keyLooksOdd,
   getSpeechRecognition, VoiceSession, speakReply, stopSpeech, cleanSpeechText,
 } from '../ai.js';
 
@@ -30,7 +30,7 @@ export function AiSettings({ onSaved }) {
 
   function validate() {
     const e = {};
-    if (!cfg.apiKey.trim()) e.apiKey = SHARED_AI ? 'Pega tu clave, o cierra esta ventana para usar la IA incluida.' : 'Pega tu clave de API.';
+    if (!normalizeKey(cfg.apiKey)) e.apiKey = SHARED_AI ? 'Pega tu clave, o cierra esta ventana para usar la IA incluida.' : 'Pega tu clave de API.';
     setErr(e);
     return !Object.keys(e).length;
   }
@@ -44,7 +44,10 @@ export function AiSettings({ onSaved }) {
   async function test() {
     if (!validate()) return;
     setBusy('test');
-    try { await testConnection(cfg); toast('Conexión correcta ✓'); } catch (e) { setErr({ form: errorText(e) }); }
+    try {
+      const model = await testConnection({ apiKey: normalizeKey(cfg.apiKey) });
+      toast(`Conexión correcta ✓ (${model})`);
+    } catch (e) { setErr({ form: errorText(e) }); }
     setBusy('');
   }
   function forget() {
@@ -56,7 +59,7 @@ export function AiSettings({ onSaved }) {
 
   return html`<div class="stack">
     ${SHARED_AI && html`<div class="callout good">✓ El copiloto ya funciona sin configurar nada. Esto es <b>opcional</b>: úsalo solo si prefieres usar tu propia clave de Google Gemini.</div>`}
-    <${Field} label="Clave de API" error=${err.apiKey} hint=${p.hint}>
+    <${Field} label="Clave de API" error=${err.apiKey} hint=${keyLooksOdd(normalizeKey(cfg.apiKey)) ? 'Las claves de Google AI Studio suelen empezar por AIza…; revisa que la copiaste completa.' : p.hint}>
       <div class="input-affix right">
         <input class="input" type=${show ? 'text' : 'password'} name="fructosa-ai-key" autocomplete="off" autocapitalize="none" spellcheck="false"
           data-lpignore="true" data-1p-ignore="true" data-form-type="other" readOnly=${!armed} onFocus=${() => setArmed(true)}

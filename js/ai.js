@@ -2,7 +2,7 @@
 // Lógica sin interfaz: clave, contexto del usuario, prompt, streaming y validación de lo que propone el modelo.
 //
 // Principios:
-//  · Solo usa Google Gemini (gemini-2.5-flash). No hay selector de proveedor.
+//  · Solo usa Google Gemini (cadena de modelos en AI_MODELS). No hay selector de proveedor.
 //  · El chat funciona sin configurar nada. Fuente de la clave, por orden:
 //      1. Clave personal (Ajustes, opcional, solo en este dispositivo).
 //      2. Proxy seguro (AI_PROXY_URL en config.js): la clave vive en el servidor y la app
@@ -22,14 +22,36 @@ const SHARED_KEY = String(APP.AI_DEFAULT_KEY || '').trim();
 // ¿Hay IA incluida en la app (sin que el usuario ponga nada)?
 export const SHARED_AI = Boolean(SHARED_PROXY || SHARED_KEY);
 
-export const AI_MODEL = 'gemini-2.5-flash';
-// Modelos de Gemini en orden de preferencia. Si el primero falla por el modelo (no existe, saturado,
-// sin cupo), se prueba el siguiente. Los errores de clave (401/403) no se reintentan.
-export const AI_MODELS = [AI_MODEL, 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
-const geminiUrl = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
-// ¿Vale la pena intentar con otro modelo? (404 modelo inexistente, 429 cupo, 5xx saturado)
-const canFallback = (status, text) => status === 404 || status === 429 || status >= 500
-  || (status === 400 && /model|not supported|unsupported/i.test(text) && !/api key|apikey|credential/i.test(text));
+// Modelos de Gemini en orden de preferencia. Si uno falla por el modelo (404 no existe, 429 sin cupo,
+// 5xx saturado) se prueba el siguiente. Los errores de clave (400 API_KEY_INVALID, 401, 403) no se reintentan.
+//  · Los tres primeros son los pedidos originalmente. Google ya retiró la familia 1.5 y 2.0-flash-exp,
+//    y desde 2026 solo da los 2.5 a cuentas que ya los usaban: con una clave nueva todos dan 404.
+//  · Por eso la cadena sigue con los modelos vigentes (3.x y el alias gemini-flash-latest).
+//  · Antes de llamar se consulta ListModels con la clave y se saltan los que esa clave no tiene.
+export const AI_MODELS = [
+  'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-2.5-flash',
+  'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite',
+];
+export const AI_MODEL = 'gemini-3.8-flash';
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+const geminiUrl = (model, key, stream = true) => `${GEMINI_BASE}/models/${model}:${stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?'}key=${encodeURIComponent(key)}`;
+
+// Limpia lo que pega el usuario: espacios, saltos de línea, comillas, caracteres invisibles y un "key=" delante.
+export function normalizeKey(raw) {
+  return String(raw || '')
+    .replace(/[\s​-‍﻿]+/g, '')
+    .replace(/^["'`]+|["'`]+$/g, '')
+    .replace(/^(?:key|api_?key)=/i, '');
+}
+// Aviso suave (no bloquea): las claves de Google AI Studio empiezan por AIza.
+export const keyLooksOdd = (key) => Boolean(key) && !/^AIza[\w-]{20,}$/.test(key);
+
+// ¿Es un error de clave (y no del modelo)? Google responde 400 API_KEY_INVALID, 401 o 403 PERMISSION_DENIED.
+const isKeyError = (status, text) => status === 401 || status === 403
+  || (status === 400 && /API_KEY_INVALID|API_KEY_|api key|apikey|credential/i.test(text));
+// ¿Vale la pena intentar con otro modelo?
+const canFallback = (status, text) => !isKeyError(status, text) && (status === 404 || status === 429 || status >= 500
+  || (status === 400 && /model|not supported|unsupported/i.test(text)));
 export const PROVIDERS = {
   gemini: { name: 'Google Gemini', label: 'Google Gemini', model: AI_MODEL, hint: 'Clave de Google AI Studio (aistudio.google.com). Empieza por AIza…' },
 };
@@ -52,11 +74,11 @@ export function loadAiConfig() {
     const c = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
     // Versiones anteriores permitían Groq/Grok: una clave de otro proveedor no sirve para Gemini.
     const ok = !c.provider || c.provider === 'gemini';
-    return { apiKey: ok ? String(c.apiKey || '') : '' };
+    return { apiKey: ok ? normalizeKey(c.apiKey) : '' };
   } catch { return { apiKey: '' }; }
 }
 export function saveAiConfig(cfg) {
-  const clean = { provider: 'gemini', apiKey: String(cfg.apiKey || '').trim() };
+  const clean = { provider: 'gemini', apiKey: normalizeKey(cfg.apiKey) };
   localStorage.setItem(CFG_KEY, JSON.stringify(clean));
   return { apiKey: clean.apiKey };
 }
@@ -71,7 +93,7 @@ function endpointError(url) {
 }
 
 // ¿Esta configuración personal es usable por sí sola?
-export const aiReady = (cfg) => Boolean(cfg?.apiKey?.trim());
+export const aiReady = (cfg) => Boolean(normalizeKey(cfg?.apiKey));
 
 // Elige la fuente de clave en el momento de preguntar. getToken() devuelve el JWT de la sesión.
 // → { config, source: 'personal' | 'proxy' | 'default' | null }
@@ -433,30 +455,111 @@ export function resolveTx(spec, d) {
 // ---------------------------------------------------------------------
 export class AiError extends Error {}
 
+export const KEY_ERROR_MSG = 'Clave de API no válida o sin permisos. Verifica tu clave en Google AI Studio.';
+
+const errorDetail = (body) => { try { return JSON.parse(body)?.error?.message || ''; } catch { return ''; } };
+
 function httpMessage(status, body, shared = false) {
-  const detail = (() => { try { return JSON.parse(body)?.error?.message || ''; } catch { return ''; } })();
+  const detail = errorDetail(body);
   if (shared) {
     // IA incluida: el usuario no tiene ninguna clave que revisar; mensajes en su lenguaje.
     if (status === 429) return 'Has hecho muchas preguntas seguidas. Espera unos minutos e inténtalo de nuevo.';
     if (status === 401) return 'Tu sesión expiró. Vuelve a entrar para usar a Fructuosa.';
     return 'Fructuosa no está disponible en este momento. Inténtalo en unos minutos.';
   }
-  if (status === 401 || status === 403 || (status === 400 && /api key|apikey|credential/i.test(detail))) return 'La clave de Gemini no es válida o no tiene permiso. Revísala en Ajustes → Fructuosa (IA).';
-  if (status === 404) return 'No se encontró el modelo de Gemini. Inténtalo más tarde.';
+  if (isKeyError(status, body)) return KEY_ERROR_MSG;
+  if (status === 404) return 'Tu clave no tiene acceso a ningún modelo de Gemini compatible. Crea una clave nueva en Google AI Studio (aistudio.google.com/apikey) y vuelve a probar.';
   if (status === 429) return 'Se alcanzó el límite de uso de Gemini. Espera un momento e inténtalo de nuevo.';
   if (status >= 500) return 'Gemini no está respondiendo ahora. Inténtalo en unos minutos.';
   return `Gemini rechazó la consulta (${status}).${detail ? ' ' + detail.slice(0, 140) : ''}`;
 }
 
-// history: [{ role: 'user'|'assistant', text, audio? }]. Devuelve el texto completo.
-// config.provider: 'gemini' (directo, con clave) | 'proxy' (servidor propio con sesión de Supabase).
 // Modelos que Google ya no reconoce (404): no se vuelven a intentar en esta sesión.
 const DEAD_MODELS = new Set();
+// Modelos disponibles para cada clave (ListModels), en memoria durante la sesión.
+const MODEL_CACHE = new Map();
 
+// Pregunta a Google qué modelos puede usar esta clave. También sirve para validar la clave:
+// 400 API_KEY_INVALID / 401 / 403 → AiError con el mensaje de clave. Si la consulta falla por otra
+// causa (red, 5xx) devuelve null y se prueba la lista fija.
+export async function listModels(key, { signal } = {}) {
+  if (MODEL_CACHE.has(key)) return MODEL_CACHE.get(key);
+  const names = new Set();
+  let pageToken = '';
+  try {
+    for (let page = 0; page < 5; page++) {
+      const res = await fetch(`${GEMINI_BASE}/models?pageSize=1000&key=${encodeURIComponent(key)}${pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''}`, { signal });
+      const text = await res.text().catch(() => '');
+      if (!res.ok) {
+        if (isKeyError(res.status, text)) {
+          console.warn('[IA] Gemini rechazó la clave:', res.status, errorDetail(text));
+          throw new AiError(KEY_ERROR_MSG);
+        }
+        return null;
+      }
+      const j = JSON.parse(text || '{}');
+      for (const m of j.models || []) {
+        if ((m.supportedGenerationMethods || []).includes('generateContent')) names.add(String(m.name || '').replace(/^models\//, ''));
+      }
+      pageToken = j.nextPageToken || '';
+      if (!pageToken) break;
+    }
+  } catch (e) {
+    if (e instanceof AiError || e?.name === 'AbortError') throw e;
+    return null;
+  }
+  MODEL_CACHE.set(key, names);
+  return names;
+}
+
+// Cadena de modelos a probar con esta clave: AI_MODELS en su orden, quitando los que la clave no tiene.
+// Si ninguno de la lista aparece en ListModels, se usa cualquier Flash de texto que sí tenga.
+async function modelChain(key, signal) {
+  const available = await listModels(key, { signal });
+  let chain = AI_MODELS.filter((m) => !DEAD_MODELS.has(m) && (!available || available.has(m)));
+  if (!chain.length && available?.size) {
+    chain = [...available]
+      .filter((m) => /^gemini-.*flash/.test(m) && !/image|tts|audio|live|embed|vision|thinking|preview|exp/.test(m))
+      .sort().reverse().slice(0, 3);
+  }
+  if (!chain.length) chain = AI_MODELS.filter((m) => !DEAD_MODELS.has(m));
+  return chain.length ? chain : AI_MODELS;
+}
+
+// Prueba los modelos en orden hasta que uno responda bien. Devuelve { res, model }.
+async function fetchWithFallback({ key, body, stream, signal, shared }) {
+  const models = await modelChain(key, signal);
+  const tried = [];
+  let last = { status: 404, text: '' };
+  for (const model of models) {
+    let res;
+    try {
+      res = await fetch(geminiUrl(model, key, stream), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });
+    } catch (e) {
+      if (e?.name === 'AbortError') throw e;
+      throw new AiError('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
+    }
+    if (res.ok) return { res, model };
+    const text = await res.text().catch(() => '');
+    tried.push(`${model} (${res.status})`);
+    last = { status: res.status, text };
+    if (res.status === 404) DEAD_MODELS.add(model);
+    if (!canFallback(res.status, text)) {
+      if (isKeyError(res.status, text)) console.warn('[IA] Gemini rechazó la clave:', res.status, errorDetail(text));
+      throw new AiError(httpMessage(res.status, text, shared));
+    }
+    console.warn(`[IA] ${model} falló (${res.status}); probando el siguiente`);
+  }
+  console.warn('[IA] Ningún modelo respondió:', tried.join(', '));
+  throw new AiError(httpMessage(last.status, last.text, shared));
+}
+
+// history: [{ role: 'user'|'assistant', text, audio? }]. Devuelve el texto completo.
+// config.provider: 'gemini' (directo, con clave) | 'proxy' (servidor propio con sesión de Supabase).
 export async function streamChat({ config, system, history, signal, onDelta }) {
   const proxy = config.provider === 'proxy';
-  const key = String(config.apiKey || '').trim();
   const shared = Boolean(config.shared);
+  const key = proxy ? String(config.apiKey || '').trim() : normalizeKey(config.apiKey);
   let url; let headers; let body;
 
   if (proxy) {
@@ -472,8 +575,7 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
       ],
     };
   } else {
-    url = geminiUrl(AI_MODELS[0]);
-    headers = { 'Content-Type': 'application/json', 'x-goog-api-key': key };
+    if (!key) throw new AiError(KEY_ERROR_MSG);
     const contents = history.map((m) => {
       const role = m.role === 'assistant' ? 'model' : 'user';
       const parts = [];
@@ -499,22 +601,18 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
     };
   }
 
-  // Con Gemini directo se prueban los modelos en orden de preferencia (saltando los que ya dieron 404).
-  const models = proxy ? [null] : (AI_MODELS.filter((m) => !DEAD_MODELS.has(m)).length ? AI_MODELS.filter((m) => !DEAD_MODELS.has(m)) : AI_MODELS);
   let res;
-  for (let k = 0; k < models.length; k++) {
-    const model = models[k];
+  if (proxy) {
     try {
-      res = await fetch(proxy ? url : geminiUrl(model), { method: 'POST', headers, body: JSON.stringify(body), signal });
+      res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
     } catch (e) {
       if (e?.name === 'AbortError') throw e;
       throw new AiError('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
     }
-    if (res.ok) break;
-    const errText = await res.text().catch(() => '');
-    if (!proxy && res.status === 404) DEAD_MODELS.add(model);
-    if (proxy || k === models.length - 1 || !canFallback(res.status, errText)) throw new AiError(httpMessage(res.status, errText, shared));
-    console.warn(`[IA] ${model} falló (${res.status}); probando ${models[k + 1]}`);
+    if (!res.ok) throw new AiError(httpMessage(res.status, await res.text().catch(() => ''), shared));
+  } else {
+    // Gemini directo: se prueban los modelos en orden de preferencia (ver AI_MODELS).
+    ({ res } = await fetchWithFallback({ key, body, stream: true, signal, shared }));
   }
 
   const reader = res.body.getReader();
@@ -804,12 +902,22 @@ export function isSpeaking() {
   return Boolean(typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking);
 }
 
-// Prueba rápida de la clave (Ajustes).
+// Prueba rápida de la clave (Ajustes). Valida la clave con ListModels y luego hace una llamada
+// mínima a generateContent con la cadena de modelos. Devuelve el nombre del modelo que respondió.
 export async function testConnection(config) {
+  const key = normalizeKey(config?.apiKey);
+  if (!key) throw new AiError('Pega tu clave de API.');
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), 20000);
   try {
-    await streamChat({ config: { provider: 'gemini', apiKey: config.apiKey }, system: 'Responde únicamente con la palabra: ok', history: [{ role: 'user', text: 'ping' }], signal: ctl.signal, onDelta: () => {} });
+    const { res, model } = await fetchWithFallback({
+      key,
+      body: { contents: [{ role: 'user', parts: [{ text: 'Responde únicamente con la palabra: ok' }] }] },
+      stream: false,
+      signal: ctl.signal,
+    });
+    await res.json().catch(() => null);
+    return model;
   } catch (e) {
     if (e?.name === 'AbortError') throw new AiError('El servicio tardó demasiado en responder.');
     throw e;
