@@ -903,24 +903,39 @@ export function isSpeaking() {
   return Boolean(typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking);
 }
 
-// Prueba rápida de la clave (Ajustes). Valida la clave con ListModels y luego hace una llamada
-// mínima a generateContent con la cadena de modelos. Devuelve el nombre del modelo que respondió.
+// Prueba rápida de la clave (Ajustes). Va directo a gemini-1.5-flash (endpoint v1beta, sin ListModels ni
+// cadena larga de modelos). Solo si ese modelo da 404 prueba gemini-2.0-flash. Timeout de 15 s.
+const TEST_MODELS = ['gemini-1.5-flash', 'gemini-2.0-flash'];
+const TEST_TIMEOUT_MS = 15000;
 export async function testConnection(config) {
   const key = normalizeKey(config?.apiKey);
   if (!key) throw new AiError('Pega tu clave de API.');
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), 20000);
+  const timer = setTimeout(() => ctl.abort(), TEST_TIMEOUT_MS);
+  const body = JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Responde únicamente con la palabra: ok' }] }] });
   try {
-    const { res, model } = await fetchWithFallback({
-      key,
-      body: { contents: [{ role: 'user', parts: [{ text: 'Responde únicamente con la palabra: ok' }] }] },
-      stream: false,
-      signal: ctl.signal,
-    });
-    await res.json().catch(() => null);
-    return model;
+    let last = { status: 404, text: '' };
+    for (const model of TEST_MODELS) {
+      let res;
+      try {
+        res = await fetch(geminiUrl(model, key, false), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, signal: ctl.signal });
+      } catch (e) {
+        if (e?.name === 'AbortError') throw e;
+        throw new AiError('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
+      }
+      if (res.ok) {
+        await res.json().catch(() => null);
+        return model;
+      }
+      const text = await res.text().catch(() => '');
+      last = { status: res.status, text };
+      if (res.status !== 404) break; // clave inválida, límite de uso, etc.: otro modelo no ayuda
+      console.warn(`[IA] ${model} no existe para esta clave (404); probando ${TEST_MODELS[TEST_MODELS.indexOf(model) + 1] || 'ninguno más'}`);
+    }
+    if (isKeyError(last.status, last.text)) console.warn('[IA] Gemini rechazó la clave:', last.status, errorDetail(last.text));
+    throw new AiError(httpMessage(last.status, last.text));
   } catch (e) {
-    if (e?.name === 'AbortError') throw new AiError('El servicio tardó demasiado en responder.');
+    if (e?.name === 'AbortError') throw new AiError('Gemini tardó más de 15 segundos en responder. Inténtalo de nuevo.');
     throw e;
   } finally { clearTimeout(timer); }
 }
