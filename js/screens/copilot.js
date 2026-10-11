@@ -1,6 +1,6 @@
 // Copiloto IA: chat con respuestas en streaming + configuración del proveedor.
 import { useEffect, useRef, useState } from 'react';
-import { html, Icon, Sheet, Field, Segmented, Switch, toast, errorText, vibrate } from '../ui.js';
+import { html, Icon, Sheet, Field, Switch, toast, errorText, vibrate } from '../ui.js';
 import { useData } from '../store.js';
 import { go } from './common.js';
 import { categoryMeta, fmt, fmtRate } from '../money.js';
@@ -59,7 +59,9 @@ export function AiSettings({ onSaved }) {
 
   return html`<div class="stack">
     <${Field} label="Proveedor">
-      <${Segmented} value=${cfg.provider} onChange=${(v) => set('provider', v)} options=${Object.entries(PROVIDERS).map(([k, v]) => [k, v.label])} />
+      <select class="input select block" value=${cfg.provider} onChange=${(e) => { setCfg((c) => ({ ...c, provider: e.target.value, model: '' })); setErr({}); }}>
+        ${Object.entries(PROVIDERS).map(([k, v]) => html`<option key=${k} value=${k}>${v.label}</option>`)}
+      </select>
     <//>
     <${Field} label="Clave de API" error=${err.apiKey} hint=${p.hint}>
       <div class="input-affix right">
@@ -76,7 +78,7 @@ export function AiSettings({ onSaved }) {
     <//>`}
     <div class="callout ai-consent">
       <${Switch} checked=${cfg.consent} onChange=${(v) => set('consent', v)} label="Entiendo y acepto"
-        sub=${`Tus preguntas y un resumen de tus cuentas, tasas y últimos movimientos se envían a ${p.label} para responder. La clave se guarda solo en este dispositivo.`} />
+        sub=${`Tus preguntas y un resumen de tus cuentas, tasas y últimos movimientos se envían a ${p.name} para responder. La clave se guarda solo en este dispositivo.`} />
       ${err.consent && html`<span class="field-error">${err.consent}</span>`}
     </div>
     ${err.form && html`<p class="form-error">${err.form}</p>`}

@@ -14,10 +14,14 @@ import { CATEGORIES, CURRENCIES, RATE_LABELS, convert, todayISO, monthKey } from
 // ---------------------------------------------------------------------
 const CFG_KEY = 'fructosa-ai-config';
 
+// label: nombre completo en el selector · name: nombre corto para frases.
 export const PROVIDERS = {
-  gemini: { label: 'Gemini', model: 'gemini-2.5-flash', hint: 'Clave gratuita en aistudio.google.com/apikey' },
-  groq: { label: 'Groq', model: 'llama-3.3-70b-versatile', endpoint: 'https://api.groq.com/openai/v1', hint: 'Clave gratuita en console.groq.com/keys' },
-  custom: { label: 'Otro', model: '', endpoint: '', hint: 'Cualquier servicio compatible con OpenAI (ruta /chat/completions)' },
+  gemini: { label: 'Gemini (Google)', name: 'Gemini (Google)', model: 'gemini-2.5-flash', hint: 'Clave gratuita en aistudio.google.com/apikey' },
+  groq: { label: 'Groq (Inferencia Ultra-Rápida)', name: 'Groq', model: 'llama-3.3-70b-versatile', endpoint: 'https://api.groq.com/openai/v1',
+    hint: 'Groq, con "q", es la plataforma de inferencia rápida. Clave gratuita en console.groq.com/keys' },
+  grok: { label: 'Grok (xAI)', name: 'Grok (xAI)', model: 'grok-3-mini', endpoint: 'https://api.x.ai/v1',
+    hint: 'Grok, con "k", es el modelo de xAI. Clave en console.x.ai' },
+  custom: { label: 'Otro (compatible con OpenAI)', name: 'el servicio que indicaste', model: '', endpoint: '', hint: 'Cualquier servicio compatible con OpenAI (ruta /chat/completions)' },
 };
 
 const DEFAULT_CFG = { provider: 'gemini', apiKey: '', model: '', endpoint: '', consent: false };

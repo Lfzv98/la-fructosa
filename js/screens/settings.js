@@ -110,7 +110,7 @@ export function Settings() {
 
     <${SectionTitle}>Copiloto IA<//>
     <section class="card pad stack">
-      <p class="hint">Conecta tu propia clave de Gemini o Groq para chatear con tus números. <a class="link" href="#/copiloto">Abrir el copiloto</a></p>
+      <p class="hint">Conecta tu propia clave de Gemini, Groq o Grok (xAI) para chatear con tus números. <a class="link" href="#/copiloto">Abrir el copiloto</a></p>
       <${AiSettings} />
     </section>
 
