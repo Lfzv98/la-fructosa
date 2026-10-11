@@ -23,16 +23,23 @@ const SHARED_KEY = String(APP.AI_DEFAULT_KEY || '').trim();
 export const SHARED_AI = Boolean(SHARED_PROXY || SHARED_KEY);
 
 // Modelos de Gemini en orden de preferencia. Si uno falla por el modelo (404 no existe, 429 sin cupo,
-// 5xx saturado) se prueba el siguiente. Los errores de clave (400 API_KEY_INVALID, 401, 403) no se reintentan.
-//  · Los tres primeros son los pedidos originalmente. Google ya retiró la familia 1.5 y 2.0-flash-exp,
-//    y desde 2026 solo da los 2.5 a cuentas que ya los usaban: con una clave nueva todos dan 404.
-//  · Por eso la cadena sigue con los modelos vigentes (3.x y el alias gemini-flash-latest).
+// 5xx saturado) o tarda más de ATTEMPT_TIMEOUT_MS en responder, se prueba el siguiente.
+// Los errores de clave (400 API_KEY_INVALID, 401, 403) no se reintentan.
+//  · Primero van los rápidos (gemini-2.0-flash y gemini-1.5-flash). Se quitaron los lentos u obsoletos
+//    (gemini-1.5-pro, gemini-2.0-flash-exp) para no perder segundos en intentos que no sirven.
+//  · Google ya retiró la familia 1.5 y, con claves nuevas, los 2.x dan 404: por eso la cadena sigue con los
+//    modelos vigentes (3.x y el alias gemini-flash-latest). Un 404 responde al instante y se recuerda.
 //  · Antes de llamar se consulta ListModels con la clave y se saltan los que esa clave no tiene.
 export const AI_MODELS = [
-  'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-2.5-flash',
+  'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash',
   'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-2.5-flash-lite',
 ];
-export const AI_MODEL = 'gemini-3.8-flash';
+export const AI_MODEL = AI_MODELS[0];
+// Tiempo máximo para que un modelo empiece a responder (llegan los encabezados) antes de pasar al siguiente.
+// Una vez que empieza a responder no se corta: la respuesta puede tardar lo que necesite.
+const ATTEMPT_TIMEOUT_MS = 5000;
+// Si varios modelos seguidos no responden, el problema es la red o Google: no se sigue esperando 5 s por cada uno.
+const MAX_TIMEOUTS = 3;
 const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 const geminiUrl = (model, key, stream = true) => `${GEMINI_BASE}/models/${model}:${stream ? 'streamGenerateContent?alt=sse&' : 'generateContent?'}key=${encodeURIComponent(key)}`;
 
@@ -475,6 +482,19 @@ function httpMessage(status, body, shared = false) {
   return `Gemini rechazó la consulta (${status}).${detail ? ' ' + detail.slice(0, 140) : ''}`;
 }
 
+// Señal para un intento: se cancela si la persona cancela (parent) o si pasan `ms` sin respuesta.
+// stop() quita solo el reloj (cuando ya llegó la respuesta); release() suelta también el enlace con parent.
+function attemptSignal(parent, ms) {
+  const ctl = new AbortController();
+  const onParentAbort = () => ctl.abort();
+  if (parent) { if (parent.aborted) ctl.abort(); else parent.addEventListener('abort', onParentAbort, { once: true }); }
+  const a = { signal: ctl.signal, timedOut: false };
+  const timer = setTimeout(() => { a.timedOut = true; ctl.abort(); }, ms);
+  a.stop = () => clearTimeout(timer);
+  a.release = () => { clearTimeout(timer); parent?.removeEventListener('abort', onParentAbort); };
+  return a;
+}
+
 // Modelos que Google ya no reconoce (404): no se vuelven a intentar en esta sesión.
 const DEAD_MODELS = new Set();
 // Modelos disponibles para cada clave (ListModels), en memoria durante la sesión.
@@ -487,9 +507,10 @@ export async function listModels(key, { signal } = {}) {
   if (MODEL_CACHE.has(key)) return MODEL_CACHE.get(key);
   const names = new Set();
   let pageToken = '';
+  const attempt = attemptSignal(signal, ATTEMPT_TIMEOUT_MS);
   try {
     for (let page = 0; page < 5; page++) {
-      const res = await fetch(`${GEMINI_BASE}/models?pageSize=1000&key=${encodeURIComponent(key)}${pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''}`, { signal });
+      const res = await fetch(`${GEMINI_BASE}/models?pageSize=1000&key=${encodeURIComponent(key)}${pageToken ? '&pageToken=' + encodeURIComponent(pageToken) : ''}`, { signal: attempt.signal });
       const text = await res.text().catch(() => '');
       if (!res.ok) {
         if (isKeyError(res.status, text)) {
@@ -506,9 +527,10 @@ export async function listModels(key, { signal } = {}) {
       if (!pageToken) break;
     }
   } catch (e) {
+    if (attempt.timedOut) return null; // ListModels tardó: se sigue con la lista fija, sin esperar más
     if (e instanceof AiError || e?.name === 'AbortError') throw e;
     return null;
-  }
+  } finally { attempt.release(); }
   MODEL_CACHE.set(key, names);
   return names;
 }
@@ -528,22 +550,35 @@ async function modelChain(key, signal) {
 }
 
 // Prueba los modelos en orden hasta que uno responda bien. Devuelve { res, model }.
+// Cada intento tiene como máximo ATTEMPT_TIMEOUT_MS para empezar a responder; si no, pasa al siguiente.
 async function fetchWithFallback({ key, body, stream, signal, shared }) {
   const models = await modelChain(key, signal);
   const tried = [];
-  let last = { status: 404, text: '' };
+  let last = { status: 404, text: '', timedOut: false };
+  let timeouts = 0;
   for (const model of models) {
+    const attempt = attemptSignal(signal, ATTEMPT_TIMEOUT_MS);
     let res;
     try {
-      res = await fetch(geminiUrl(model, key, stream), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal });
+      res = await fetch(geminiUrl(model, key, stream), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: attempt.signal });
     } catch (e) {
+      attempt.release();
+      if (attempt.timedOut) {
+        tried.push(`${model} (timeout)`);
+        last = { status: 408, text: '', timedOut: true };
+        if (++timeouts >= MAX_TIMEOUTS) break;
+        console.warn(`[IA] ${model} no respondió en ${ATTEMPT_TIMEOUT_MS / 1000} s; probando el siguiente`);
+        continue;
+      }
       if (e?.name === 'AbortError') throw e;
       throw new AiError('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
     }
-    if (res.ok) return { res, model };
+    if (res.ok) { attempt.stop(); return { res, model }; } // el enlace con `signal` sigue vivo para cancelar el stream
+    attempt.stop();
     const text = await res.text().catch(() => '');
+    attempt.release();
     tried.push(`${model} (${res.status})`);
-    last = { status: res.status, text };
+    last = { status: res.status, text, timedOut: false };
     if (res.status === 404) DEAD_MODELS.add(model);
     if (!canFallback(res.status, text)) {
       if (isKeyError(res.status, text)) console.warn('[IA] Gemini rechazó la clave:', res.status, errorDetail(text));
@@ -552,6 +587,7 @@ async function fetchWithFallback({ key, body, stream, signal, shared }) {
     console.warn(`[IA] ${model} falló (${res.status}); probando el siguiente`);
   }
   console.warn('[IA] Ningún modelo respondió:', tried.join(', '));
+  if (last.timedOut) throw new AiError(shared ? 'Fructuosa está tardando más de lo normal. Inténtalo de nuevo en un momento.' : 'Gemini está tardando demasiado en responder. Inténtalo de nuevo.');
   throw new AiError(httpMessage(last.status, last.text, shared));
 }
 
