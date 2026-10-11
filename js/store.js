@@ -5,7 +5,7 @@ import { api, isDemo } from './api.js';
 import { fetchLiveRates } from './rates.js';
 import { snapshot, queue, isNetworkError, uuid } from './offline.js';
 import { toast } from './ui.js';
-import { REGIONS, ACCOUNT_TEMPLATES, ACCOUNT_COLORS, KINDS, convert, consolidate, todayISO, monthKey } from './money.js';
+import { regionFor, ACCOUNT_TEMPLATES, ACCOUNT_COLORS, KINDS, convert, consolidate, todayISO, monthKey } from './money.js';
 
 const Ctx = createContext(null);
 export const useData = () => useContext(Ctx);
@@ -150,9 +150,10 @@ export function DataProvider({ uid, children }) {
     }
   }, []);
 
-  // Tasas en vivo si la base de datos no tiene las de hoy (solo en modo real y región VE).
+  // Tasas en vivo si la base de datos no tiene las de hoy (solo en modo real, en Venezuela
+  // o fuera de ella si la persona tiene cuentas en bolívares).
   useEffect(() => {
-    if (!data || isDemo || (data.profile.region || 'VE') !== 'VE') return;
+    if (!data || isDemo || !regionFor(data.profile.region || 'VE', data.accounts).rates) return;
     const today = todayISO();
     const stale = ['BCV_USD', 'PARALELO', 'USDT'].some((k) => !data.rateMeta[k] || data.rateMeta[k].rate_date < today || !data.rates[k]);
     if (stale) {
@@ -164,7 +165,7 @@ export function DataProvider({ uid, children }) {
   const derived = useMemo(() => {
     if (!data) return null;
     const profile = { region: 'VE', preferred_currency: 'USD', valuation_rate: 'BCV_USD', ...data.profile };
-    const region = REGIONS[profile.region] || REGIONS.VE;
+    const region = regionFor(profile.region, data.accounts);
     const accountTemplates = ACCOUNT_TEMPLATES[profile.region] || ACCOUNT_TEMPLATES.VE;
 
     // Tasas: primero las de la base de datos; la API en vivo completa los huecos o los días faltantes.

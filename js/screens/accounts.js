@@ -70,7 +70,9 @@ export function AccountForm({ account, onClose }) {
     ? 'Ej. Checking Account, Venmo, Zelle…'
     : userRegion === 'ES'
       ? 'Ej. Bizum, Cuenta BBVA, Tarjeta…'
-      : 'Ej. Pago Móvil, Banesco, Zelle…';
+      : userRegion === 'INT'
+        ? 'Ej. Bancolombia, Wise, Binance…'
+        : 'Ej. Pago Móvil, Banesco, Zelle…';
   const used = txs.filter((t) => account && (t.account_id === account.id || t.to_account_id === account.id)).length;
 
   async function submit(close) {

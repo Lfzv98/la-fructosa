@@ -311,7 +311,7 @@ export function systemPrompt(d, { first = true } = {}) {
   const intro = AI_INTRO(userFirstName(d.profile));
   const cc = region.currencies.join(', ');
   const rule2 = region.rates
-    ? `Solo trabajas con la economía de ${region.label}: bolívares (Bs.), dólares, euros y USDT, con las tasas BCV, Paralelo, Euro BCV y USDT que aparecen en los datos. No inventes tasas ni uses otras.`
+    ? `Solo trabajas con ${region.label === 'Venezuela' ? 'la economía de Venezuela' : `las monedas del usuario (vive en ${region.label} y maneja también cuentas en bolívares)`}: bolívares (Bs.), dólares, euros y USDT, con las tasas BCV, Paralelo, Euro BCV y USDT que aparecen en los datos. No inventes tasas ni uses otras.`
     : `Solo trabajas con la economía de ${region.label} (${cc}). Aquí NO existen tasas BCV, dólar paralelo ni brecha cambiaria: no los menciones ni los calcules. No mezcles sistemas financieros de otros países.`;
   return `Eres "Fructosa", la asistente personal de finanzas dentro de la app La Fructosa. Hablas en español, con tono cercano, claro y profesional.
 No eres un banco ni das asesoría legal o de inversión regulada; si algo requiere un profesional, dilo en una frase.
@@ -411,7 +411,7 @@ export function runCalc(spec, d) {
   const from = String(spec.from || '').toUpperCase();
   const to = String(spec.to || '').toUpperCase();
   if (!isFinite(amount) || !CURRENCIES[from] || !CURRENCIES[to]) return { error: 'No pude interpretar esa conversión.' };
-  if (!region.rates && (from === 'VES' || to === 'VES')) return { error: `En ${region.label} no se manejan bolívares ni tasas de cambio.` };
+  if (!region.rates && (from === 'VES' || to === 'VES')) return { error: `No tienes cuentas en bolívares, así que no uso tasas de cambio. Si creas una cuenta en Bs., las activo.` };
   const key = String(spec.rate || '').toUpperCase();
   const asked = key.startsWith('PARAL') ? 'PARALELO' : key.startsWith('BCV') ? 'BCV_USD' : (val || 'BCV_USD');
 

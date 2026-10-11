@@ -1,6 +1,6 @@
 // La Fructosa · Service Worker
 // Sube CACHE_VERSION en cada despliegue: la app avisará "Hay una versión nueva".
-const CACHE_VERSION = 'fructosa-v22';
+const CACHE_VERSION = 'fructosa-v23';
 
 const APP_SHELL = [
   './',
@@ -15,6 +15,7 @@ const APP_SHELL = [
   './js/ui.js',
   './js/ai.js',
   './js/learn.js',
+  './js/howToUseIt.js',
   './js/tour.js',
   './js/charts.js',
   './js/export.js',

@@ -96,6 +96,20 @@ la-fructosa/
 4. Prueba local: `python3 -m http.server` y abre `http://localhost:8000/?demo`.
 5. GitHub Pages: Settings → Pages → Deploy from branch `main` / root.
 
+## Novedades 3.2 (v23)
+
+- **Cualquier país**: nuevo país "Otro país" (`INT`: Panamá, Colombia, Chile, México…). Las cuatro monedas (USD, VES,
+  USDT, EUR) están en todos los países; fuera de Venezuela, tener una cuenta activa en bolívares activa sola las tasas
+  y la brecha (`regionFor` en `js/money.js`).
+- **Bancos**: lista completa de bancos venezolanos y secciones de bancos internacionales, apps de pago y cripto,
+  según la moneda de la cuenta (`bankGroupsFor`).
+- **Manual de uso**: `js/howToUseIt.js` es la fuente única del manual (pantalla Más › Manual de uso) con paso a paso,
+  conciliación semanal, exportación y una guía de finanzas personales. `docs/howToUseIt.md` se regenera con
+  `node tests/howToUseIt.test.mjs --write`.
+- **Base de datos**: `supabase/migrations/011_alineacion_v23.sql` verifica y alinea tablas, columnas, RLS y
+  permisos; se puede ejecutar varias veces y termina con un reporte OK / REVISAR. Ejecútala **antes** de subir
+  la v23 (el país `INT` necesita la nueva regla).
+
 ## Novedades 3.1
 
 - **Confianza y términos**: al entrar por primera vez (y quien ya tenía cuenta, una vez) aparece una pantalla

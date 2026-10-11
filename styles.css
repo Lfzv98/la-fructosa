@@ -814,3 +814,12 @@ b.big { font-size: 20px; }
 .backup-banner .icon-btn { width: 32px; height: 32px; background: transparent; border: 0; }
 :root[data-theme="light"] .trust-ico { background: #EEF3FF; color: #3E63B8; }
 :root[data-theme="light"] .backup-banner { background: #FFF6E8; border-color: #F3D9B1; }
+
+/* Manual de uso (howToUseIt) */
+.manual-steps { margin: 10px 0 0; padding-left: 22px; display: grid; gap: 8px; }
+.manual-steps li { font-size: 14px; color: #D9E2F5; line-height: 1.45; }
+.manual-steps li::marker { color: var(--salmon); font-weight: 700; }
+.prose .manual-tip { font-size: 13.5px; color: var(--muted); }
+.manual-motto { font-size: 17px !important; font-weight: 700; color: var(--text) !important; }
+.manual-guide { border-color: var(--salmon); }
+:root[data-theme="light"] .manual-steps li { color: var(--text); }

@@ -10,8 +10,9 @@ export const USERNAME_RE = /^[a-z0-9._]{3,20}$/;
 
 const REGION_INFO = {
   VE: 'USD, Bs. y USDT · tasas BCV y paralelo · calculadora de brecha',
-  US: 'Dólares · sin tasas ni brecha',
-  ES: 'Euros · sin tasas ni brecha',
+  US: 'Dólares · sin tasas ni brecha (salvo que tengas cuentas en Bs.)',
+  ES: 'Euros · sin tasas ni brecha (salvo que tengas cuentas en Bs.)',
+  INT: 'Panamá, Colombia, Chile, México y demás · USD, EUR, USDT y Bs.',
 };
 
 // País: obligatorio y sin opción marcada por defecto, porque cambia cómo funciona la app.

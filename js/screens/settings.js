@@ -56,7 +56,7 @@ export function Settings() {
     const reg = REGIONS[r];
     const ok = await confirmDialog({ title: `¿Cambiar a ${reg.flag} ${reg.label}?`,
       body: reg.rates ? 'Verás las tasas BCV/Paralelo/USDT y la calculadora de brecha. Tu moneda principal pasa a USD.'
-        : `Se ocultan las tasas y la brecha cambiaria, y tu moneda principal pasa a ${reg.base}. Tus cuentas y movimientos no cambian.`, confirm: 'Cambiar país' });
+        : `Se ocultan las tasas y la brecha cambiaria (vuelven solas si tienes cuentas en bolívares), y tu moneda principal pasa a ${reg.base}. Tus cuentas y movimientos no cambian.`, confirm: 'Cambiar país' });
     if (!ok) return;
     const patch = { region: r, preferred_currency: reg.base };
     save(patch, `Región: ${reg.label}`);
@@ -84,7 +84,7 @@ export function Settings() {
     <${SectionTitle}>Región y moneda<//>
     <section class="card pad stack">
       <${Field} label="País" hint=${region.rates ? 'Muestra tasas BCV/Paralelo/USDT y la calculadora de brecha.' : 'Oculta tasas y brecha cambiaria.'}>
-        <${Segmented} value=${profile.region || 'VE'} onChange=${setRegion} options=${Object.entries(REGIONS).map(([k, r]) => [k, `${r.flag} ${k}`])} />
+        <${Segmented} value=${profile.region || 'VE'} onChange=${setRegion} options=${Object.entries(REGIONS).map(([k, r]) => [k, `${r.flag} ${r.short || k}`])} />
       <//>
       <${Field} label="Moneda principal" hint="En ella se muestran el patrimonio y los análisis.">
         <${Segmented} value=${profile.preferred_currency} onChange=${(c) => save({ preferred_currency: c }, `Moneda principal: ${c}`)}

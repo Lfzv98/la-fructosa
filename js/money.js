@@ -22,12 +22,24 @@ export const RATE_HELP = {
   USDT:     'Precio del USDT en el mercado P2P (Binance). Útil si tu respaldo está en cripto.',
 };
 
-// Cada región cambia qué monedas se ofrecen y si se muestran tasas y brecha.
+// Cada región cambia qué monedas se ofrecen primero y si se muestran tasas y brecha.
+// Las cuatro monedas (USD, VES, USDT, EUR) están disponibles en todos los países: quien vive fuera
+// y conserva una cuenta en bolívares la crea igual, y las tasas se activan solas (ver regionFor).
 export const REGIONS = {
-  VE: { label: 'Venezuela',      flag: '🇻🇪', currencies: ['USD', 'VES', 'USDT', 'EUR'], base: 'USD', rates: true },
-  US: { label: 'Estados Unidos', flag: '🇺🇸', currencies: ['USD', 'USDT', 'EUR'],        base: 'USD', rates: false },
-  ES: { label: 'España',         flag: '🇪🇸', currencies: ['EUR', 'USD', 'USDT'],        base: 'EUR', rates: false },
+  VE:  { label: 'Venezuela',      short: 'VE',   flag: '🇻🇪', currencies: ['USD', 'VES', 'USDT', 'EUR'], base: 'USD', rates: true },
+  US:  { label: 'Estados Unidos', short: 'US',   flag: '🇺🇸', currencies: ['USD', 'USDT', 'EUR', 'VES'], base: 'USD', rates: false },
+  ES:  { label: 'España',         short: 'ES',   flag: '🇪🇸', currencies: ['EUR', 'USD', 'USDT', 'VES'], base: 'EUR', rates: false },
+  INT: { label: 'Otro país',      short: 'Otro', flag: '🌎', currencies: ['USD', 'EUR', 'USDT', 'VES'], base: 'USD', rates: false },
 };
+
+// Región efectiva de una persona: fuera de Venezuela, tener una cuenta activa en bolívares
+// enciende las tasas BCV/Paralelo/USDT y la calculadora de brecha.
+export function regionFor(code, accounts = []) {
+  const base = REGIONS[code] || REGIONS.VE;
+  if (base.rates) return base;
+  const ves = accounts.some((a) => !a.archived && a.currency === 'VES');
+  return ves ? { ...base, rates: true } : base;
+}
 
 export const KINDS = {
   cash:    { label: 'Efectivo', emoji: '💵' },
@@ -44,6 +56,7 @@ export const ACCOUNT_TEMPLATES = {
     { name: 'Efectivo VES', currency: 'VES', kind: 'cash', icon: '💵' },
     { name: 'Zelle', currency: 'USD', kind: 'digital', icon: '📱' },
     { name: 'Binance (USDT)', currency: 'USDT', kind: 'crypto', icon: '🪙' },
+    { name: 'Efectivo EUR', currency: 'EUR', kind: 'cash', icon: '💶' },
     { name: 'Banesco', currency: 'VES', kind: 'bank', icon: '🏦' },
     { name: 'Mercantil', currency: 'VES', kind: 'bank', icon: '🏦' },
   ],
@@ -55,6 +68,7 @@ export const ACCOUNT_TEMPLATES = {
     { name: 'Tarjeta de Crédito', currency: 'USD', kind: 'bank', icon: '💳' },
     { name: 'Cuenta de Cheques (Checking Account)', currency: 'USD', kind: 'bank', icon: '🏦' },
     { name: 'Cash', currency: 'USD', kind: 'cash', icon: '💵' },
+    { name: 'Binance (USDT)', currency: 'USDT', kind: 'crypto', icon: '🪙' },
   ],
   ES: [
     { name: 'Bizum', currency: 'EUR', kind: 'digital', icon: '📱' },
@@ -63,48 +77,72 @@ export const ACCOUNT_TEMPLATES = {
     { name: 'Efectivo EUR', currency: 'EUR', kind: 'cash', icon: '💶' },
     { name: 'Binance', currency: 'USDT', kind: 'crypto', icon: '🪙' },
   ],
+  INT: [
+    { name: 'Efectivo USD', currency: 'USD', kind: 'cash', icon: '💵' },
+    { name: 'Zelle', currency: 'USD', kind: 'digital', icon: '📱' },
+    { name: 'PayPal', currency: 'USD', kind: 'digital', icon: '📱' },
+    { name: 'Wise', currency: 'USD', kind: 'digital', icon: '📱' },
+    { name: 'Binance (USDT)', currency: 'USDT', kind: 'crypto', icon: '🪙' },
+    { name: 'Efectivo EUR', currency: 'EUR', kind: 'cash', icon: '💶' },
+  ],
 };
 
 // Filas de "elige tu banco" en la pantalla de bienvenida: en vez de un banco fijo, la persona
 // toca el suyo en la lista desplegable (bank: true). Reemplazan a las plantillas con nombre de banco.
+// Fuera de Venezuela se ofrece también la cuenta en bolívares, para quien la conserva allá.
+const VES_PICK = { name: 'Banco venezolano (Bs.)', currency: 'VES', kind: 'bank', icon: '🏦', bank: true };
 export const BANK_PICK_TEMPLATES = {
-  VE: [
-    { name: 'Banco venezolano (Bs.)', currency: 'VES', kind: 'bank', icon: '🏦', bank: true },
-    { name: 'Banco o app internacional (USD)', currency: 'USD', kind: 'bank', icon: '🏦', bank: true },
+  VE: [VES_PICK, { name: 'Banco o app internacional (USD)', currency: 'USD', kind: 'bank', icon: '🏦', bank: true }],
+  US: [{ name: 'Cuenta en un banco', currency: 'USD', kind: 'bank', icon: '🏦', bank: true }, VES_PICK],
+  ES: [{ name: 'Cuenta en un banco', currency: 'EUR', kind: 'bank', icon: '🏦', bank: true }, VES_PICK],
+  INT: [
+    { name: 'Banco donde vives (USD)', currency: 'USD', kind: 'bank', icon: '🏦', bank: true },
+    { name: 'Banco donde vives (EUR)', currency: 'EUR', kind: 'bank', icon: '🏦', bank: true },
+    VES_PICK,
   ],
-  US: [{ name: 'Cuenta en un banco', currency: 'USD', kind: 'bank', icon: '🏦', bank: true }],
-  ES: [{ name: 'Cuenta en un banco', currency: 'EUR', kind: 'bank', icon: '🏦', bank: true }],
 };
 
-// Bancos e instituciones por región, agrupados en secciones desplegables (pantalla "¿Dónde tienes tu dinero?").
+// Bancos e instituciones, agrupados en secciones desplegables (pantalla "¿Dónde tienes tu dinero?").
 // Cada nombre es el que se guarda como nombre de la cuenta.
-const INTERNATIONAL = [
-  'Bank of America (BOFA)', 'Chase', 'Wells Fargo', 'Citibank', 'Capital One', 'Zelle', 'PayPal', 'Wise', 'Revolut',
-  'Binance', 'Zinli', 'Airtm', 'Reserve', 'Meru',
-];
+// Venezuela: banca universal, microfinanciera, digital y pública autorizada por SUDEBAN (2026).
+const VE_GROUP = { title: 'Bancos de Venezuela', ves: true, banks: [
+  'Banco de Venezuela (BDV)', 'Banesco', 'Mercantil', 'BBVA Provincial', 'Banco Nacional de Crédito (BNC)', 'Bancamiga',
+  'Banco del Tesoro', 'Banco Digital de los Trabajadores (Bicentenario)', 'Bancaribe', 'Banco Exterior',
+  'Banco Venezolano de Crédito', 'Banplus', 'Banco Fondo Común (BFC)', 'Banco Activo', 'Banco Plaza', 'Banco Caroní',
+  'Banco Sofitasa', '100% Banco', 'DelSur', 'Bancrecer', 'R4 Banco Microfinanciero (Mi Banco)', 'Banfanb',
+  'Banco Agrícola de Venezuela', 'Bangente', 'N58 Banco Digital', 'Banco Internacional de Desarrollo',
+  'Bancoex', 'Banavih', 'Instituto Municipal de Crédito Popular',
+] };
+const INTL_BANKS = { title: 'Bancos internacionales', banks: [
+  'Bank of America (BOFA)', 'Chase', 'Wells Fargo', 'Citibank', 'Capital One', 'Banesco USA', 'Amerant Bank', 'BBVA',
+  'Banco Santander', 'HSBC', 'Scotiabank', 'Itaú', 'Banesco Panamá', 'Mercantil Banco (Panamá)', 'Banco General (Panamá)',
+  'Bancolombia', 'Davivienda', 'Banco de Bogotá', 'Banco de Chile', 'BancoEstado', 'Banco Pichincha', 'BCP (Perú)',
+  'Interbank', 'BBVA México', 'Banorte', 'Banco Galicia', 'Banco Popular', 'Caixa / Millennium',
+] };
+const PAY_APPS = { title: 'Apps de pago y billeteras', banks: [
+  'Zelle', 'PayPal', 'Wise', 'Revolut', 'Zinli', 'Wally', 'Airtm', 'Reserve', 'Meru', 'Kontigo', 'Payoneer', 'Skrill',
+  'Venmo', 'Cash App', 'Apple Pay', 'Google Pay', 'N26', 'Bizum', 'Nequi', 'Yape', 'Mercado Pago', 'Western Union', 'Remitly',
+] };
+const CRYPTO = { title: 'Cripto (USDT)', banks: [
+  'Binance', 'Bybit', 'OKX', 'Coinbase', 'Kraken', 'KuCoin', 'Bitget', 'El Dorado', 'Trust Wallet', 'MetaMask',
+] };
 export const BANK_GROUPS = {
-  VE: [
-    { title: 'Bancos de Venezuela', banks: [
-      'Banesco', 'Banco de Venezuela (BDV)', 'Mercantil', 'BBVA Provincial', 'Banco Nacional de Crédito (BNC)', 'Bancamiga',
-      'Bancaribe', 'Banco Occidental de Descuento (BOD)', 'Banco Fondo Común (BFC)', 'Banplus', 'Banco del Tesoro', 'Banco Bicentenario',
-      'Banco Exterior', 'Banco Venezolano de Crédito', 'Banco Activo', 'Bancrecer', '100% Banco', 'Banco Caroní', 'Banco Plaza',
-      'Banco Sofitasa', 'DelSur', 'Banco Agrícola de Venezuela', 'Banfanb', 'Bangente',
-    ] },
-    { title: 'Bancos e internacionales', banks: INTERNATIONAL },
-  ],
+  VE: [VE_GROUP, INTL_BANKS, PAY_APPS, CRYPTO],
   US: [
     { title: 'Bancos de Estados Unidos', banks: [
       'Chase', 'Bank of America (BOFA)', 'Wells Fargo', 'Citibank', 'Capital One', 'PNC Bank', 'TD Bank', 'US Bank',
-      'Truist', 'Navy Federal', 'Ally Bank', 'Discover',
+      'Truist', 'Navy Federal', 'Ally Bank', 'Discover', 'Banesco USA', 'Amerant Bank', 'Chime', 'SoFi',
     ] },
-    { title: 'Internacionales y apps de pago', banks: ['Zelle', 'PayPal', 'Wise', 'Revolut', 'Binance', 'Zinli', 'Airtm'] },
+    PAY_APPS, CRYPTO, VE_GROUP,
   ],
   ES: [
     { title: 'Bancos de España', banks: [
       'BBVA', 'Banco Santander', 'CaixaBank', 'Banco Sabadell', 'ING', 'Openbank', 'Bankinter', 'Unicaja', 'Abanca', 'Ibercaja',
+      'Kutxabank', 'Cajamar', 'EVO Banco',
     ] },
-    { title: 'Internacionales y apps de pago', banks: ['Revolut', 'N26', 'Wise', 'PayPal', 'Binance', 'Zinli'] },
+    PAY_APPS, CRYPTO, VE_GROUP,
   ],
+  INT: [INTL_BANKS, PAY_APPS, CRYPTO, VE_GROUP],
 };
 
 // Lista plana (para los campos con sugerencias): todos los bancos de la región, sin repetir.
@@ -112,16 +150,19 @@ export const BANK_SUGGESTIONS = Object.fromEntries(
   Object.entries(BANK_GROUPS).map(([region, groups]) => [region, [...new Set(groups.flatMap((g) => g.banks))]]),
 );
 
-// Secciones que se muestran según la moneda de la cuenta. En Venezuela se separan estrictamente:
-// cuentas en Bs. → solo bancos venezolanos; cuentas en divisas → solo bancos y apps internacionales.
+// Secciones que se muestran según la moneda de la cuenta, en cualquier país:
+// cuentas en Bs. → solo bancos venezolanos; cuentas en divisas → bancos, apps y cripto internacionales
+// (con USDT, la cripto va primero).
 export function bankGroupsFor(region, currency) {
   const groups = BANK_GROUPS[region] || BANK_GROUPS.VE;
-  if ((region || 'VE') !== 'VE' || !currency) return groups;
-  return currency === 'VES' ? [groups[0]] : [groups[1]];
+  if (!currency) return groups;
+  if (currency === 'VES') return [VE_GROUP];
+  const fx = groups.filter((g) => !g.ves);
+  return currency === 'USDT' ? [CRYPTO, ...fx.filter((g) => g !== CRYPTO)] : fx;
 }
 
 // Compatibilidad
-export const VE_BANKS = BANK_GROUPS.VE[0].banks;
+export const VE_BANKS = VE_GROUP.banks;
 
 export const ACCOUNT_COLORS = ['#A0C4FF', '#FFADAD', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#BDB2FF', '#FFC6FF', '#FFD6A5'];
 

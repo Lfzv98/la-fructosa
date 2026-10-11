@@ -45,9 +45,9 @@ $$;
 create table public.profiles (
   id                  uuid primary key references auth.users (id) on delete cascade,
   display_name        text,
-  -- VE = motor de tasas BCV/USDT; US = dólares; ES = euros.
+  -- VE = motor de tasas BCV/USDT; US = dólares; ES = euros; INT = otro país (migración 011).
   region              text not null default 'VE'
-                        check (region in ('VE', 'US', 'ES')),
+                        check (region in ('VE', 'US', 'ES', 'INT')),
   preferred_currency  public.currency_code not null default 'USD'
                         check (preferred_currency in ('USD', 'VES', 'EUR')),
   -- Tasa con la que se consolida el saldo total (BCV o Paralelo). Solo aplica en VE.
