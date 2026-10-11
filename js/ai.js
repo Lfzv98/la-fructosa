@@ -23,6 +23,13 @@ const SHARED_KEY = String(APP.AI_DEFAULT_KEY || '').trim();
 export const SHARED_AI = Boolean(SHARED_PROXY || SHARED_KEY);
 
 export const AI_MODEL = 'gemini-2.5-flash';
+// Modelos de Gemini en orden de preferencia. Si el primero falla por el modelo (no existe, saturado,
+// sin cupo), se prueba el siguiente. Los errores de clave (401/403) no se reintentan.
+export const AI_MODELS = [AI_MODEL, 'gemini-2.5-flash-lite', 'gemini-1.5-flash'];
+const geminiUrl = (model) => `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`;
+// ¿Vale la pena intentar con otro modelo? (404 modelo inexistente, 429 cupo, 5xx saturado)
+const canFallback = (status, text) => status === 404 || status === 429 || status >= 500
+  || (status === 400 && /model|not supported|unsupported/i.test(text) && !/api key|apikey|credential/i.test(text));
 export const PROVIDERS = {
   gemini: { name: 'Google Gemini', label: 'Google Gemini', model: AI_MODEL, hint: 'Clave de Google AI Studio (aistudio.google.com). Empieza por AIza…' },
 };
@@ -443,6 +450,9 @@ function httpMessage(status, body, shared = false) {
 
 // history: [{ role: 'user'|'assistant', text, audio? }]. Devuelve el texto completo.
 // config.provider: 'gemini' (directo, con clave) | 'proxy' (servidor propio con sesión de Supabase).
+// Modelos que Google ya no reconoce (404): no se vuelven a intentar en esta sesión.
+const DEAD_MODELS = new Set();
+
 export async function streamChat({ config, system, history, signal, onDelta }) {
   const proxy = config.provider === 'proxy';
   const key = String(config.apiKey || '').trim();
@@ -462,7 +472,7 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
       ],
     };
   } else {
-    url = `https://generativelanguage.googleapis.com/v1beta/models/${AI_MODEL}:streamGenerateContent?alt=sse`;
+    url = geminiUrl(AI_MODELS[0]);
     headers = { 'Content-Type': 'application/json', 'x-goog-api-key': key };
     const contents = history.map((m) => {
       const role = m.role === 'assistant' ? 'model' : 'user';
@@ -489,14 +499,23 @@ export async function streamChat({ config, system, history, signal, onDelta }) {
     };
   }
 
+  // Con Gemini directo se prueban los modelos en orden de preferencia (saltando los que ya dieron 404).
+  const models = proxy ? [null] : (AI_MODELS.filter((m) => !DEAD_MODELS.has(m)).length ? AI_MODELS.filter((m) => !DEAD_MODELS.has(m)) : AI_MODELS);
   let res;
-  try {
-    res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal });
-  } catch (e) {
-    if (e?.name === 'AbortError') throw e;
-    throw new AiError('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
+  for (let k = 0; k < models.length; k++) {
+    const model = models[k];
+    try {
+      res = await fetch(proxy ? url : geminiUrl(model), { method: 'POST', headers, body: JSON.stringify(body), signal });
+    } catch (e) {
+      if (e?.name === 'AbortError') throw e;
+      throw new AiError('No se pudo conectar. Revisa tu internet e inténtalo de nuevo.');
+    }
+    if (res.ok) break;
+    const errText = await res.text().catch(() => '');
+    if (!proxy && res.status === 404) DEAD_MODELS.add(model);
+    if (proxy || k === models.length - 1 || !canFallback(res.status, errText)) throw new AiError(httpMessage(res.status, errText, shared));
+    console.warn(`[IA] ${model} falló (${res.status}); probando ${models[k + 1]}`);
   }
-  if (!res.ok) throw new AiError(httpMessage(res.status, await res.text().catch(() => ''), shared));
 
   const reader = res.body.getReader();
   const dec = new TextDecoder();
