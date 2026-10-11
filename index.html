@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="es" class="dark">
+<html lang="es">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>La Fructosa</title>
-  <meta name="description" content="Finanzas personales en USD, VES y USDT." />
+  <meta name="description" content="Finanzas personales de la familia en USD, Bs., USDT y EUR. Privadas para cada quien." />
 
   <!-- PWA -->
   <link rel="manifest" href="./manifest.webmanifest" />
-  <meta name="theme-color" content="#0f172a" />
+  <meta name="theme-color" content="#0E1422" />
   <meta name="color-scheme" content="dark" />
   <link rel="icon" href="./icons/favicon.ico" sizes="any" />
   <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png" />
@@ -20,67 +20,10 @@
   <meta name="apple-mobile-web-app-title" content="La Fructosa" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
 
+  <!-- Estilos propios (sin Tailwind CDN): carga instantánea y funciona sin conexión -->
   <link rel="stylesheet" href="./styles.css" />
-  <!-- Estilos: Tailwind por CDN (sin build step) -->
-  <script src="https://cdn.tailwindcss.com/3.4.16"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            azul: {
-              DEFAULT: '#A0C4FF',
-              50: '#F4F8FF',
-              100: '#D6E8FF',
-              200: '#BEE3F8',
-              300: '#A0C4FF',
-              400: '#7AABF5',
-              500: '#5B8FD4',
-              600: '#3D6BB3',
-              700: '#2C528A',
-              800: '#1E3A5F',
-              900: '#152033',
-            },
-            sol: {
-              DEFAULT: '#FDFFB6',
-              50: '#FFFEF2',
-              100: '#FEFCBF',
-              200: '#FDFFB6',
-              300: '#F5F08A',
-              600: '#8A7E1F',
-              700: '#5C5414',
-              800: '#3D3810',
-              900: '#2E2B0E',
-            },
-            salmon: {
-              DEFAULT: '#FFADAD',
-              50: '#FFF4F1',
-              100: '#FFD6A5',
-              200: '#FFADAD',
-              300: '#FF8A8A',
-              600: '#D15C5C',
-              700: '#B04343',
-              800: '#7A2E2E',
-              900: '#4A1F1F',
-            },
-            papel: { DEFAULT: '#F7FAFF' },
-          },
-          fontFamily: { sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
-        },
-      },
-    };
-  </script>
-  <style>
-    html, body { background: #0f172a; color: #F7FAFF; color-scheme: dark; }
-    body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
-    .safe-top    { padding-top: env(safe-area-inset-top); }
-    .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0.5rem); }
-    .tabular     { font-variant-numeric: tabular-nums; }
-    .sheet { max-height: min(88vh, 760px); overflow-y: auto; }
-  </style>
 
-  <!-- Dependencias como módulos ES, versiones fijas -->
+  <!-- Librerías como módulos ES con versión fija (sin build step) -->
   <script type="importmap">
     {
       "imports": {
@@ -91,32 +34,19 @@
       }
     }
   </script>
+  <link rel="modulepreload" href="./js/app.js" />
+  <link rel="preconnect" href="https://esm.sh" crossorigin />
+  <style>
+    .splash { min-height: 100dvh; display: grid; place-items: center; }
+    .splash img { width: 84px; height: 84px; border-radius: 24px; animation: breathe 1.4s ease-in-out infinite; }
+    @keyframes breathe { 50% { transform: scale(.92); opacity: .7; } }
+  </style>
 </head>
-<body class="min-h-screen text-papel antialiased">
+<body>
   <div id="root">
-    <!-- Splash mientras cargan los módulos -->
-    <div class="min-h-screen grid place-items-center">
-      <img src="./icons/icon-192.png" alt="" class="w-20 h-20 rounded-2xl animate-pulse" />
-    </div>
+    <div class="splash"><img src="./icons/icon-192.png" alt="La Fructosa" /></div>
   </div>
-
+  <noscript><p style="padding:24px;text-align:center">La Fructosa necesita JavaScript.</p></noscript>
   <script type="module" src="./js/app.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      // Recarga una sola vez cuando una versión nueva toma el control (sin bucles).
-      const hadController = Boolean(navigator.serviceWorker.controller);
-      let reloaded = false;
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!hadController || reloaded) return;
-        reloaded = true;
-        location.reload();
-      });
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js', { scope: './' })
-          .then((reg) => reg.update())
-          .catch(() => { /* la app funciona igual sin service worker */ });
-      });
-    }
-  </script>
 </body>
 </html>

@@ -1,438 +1,252 @@
-// Conversión de monedas y calculadora de brecha cambiaria.
-// Todas las tasas vienen en VES por 1 unidad de divisa (como en exchange_rates).
+// Motor financiero de La Fructosa: monedas, regiones, conversión y brecha.
+// Todas las tasas se expresan en VES por 1 unidad de divisa (como en exchange_rates).
 
 export const CURRENCIES = {
-  USD:  { label: 'Dólar',    symbol: '$',   decimals: 2 },
-  VES:  { label: 'Bolívar',  symbol: 'Bs.', decimals: 2 },
-  USDT: { label: 'USDT',     symbol: '₮',   decimals: 2 },
-  EUR:  { label: 'Euro',     symbol: '€',   decimals: 2 },
+  USD:  { label: 'Dólar',   symbol: '$',   decimals: 2, flag: '🇺🇸' },
+  VES:  { label: 'Bolívar', symbol: 'Bs.', decimals: 2, flag: '🇻🇪' },
+  USDT: { label: 'Tether',  symbol: '₮',   decimals: 2, flag: '🪙' },
+  EUR:  { label: 'Euro',    symbol: '€',   decimals: 2, flag: '🇪🇺' },
 };
-
-export const KIND_ICONS = { cash: '💵', bank: '🏦', digital: '📱', crypto: '🟡' };
-
-export const ACCOUNT_PRESETS = [
-  { id: 'zelle', icon: '📱', label: 'Zelle', hint: 'USD', kind: 'digital', currencies: ['USD'], names: ['Zelle'] },
-  { id: 'crypto', icon: '🟡', label: 'Binance / Crypto', hint: 'USDT / BTC', kind: 'crypto', currencies: ['USDT'], names: ['Binance', 'BTC', 'Bybit', 'Wallet'] },
-  { id: 'paypal', icon: '🅿️', label: 'PayPal', hint: 'USD / EUR', kind: 'digital', currencies: ['USD', 'EUR'], names: ['PayPal'] },
-  { id: 'wise', icon: '🌐', label: 'Wise / Revolut', hint: 'USD / EUR', kind: 'digital', currencies: ['USD', 'EUR'], names: ['Wise', 'Revolut'] },
-  { id: 'cash', icon: '💵', label: 'Efectivo', hint: 'USD / EUR / VES', kind: 'cash', currencies: ['USD', 'EUR', 'VES'], names: ['Efectivo'] },
-  { id: 'wire', icon: '🏦', label: 'Wire / Banco int.', hint: 'USD / EUR', kind: 'bank', currencies: ['USD', 'EUR'], names: ['Wire Transfer', 'Facebank', 'Bank of America', 'BBVA', 'Santander'] },
-  { id: 'pago_movil', icon: '🇻🇪', label: 'Pago Móvil / Banco nacional', hint: 'VES', kind: 'bank', currencies: ['VES'], names: ['Pago Móvil', 'Banesco', 'Mercantil', 'BNC', 'Provincial'] },
-  { id: 'custom', icon: '✏️', label: 'Personalizada / Libre', hint: 'Nombre, moneda y saldo', kind: 'digital', currencies: ['USD', 'EUR', 'VES', 'USDT'], names: [] },
-];
-
-export function accountIcon(acc) {
-  return acc?.icon || KIND_ICONS[acc?.kind] || '💼';
-}
-
-export function presetForAccount(acc) {
-  if (!acc) return ACCOUNT_PRESETS[0];
-  const byIcon = ACCOUNT_PRESETS.find((p) => p.id !== 'custom' && p.icon === acc.icon);
-  if (byIcon) return byIcon;
-  const byName = ACCOUNT_PRESETS.find((p) => p.names.some((n) => n.toLowerCase() === String(acc.name || '').toLowerCase()));
-  if (byName) return byName;
-  return ACCOUNT_PRESETS.find((p) => p.id !== 'custom' && p.kind === acc.kind && p.currencies.includes(acc.currency))
-    ?? ACCOUNT_PRESETS.find((p) => p.id === 'custom');
-}
-
-export const REGIONS = {
-  ES: {
-    id: 'ES',
-    flag: '🇪🇸',
-    label: 'España (EUR - €)',
-    cover: 'España (EUR - €)',
-    hint: 'Euros · sin tasas locales',
-    currency: 'EUR',
-    showRates: false,
-    presets: ['crypto', 'paypal', 'wise', 'cash', 'wire', 'custom'],
-    currencies: ['EUR', 'USD'],
-  },
-  US: {
-    id: 'US',
-    flag: '🇺🇸',
-    label: 'Estados Unidos (USD - $)',
-    cover: 'Estados Unidos (USD - $)',
-    hint: 'Dólares · Zelle y Wire',
-    currency: 'USD',
-    showRates: false,
-    presets: ['zelle', 'crypto', 'paypal', 'wise', 'cash', 'wire', 'custom'],
-    currencies: ['USD'],
-  },
-  VE: {
-    id: 'VE',
-    flag: '🇻🇪',
-    label: 'Venezuela (Multimoneda / VES - Tasas de cambio oficiales y paralelas)',
-    cover: 'Venezuela (Multimoneda / VES - Tasas de cambio oficiales y paralelas)',
-    hint: 'USD, VES y USDT · BCV y paralelo',
-    currency: 'USD',
-    showRates: true,
-    presets: ['zelle', 'crypto', 'paypal', 'wise', 'cash', 'wire', 'pago_movil', 'custom'],
-    currencies: ['USD', 'VES', 'USDT', 'EUR'],
-  },
-};
-
-export function regionOf(profile) {
-  return REGIONS[profile?.region] ?? REGIONS.VE;
-}
-
-export function normalizeProfile(p = {}) {
-  const region = REGIONS[p.region] ? p.region : 'VE';
-  const preferred = ['USD', 'VES', 'EUR'].includes(p.preferred_currency)
-    ? p.preferred_currency
-    : REGIONS[region].currency;
-  return {
-    ...p,
-    region,
-    preferred_currency: preferred,
-    valuation_rate: p.valuation_rate || 'BCV_USD',
-  };
-}
-
-export function presetsForRegion(_regionId, account) {
-  const list = ACCOUNT_PRESETS;
-  if (!account) return list;
-  const current = presetForAccount(account);
-  if (!list.some((p) => p.id === current.id)) return [current, ...list];
-  return list;
-}
-
-export function currenciesForRegion(regionId, presetCurrencies, presetId) {
-  if (presetId === 'custom') return ['USD', 'EUR', 'VES', 'USDT'];
-  const source = presetCurrencies ?? ['USD', 'EUR', 'VES', 'USDT'];
-  if (!(REGIONS[regionId] ?? REGIONS.VE).showRates) {
-    const allowed = new Set((REGIONS[regionId] ?? REGIONS.VE).currencies);
-    const next = source.filter((c) => allowed.has(c));
-    if (next.length) return next;
-  }
-  return source;
-}
-
-export function patchForRegion(regionId, profile = {}) {
-  const r = REGIONS[regionId] ?? REGIONS.VE;
-  return {
-    region: r.id,
-    preferred_currency: r.currency,
-    valuation_rate: profile.valuation_rate || 'BCV_USD',
-  };
-}
 
 export const RATE_LABELS = {
   BCV_USD:  'Dólar BCV',
   BCV_EUR:  'Euro BCV',
-  USDT:     'USDT Binance',
-  PARALELO: 'USDT Binance',
+  PARALELO: 'Dólar Paralelo',
+  USDT:     'USDT P2P',
 };
 
-// Las 3 tasas de Al Cambio: BCV USD, BCV EUR y USDT P2P (mercado).
-export const LIVE_RATE_KEYS = ['BCV_USD', 'BCV_EUR', 'USDT'];
+export const RATE_HELP = {
+  BCV_USD:  'Tasa oficial del Banco Central de Venezuela. Es la que usan los comercios para cobrarte en bolívares.',
+  BCV_EUR:  'Tasa oficial del BCV para el euro.',
+  PARALELO: 'Promedio del mercado no oficial (Monitor). Es lo que de verdad cuesta conseguir un dólar en la calle.',
+  USDT:     'Precio del USDT en el mercado P2P (Binance). Útil si tu respaldo está en cripto.',
+};
 
-export const LIVE_RATES_NOTE = 'Actualizado según BCV y USDT Binance';
+// Cada región cambia qué monedas se ofrecen y si se muestran tasas y brecha.
+export const REGIONS = {
+  VE: { label: 'Venezuela',      flag: '🇻🇪', currencies: ['USD', 'VES', 'USDT', 'EUR'], base: 'USD', rates: true },
+  US: { label: 'Estados Unidos', flag: '🇺🇸', currencies: ['USD', 'USDT', 'EUR'],        base: 'USD', rates: false },
+  ES: { label: 'España',         flag: '🇪🇸', currencies: ['EUR', 'USD', 'USDT'],        base: 'EUR', rates: false },
+};
 
-function positiveNumber(value) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
+export const KINDS = {
+  cash:    { label: 'Efectivo', emoji: '💵' },
+  bank:    { label: 'Banco',    emoji: '🏦' },
+  digital: { label: 'Digital',  emoji: '📱' },
+  crypto:  { label: 'Cripto',   emoji: '🪙' },
+};
 
-function caracasDate(iso) {
-  const d = iso ? new Date(iso) : new Date();
-  if (Number.isNaN(d.getTime())) return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
-  return d.toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
-}
+// Plantillas de cuentas típicas por región: crear una cuenta es un toque.
+export const ACCOUNT_TEMPLATES = {
+  VE: [
+    { name: 'Efectivo', currency: 'USD', kind: 'cash' },
+    { name: 'Zelle', currency: 'USD', kind: 'digital' },
+    { name: 'Pago Móvil', currency: 'VES', kind: 'bank' },
+    { name: 'Bancamiga', currency: 'VES', kind: 'bank' },
+    { name: 'Binance', currency: 'USDT', kind: 'crypto' },
+    { name: 'Efectivo Bs.', currency: 'VES', kind: 'cash' },
+  ],
+  US: [
+    { name: 'Bank of America', currency: 'USD', kind: 'bank' },
+    { name: 'Zelle', currency: 'USD', kind: 'digital' },
+    { name: 'Cash', currency: 'USD', kind: 'cash' },
+    { name: 'Binance', currency: 'USDT', kind: 'crypto' },
+  ],
+  ES: [
+    { name: 'Banco', currency: 'EUR', kind: 'bank' },
+    { name: 'Bizum', currency: 'EUR', kind: 'digital' },
+    { name: 'Efectivo', currency: 'EUR', kind: 'cash' },
+    { name: 'Binance', currency: 'USDT', kind: 'crypto' },
+  ],
+};
 
-async function fetchJson(url, opts = {}, timeoutMs = 10000) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { ...opts, signal: ctrl.signal });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } finally {
-    clearTimeout(timer);
-  }
-}
+export const ACCOUNT_COLORS = ['#A0C4FF', '#FFADAD', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#BDB2FF', '#FFC6FF', '#FFD6A5'];
 
-async function fetchBcvAndParallel() {
-  const [usdList, eurList] = await Promise.all([
-    fetchJson('https://ve.dolarapi.com/v1/dolares'),
-    fetchJson('https://ve.dolarapi.com/v1/euros'),
-  ]);
-  const usdOficial = usdList.find((x) => x.fuente === 'oficial');
-  const usdParalelo = usdList.find((x) => x.fuente === 'paralelo');
-  const eurOficial = eurList.find((x) => x.fuente === 'oficial');
-  return {
-    bcvUsd: {
-      rate: positiveNumber(usdOficial?.promedio),
-      date: caracasDate(usdOficial?.fechaActualizacion),
-      source: 'BCV oficial',
-    },
-    bcvEur: {
-      rate: positiveNumber(eurOficial?.promedio),
-      date: caracasDate(eurOficial?.fechaActualizacion),
-      source: 'BCV oficial',
-    },
-    market: {
-      rate: positiveNumber(usdParalelo?.promedio),
-      date: caracasDate(usdParalelo?.fechaActualizacion),
-      source: 'Mercado paralelo',
-    },
-  };
-}
-
-async function fetchBinanceUsdt() {
-  const payload = {
-    page: 1,
-    rows: 10,
-    payTypes: [],
-    asset: 'USDT',
-    fiat: 'VES',
-    tradeType: 'BUY',
-    publisherType: null,
-    merchantCheck: true,
-  };
-  const json = await fetchJson(
-    'https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search',
-    { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) },
-    8000,
-  );
-  const prices = (json.data ?? [])
-    .map((row) => positiveNumber(row.adv?.price))
-    .filter(Boolean);
-  if (!prices.length) throw new Error('Binance P2P sin anuncios USDT/VES');
-  const sample = prices.slice(0, 8);
-  const rate = sample.reduce((sum, n) => sum + n, 0) / sample.length;
-  return { rate, date: caracasDate(), source: 'USDT Binance P2P' };
-}
-
-function toRow(type, info) {
-  return {
-    rate_type: type,
-    rate: info.rate,
-    rate_date: info.date,
-    source: info.source,
-    fetched_at: new Date().toISOString(),
-  };
-}
-
-/**
- * Lee en vivo Dólar BCV, Euro BCV y USDT Binance P2P (como Al Cambio).
- * Si Binance bloquea CORS, usa el paralelo de DolarAPI como tasa de mercado.
- */
-export async function fetchLiveMarketRates() {
-  const bcv = await fetchBcvAndParallel();
-  let usdt = null;
-  try {
-    usdt = await fetchBinanceUsdt();
-  } catch {
-    usdt = bcv.market.rate ? { ...bcv.market, source: 'USDT Binance / mercado' } : null;
-  }
-  if (!bcv.bcvUsd.rate || !bcv.bcvEur.rate || !usdt?.rate) {
-    throw new Error('No se pudieron obtener las 3 tasas en tiempo real.');
-  }
-  const rows = [
-    toRow('BCV_USD', bcv.bcvUsd),
-    toRow('BCV_EUR', bcv.bcvEur),
-    toRow('USDT', usdt),
-    toRow('PARALELO', usdt),
-  ];
-  return {
-    rates: Object.fromEntries(rows.map((r) => [r.rate_type, r.rate])),
-    rows,
-    updatedAt: new Date().toISOString(),
-    sourceNote: LIVE_RATES_NOTE,
-  };
-}
-
+// Categorías: el texto es lo que se guarda en la BD; emoji y color son de la UI.
 export const CATEGORIES = {
-  expense:  ['Comida', 'Mercado', 'Servicios', 'Transporte', 'Salidas', 'Salud', 'Hogar', 'Remesas', 'Otros'],
-  income:   ['Sueldo', 'Freelance', 'Remesas', 'Venta', 'Regalo', 'Otros'],
-  transfer: ['Transferencia', 'Cambio de divisa'],
+  expense: [
+    { name: 'Comida', emoji: '🍔', color: '#FFADAD' },
+    { name: 'Mercado', emoji: '🛒', color: '#FFD6A5' },
+    { name: 'Servicios', emoji: '💡', color: '#FDFFB6' },
+    { name: 'Transporte', emoji: '🚗', color: '#CAFFBF' },
+    { name: 'Salidas', emoji: '🎉', color: '#9BF6FF' },
+    { name: 'Salud', emoji: '💊', color: '#A0C4FF' },
+    { name: 'Hogar', emoji: '🏠', color: '#BDB2FF' },
+    { name: 'Educación', emoji: '📚', color: '#FFC6FF' },
+    { name: 'Suscripciones', emoji: '📺', color: '#E4C1F9' },
+    { name: 'Ropa', emoji: '👕', color: '#F1C0E8' },
+    { name: 'Remesas', emoji: '💸', color: '#B9FBC0' },
+    { name: 'Otros', emoji: '📦', color: '#CFD8E8' },
+  ],
+  income: [
+    { name: 'Sueldo', emoji: '💼', color: '#CAFFBF' },
+    { name: 'Freelance', emoji: '💻', color: '#9BF6FF' },
+    { name: 'Remesas', emoji: '💸', color: '#B9FBC0' },
+    { name: 'Venta', emoji: '🏷️', color: '#FDFFB6' },
+    { name: 'Regalo', emoji: '🎁', color: '#FFC6FF' },
+    { name: 'Intereses', emoji: '📈', color: '#A0C4FF' },
+    { name: 'Otros', emoji: '✨', color: '#CFD8E8' },
+  ],
+  transfer: [
+    { name: 'Transferencia interna', emoji: '🔁', color: '#A0C4FF' },
+    { name: 'Cambio de divisa', emoji: '💱', color: '#FDFFB6' },
+  ],
 };
 
-// rates: { BCV_USD: 180, PARALELO: 250, ... }
+export const ADJUST_CATEGORY = 'Ajuste de saldo';
+
+export function categoryMeta(name, type = 'expense') {
+  const all = [...(CATEGORIES[type] || []), ...CATEGORIES.expense, ...CATEGORIES.income, ...CATEGORIES.transfer];
+  if (name === ADJUST_CATEGORY) return { name, emoji: '⚖️', color: '#CFD8E8' };
+  return all.find((c) => c.name === name) || { name: name || 'Sin categoría', emoji: '🏷️', color: '#CFD8E8' };
+}
+
+// ---------------------------------------------------------------------
+// Conversión
+// ---------------------------------------------------------------------
+// rates: { BCV_USD: 180, PARALELO: 250, USDT: 249, BCV_EUR: 205 }
 // valuation: 'BCV_USD' | 'PARALELO' — tasa con la que se valora el dólar.
 export function vesPerUnit(currency, rates, valuation = 'BCV_USD') {
   switch (currency) {
     case 'VES':  return 1;
     case 'USD':  return rates[valuation] ?? rates.BCV_USD;
-    case 'USDT': return rates.USDT ?? rates.PARALELO;
-    case 'EUR':  return rates.BCV_EUR;
-    default:     return undefined;
+    case 'USDT': return rates.USDT ?? rates.PARALELO ?? rates.BCV_USD;
+    case 'EUR': {
+      // El euro se mueve con el dólar elegido para que la valoración sea coherente.
+      if (!rates.BCV_EUR || !rates.BCV_USD) return undefined;
+      return rates.BCV_EUR * ((rates[valuation] ?? rates.BCV_USD) / rates.BCV_USD);
+    }
+    default: return undefined;
   }
 }
 
 export function convert(amount, from, to, rates, valuation) {
-  if (from === to) return amount;
+  const n = Number(amount) || 0;
+  if (from === to) return n;
+  // USD y USDT se tratan 1:1 fuera de Venezuela si no hay tasas.
+  if (!rates.BCV_USD && ['USD', 'USDT'].includes(from) && ['USD', 'USDT'].includes(to)) return n;
   const a = vesPerUnit(from, rates, valuation);
   const b = vesPerUnit(to, rates, valuation);
   if (!a || !b) return null;
-  return (amount * a) / b;
+  return (n * a) / b;
 }
 
-// Saldo total consolidado en la moneda preferida del usuario.
-export function consolidate(balances, target, rates, valuation) {
+export function consolidate(accounts, target, rates, valuation) {
   let total = 0;
   let missing = false;
-  for (const acc of balances) {
-    const v = convert(Number(acc.balance), acc.currency, target, rates, valuation);
+  for (const acc of accounts) {
+    const v = convert(acc.balance, acc.currency, target, rates, valuation);
     if (v == null) missing = true; else total += v;
   }
   return { total, missing };
 }
 
-// Suma nativa por moneda y su equivalente en la moneda preferida.
-export function balanceBreakdown(balances, target, rates, valuation) {
-  const map = new Map();
-  for (const acc of balances) {
-    const native = Number(acc.balance) || 0;
-    const converted = convert(native, acc.currency, target, rates, valuation);
-    const prev = map.get(acc.currency) ?? { currency: acc.currency, native: 0, converted: 0, missing: false };
-    prev.native += native;
-    if (converted == null) prev.missing = true;
-    else prev.converted += converted;
-    map.set(acc.currency, prev);
-  }
-  return [...map.values()];
-}
-
-// Tasa de mercado con la que realmente se consiguen bolívares desde una cuenta.
+// Tasa a la que realmente consigues bolívares desde una cuenta en divisas.
 export function marketRateFor(accountCurrency, rates) {
-  return accountCurrency === 'USDT' ? (rates.USDT ?? rates.PARALELO) : rates.PARALELO;
+  if (accountCurrency === 'USDT') return rates.USDT ?? rates.PARALELO;
+  if (accountCurrency === 'EUR') return rates.BCV_EUR;
+  return rates.PARALELO ?? rates.BCV_USD;
 }
 
 /**
- * Brecha al pagar en VES teniendo el respaldo en USD/USDT.
- * Un precio de $X a tasa BCV equivale a vesAmount bolívares; esa misma
- * cantidad de bolívares, conseguida a tasa de mercado, vale otra cifra en USD.
- * La diferencia es la brecha cambiaria que pagas o ganas.
+ * Brecha al pagar en bolívares con respaldo en divisas.
+ * vesAmount: bolívares pagados. rateApplied: Bs. que obtuviste por cada unidad de tu cuenta.
+ * Compara lo que realmente salió de tu cuenta con el "precio en dólares" a tasa BCV.
  */
-export function spreadCalc(vesAmount, rates, accountCurrency = 'USD') {
+export function spreadCalc(vesAmount, rates, rateApplied) {
   const bcv = rates.BCV_USD;
-  const market = marketRateFor(accountCurrency, rates);
-  if (!vesAmount || !bcv || !market) return null;
-  const usdAtBcv = vesAmount / bcv;
-  const usdAtMarket = vesAmount / market;
-  const spread = usdAtBcv - usdAtMarket;
+  const used = Number(rateApplied) || rates.PARALELO;
+  if (!vesAmount || !bcv || !used) return null;
+  const usdAtBcv = vesAmount / bcv;       // lo que "vale" la compra según el BCV
+  const realCost = vesAmount / used;      // lo que de verdad salió de tu cuenta
+  const diff = usdAtBcv - realCost;       // > 0: te favoreció · < 0: perdiste
   return {
-    bcv, market, usdAtBcv, usdAtMarket, spread,
-    spreadPct: (spread / usdAtBcv) * 100,
-    gapPct: ((market - bcv) / bcv) * 100, // brecha entre tasas
+    bcv, used, usdAtBcv, realCost, diff,
+    diffPct: (diff / usdAtBcv) * 100,
+    gapPct: rates.PARALELO ? ((rates.PARALELO - bcv) / bcv) * 100 : null,
   };
+}
+
+// Comparador: el comercio fija un precio en $ y acepta Bs. a tasa BCV.
+// ¿Conviene pagar en divisas o cambiar y pagar en bolívares?
+export function payCompare(priceUsd, rates, sourceCurrency = 'USD') {
+  const bcv = rates.BCV_USD;
+  const market = marketRateFor(sourceCurrency, rates);
+  if (!priceUsd || !bcv || !market) return null;
+  const ves = priceUsd * bcv;
+  const costIfVes = ves / market;
+  return { ves, costIfUsd: priceUsd, costIfVes, saving: priceUsd - costIfVes, market };
+}
+
+// ---------------------------------------------------------------------
+// Formato
+// ---------------------------------------------------------------------
+const nf = {};
+function numberFormat(decimals) {
+  return (nf[decimals] ??= new Intl.NumberFormat('es-VE', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }));
 }
 
 export function fmt(amount, currency = 'USD', opts = {}) {
   const c = CURRENCIES[currency] ?? { symbol: '', decimals: 2 };
   const n = Number(amount ?? 0);
-  const s = n.toLocaleString('es-VE', {
-    minimumFractionDigits: opts.decimals ?? c.decimals,
-    maximumFractionDigits: opts.decimals ?? c.decimals,
-  });
-  return `${c.symbol} ${s}`;
+  const s = numberFormat(opts.decimals ?? c.decimals).format(Math.abs(n));
+  const sign = n < 0 ? '−' : opts.sign && n > 0 ? '+' : '';
+  return `${sign}${c.symbol} ${s}`;
+}
+
+export function fmtCompact(amount, currency = 'USD') {
+  const c = CURRENCIES[currency] ?? { symbol: '' };
+  const n = Math.abs(Number(amount) || 0);
+  const s = n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(0) + 'k' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : n.toFixed(0);
+  return `${c.symbol}${s.replace('.', ',')}`;
 }
 
 export function fmtRate(rate) {
-  return Number(rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  if (!rate) return '—';
+  return numberFormat(2).format(Number(rate));
 }
 
-export function caracasToday() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+export const fmtPct = (p, d = 1) => (p == null || !isFinite(p) ? '—' : `${numberFormat(d).format(p)}%`);
+
+// Acepta "1.234,56", "1234.56" o "1,5" y devuelve un número.
+export function parseAmount(v) {
+  if (typeof v === 'number') return v;
+  let s = String(v ?? '').trim().replace(/\s/g, '');
+  if (!s) return NaN;
+  if (s.includes(',') && s.includes('.')) s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+  else if (s.includes(',')) s = s.replace(',', '.');
+  return Number(s);
 }
 
-/** Fecha de un movimiento sin depender de columns opcionales (occurred_on). */
-export function txDay(t) {
-  const raw = t?.occurred_on || t?.date || t?.created_at || '';
-  const s = String(raw);
-  if (s.length >= 10 && /^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
+// ---------------------------------------------------------------------
+// Fechas (hora de Caracas para que "hoy" no cambie a las 8 p. m.)
+// ---------------------------------------------------------------------
+export const TZ = 'America/Caracas';
+export const todayISO = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ });
+export const monthKey = (iso) => iso.slice(0, 7);
+export function addMonths(ym, n) {
+  const [y, m] = ym.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + n, 1));
+  return d.toISOString().slice(0, 7);
 }
-
-export function monthBounds(offset = 0) {
-  const [y, m] = caracasToday().split('-').map(Number);
-  const d = new Date(Date.UTC(y, m - 1 + offset, 1));
-  const yy = d.getUTCFullYear();
-  const mm = d.getUTCMonth() + 1;
-  const last = new Date(Date.UTC(yy, mm, 0)).getUTCDate();
-  const pad = (n) => String(n).padStart(2, '0');
-  return {
-    from: `${yy}-${pad(mm)}-01`,
-    to: `${yy}-${pad(mm)}-${pad(last)}`,
-    label: d.toLocaleDateString('es-VE', { month: 'long', year: 'numeric', timeZone: 'UTC' }),
-    year: yy,
-    month: mm,
-  };
+export function daysInMonth(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  return new Date(Date.UTC(y, m, 0)).getUTCDate();
 }
-
-export function yearBounds() {
-  const y = caracasToday().slice(0, 4);
-  return { from: `${y}-01-01`, to: `${y}-12-31`, label: y };
+export function monthLabel(ym, opts = { month: 'long', year: 'numeric' }) {
+  const [y, m] = ym.split('-').map(Number);
+  const s = new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString('es-VE', { ...opts, timeZone: 'UTC' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
-
-export function spentInCategory(txs, category, from, to, target, rates, valuation) {
-  let total = 0;
-  let missing = false;
-  for (const t of txs) {
-    if (t.type !== 'expense' || t.category !== category) continue;
-    const day = txDay(t);
-    if (day && (day < from || day > to)) continue;
-    const cur = t.account?.currency || 'USD';
-    const v = convert(Number(t.amount), cur, target, rates, valuation);
-    if (v == null) missing = true;
-    else total += v;
-  }
-  return { total, missing };
+export function dayLabel(iso) {
+  const today = todayISO();
+  const d = new Date(iso + 'T12:00:00Z');
+  const y = new Date(today + 'T12:00:00Z'); y.setUTCDate(y.getUTCDate() - 1);
+  if (iso === today) return 'Hoy';
+  if (iso === y.toISOString().slice(0, 10)) return 'Ayer';
+  const s = d.toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
-
-export function budgetTone(pct) {
-  if (pct >= 100) return { bar: 'bg-salmon', text: 'text-salmon-700 dark:text-salmon-200', label: 'Excedido' };
-  if (pct >= 75) return { bar: 'bg-sol', text: 'text-sol-700 dark:text-sol-100', label: 'Al 75%+' };
-  return { bar: 'bg-azul-400', text: 'text-azul-700 dark:text-azul-200', label: 'Dentro del límite' };
-}
-
-export function recurringStatus(rec, txs, from, to) {
-  const today = caracasToday();
-  const day = Number(today.slice(8, 10));
-  const last = Number(to.slice(8, 10));
-  const due = Math.min(Number(rec.due_day), last);
-  const paid = txs.some((t) => (
-    t.type === 'expense'
-    && (!txDay(t) || (txDay(t) >= from && txDay(t) <= to))
-    && (t.description === rec.name
-      || (t.category === rec.category && t.account_id === rec.account_id && Number(t.amount) === Number(rec.amount)))
-  ));
-  if (paid) return { kind: 'paid', label: 'Pagado este mes', soon: false };
-  if (due === day) return { kind: 'soon', label: 'Vence hoy', soon: true };
-  if (due > day && due - day <= 5) return { kind: 'soon', label: `Vence en ${due - day} días`, soon: true };
-  if (due < day) return { kind: 'late', label: `Venció el día ${due}`, soon: false };
-  return { kind: 'ok', label: `Día ${due}`, soon: false };
-}
-
-const TX_TIPO = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
-
-export function transactionsToCsv(txs) {
-  const headers = ['Fecha', 'Descripción', 'Categoría', 'Tipo', 'Monto Original', 'Moneda', 'Cuenta', 'Tasa de Cambio'];
-  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const lines = txs.map((t) => [
-    txDay(t),
-    t.description ?? '',
-    t.category ?? '',
-    TX_TIPO[t.type] ?? t.type,
-    t.original_amount ?? t.amount ?? '',
-    t.original_currency ?? t.account?.currency ?? '',
-    t.account?.name ?? '',
-    t.rate_applied ?? '',
-  ].map(esc).join(','));
-  return `\uFEFF${[headers.map(esc).join(','), ...lines].join('\r\n')}`;
-}
-
-export function downloadCsv(filename, csv) {
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+export function shortDate(iso) {
+  return new Date(iso + 'T12:00:00Z').toLocaleDateString('es-VE', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 }

@@ -1,6 +1,6 @@
 // La Fructosa · Service Worker
-// Sube CACHE_VERSION en cada despliegue para forzar la actualización.
-const CACHE_VERSION = 'fructosa-v31';
+// Sube CACHE_VERSION en cada despliegue: la app avisará "Hay una versión nueva".
+const CACHE_VERSION = 'fructosa-v41';
 
 const APP_SHELL = [
   './',
@@ -8,10 +8,27 @@ const APP_SHELL = [
   './styles.css',
   './manifest.webmanifest',
   './js/app.js',
-  './js/config.js',
-  './js/supabase.js',
-  './js/money.js',
   './js/api.js',
+  './js/store.js',
+  './js/money.js',
+  './js/rates.js',
+  './js/ui.js',
+  './js/learn.js',
+  './js/charts.js',
+  './js/export.js',
+  './js/supabase.js',
+  './js/screens/common.js',
+  './js/screens/auth.js',
+  './js/screens/home.js',
+  './js/screens/movements.js',
+  './js/screens/txform.js',
+  './js/screens/accounts.js',
+  './js/screens/budgets.js',
+  './js/screens/recurring.js',
+  './js/screens/rates.js',
+  './js/screens/insights.js',
+  './js/screens/settings.js',
+  './js/screens/onboarding.js',
   './icons/favicon.ico',
   './icons/icon-192.png',
   './icons/icon-512.png',
@@ -19,31 +36,29 @@ const APP_SHELL = [
   './icons/apple-touch-icon.png',
 ];
 
-// Librerías de CDN (versiones fijas): se cachean al primer uso.
-const CDN_HOSTS = ['esm.sh', 'cdn.tailwindcss.com'];
+// Librerías con versión fija: se guardan al primer uso y no cambian.
+const CDN_HOSTS = ['esm.sh'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_VERSION);
-    // cache: 'reload' salta la caché HTTP para instalar siempre el código nuevo.
-    await Promise.all(APP_SHELL.map(async (url) => {
-      try {
-        const res = await fetch(url, { cache: 'reload' });
-        if (res.ok) await cache.put(url, res);
-      } catch { /* sin red al instalar: se completa en la primera visita online */ }
-    }));
+    await (await caches.open(CACHE_VERSION)).addAll(APP_SHELL);
+    // Viniendo de la versión 1.x (cachés fructosa-v1…v39) activamos de inmediato;
+    // después, la app pregunta antes de actualizar.
+    const keys = await caches.keys();
+    if (keys.some((k) => /^fructosa-v([0-9]|[1-3][0-9])$/.test(k))) self.skipWaiting();
   })());
-  // Activa de inmediato esta versión, sin esperar a que se cierren las pestañas.
-  self.skipWaiting();
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'skip-waiting') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil((async () => {
-    const keys = await caches.keys();
-    // Descarta toda caché anterior y toma el control de las pestañas abiertas.
-    await Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k)));
-    await self.clients.claim();
-  })());
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE_VERSION).map((k) => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener('fetch', (event) => {
@@ -51,37 +66,32 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
 
-  // Nunca cachear datos de Supabase: son privados y deben ser frescos.
-  if (url.hostname.endsWith('supabase.co')) return;
+  // Nunca cachear Supabase ni APIs de tasas: datos privados o que deben ser frescos.
+  if (url.hostname.endsWith('supabase.co') || url.hostname.endsWith('dolarapi.com')) return;
 
   const sameOrigin = url.origin === self.location.origin;
   if (!sameOrigin && !CDN_HOSTS.includes(url.hostname)) return;
 
-  if (sameOrigin) {
-    // Código propio: red primero (siempre la versión más nueva) y caché sin conexión.
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE_VERSION);
-      try {
-        const res = await fetch(request);
-        if (res.ok) cache.put(request, res.clone());
-        return res;
-      } catch {
-        const cached = await cache.match(request, { ignoreSearch: true });
-        if (cached) return cached;
-        if (request.mode === 'navigate') return (await cache.match('./index.html')) || Response.error();
-        return Response.error();
-      }
-    })());
+  // config.js (tus claves) siempre desde la red si es posible.
+  if (sameOrigin && url.pathname.endsWith('/js/config.js')) {
+    event.respondWith(fetch(request).then((res) => {
+      if (res.ok) caches.open(CACHE_VERSION).then((c) => c.put(request, res.clone()));
+      return res;
+    }).catch(() => caches.match(request)));
     return;
   }
 
-  // Librerías de CDN: caché primero (versiones fijas, no cambian).
-  event.respondWith((async () => {
-    const cache = await caches.open(CACHE_VERSION);
-    const cached = await cache.match(request);
-    if (cached) return cached;
-    const res = await fetch(request);
-    if (res.ok || res.type === 'opaque') cache.put(request, res.clone());
-    return res;
-  })());
+  // Cache first: la versión instalada es coherente; las nuevas llegan con CACHE_VERSION.
+  event.respondWith(
+    caches.match(request, { ignoreSearch: sameOrigin && request.mode === 'navigate' }).then((cached) => {
+      if (cached) return cached;
+      return fetch(request).then((res) => {
+        if (res.ok || res.type === 'opaque') {
+          const copy = res.clone();
+          caches.open(CACHE_VERSION).then((c) => c.put(request, copy));
+        }
+        return res;
+      }).catch(() => (request.mode === 'navigate' ? caches.match('./index.html') : Response.error()));
+    })
+  );
 });

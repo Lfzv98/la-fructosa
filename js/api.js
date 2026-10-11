@@ -1,278 +1,284 @@
-// Capa de datos. La app habla solo con este módulo.
-// - Modo real: Supabase (RLS garantiza que cada quien vea solo lo suyo).
-// - Modo demo (?demo o sin config): datos en memoria para ver la UI.
-import { supabase, isConfigured } from './supabase.js';
-import { fetchLiveMarketRates, normalizeProfile, txDay } from './money.js';
+// Capa de datos. La interfaz solo habla con este módulo.
+// - Modo real: Supabase. RLS (auth.uid() = user_id) garantiza que cada quien vea solo lo suyo.
+// - Modo demo (?demo o sin configurar): datos ficticios guardados en este navegador.
+import { todayISO } from './money.js';
 
+// config.js tiene tus claves y NO viene en las actualizaciones: si falta, la app abre en demo.
+let config = {};
+try { config = await import('./config.js'); } catch { /* sin config: demo */ }
+
+export const isConfigured = Boolean(config.SUPABASE_URL) && !config.SUPABASE_URL.includes('TU-PROYECTO');
 export const isDemo = !isConfigured || new URLSearchParams(location.search).has('demo');
+
+export const TABLES = ['accounts', 'transactions', 'budgets', 'recurring_expenses'];
+
+let sbPromise;
+const sb = () => (sbPromise ??= import('./supabase.js').then((m) => m.supabase));
 
 function unwrap({ data, error }) {
   if (error) throw error;
   return data;
 }
 
-function computeBalance(account, txs) {
-  let balance = Number(account.initial_balance || 0);
-  for (const t of txs) {
-    if (t.account_id === account.id) balance += t.type === 'income' ? Number(t.amount) : -Number(t.amount);
-    if (t.to_account_id === account.id) balance += Number(t.to_amount || 0);
+// Si la BD aún no tiene una columna nueva (migración pendiente), la quitamos y reintentamos.
+async function tolerant(run, row) {
+  let payload = { ...row };
+  for (let i = 0; i < 6; i++) {
+    const res = await run(payload);
+    const miss = res.error?.message?.match(/Could not find the '([^']+)' column/);
+    if (!miss) return unwrap(res);
+    delete payload[miss[1]];
   }
-  return balance;
+  throw new Error('La base de datos rechazó el registro. Revisa la migración.');
 }
 
-function activeAccounts(accounts) {
-  return (accounts || [])
-    .filter((a) => a && a.archived !== true)
-    .sort((x, y) => {
-      const so = (Number(x.sort_order) || 0) - (Number(y.sort_order) || 0);
-      if (so) return so;
-      return String(x.name || '').localeCompare(String(y.name || ''), 'es');
-    });
+const daysAgo = (n) => { const d = new Date(todayISO() + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
+
+function ratesFromRows(rows) {
+  const out = {}; const meta = {};
+  for (const r of rows) {
+    if (!out[r.rate_type] || r.rate_date > meta[r.rate_type].rate_date) {
+      out[r.rate_type] = Number(r.rate);
+      meta[r.rate_type] = r;
+    }
+  }
+  return { rates: out, meta };
 }
 
-function filterTxs(txs, { from, to, accountId } = {}) {
-  return (txs || [])
-    .filter((t) => {
-      const day = txDay(t);
-      if (from && day && day < from) return false;
-      if (to && day && day > to) return false;
-      if (accountId && t.account_id !== accountId && t.to_account_id !== accountId) return false;
-      return true;
-    })
-    .sort((x, y) => (txDay(y) + (y.created_at || '')).localeCompare(txDay(x) + (x.created_at || '')));
-}
-
-function accountPayload(acc) {
-  const { archived, balance, id, user_id, created_at, updated_at, ...row } = acc || {};
-  return row;
-}
-
-function txPayload(tx) {
-  const {
-    occurred_on, id, user_id, account, to_account, created_at, updated_at,
-    usd_at_bcv, usd_at_paralelo, spread_usd, ...row
-  } = tx || {};
-  return row;
-}
-
-function profileFromUser(user, row = {}) {
-  const meta = user?.user_metadata || {};
-  return normalizeProfile({
-    ...row,
-    id: row.id || user?.id,
-    display_name: String(row.display_name || meta.display_name || user?.email?.split('@')[0] || '').trim(),
-    region: row.region || meta.region || row.region,
-  });
-}
-
-function attachAccounts(txs, accounts) {
-  const byId = Object.fromEntries((accounts || []).map((a) => [a.id, a]));
-  return (txs || []).map((t) => {
-    const from = byId[t.account_id];
-    const to = t.to_account_id ? byId[t.to_account_id] : null;
-    return {
-      ...t,
-      account: from ? { name: from.name, currency: from.currency } : null,
-      to_account: to ? { name: to.name, currency: to.currency } : null,
-    };
-  });
-}
-
+// ---------------------------------------------------------------------
+// Supabase real
+// ---------------------------------------------------------------------
 const real = {
-  async getProfile() {
-    const { data: { user } } = await supabase.auth.getUser();
-    try {
-      const row = unwrap(await supabase.from('profiles').select('*').eq('id', user.id).single());
-      return profileFromUser(user, row);
-    } catch {
-      return profileFromUser(user);
-    }
-  },
-  async updateProfile(patch) {
-    const { data: { user } } = await supabase.auth.getUser();
-    const apply = async (p) => profileFromUser(user, unwrap(
-      await supabase.from('profiles').update(p).eq('id', user.id).select().single()
-    ));
-    try {
-      return await apply(patch);
-    } catch {
-      const { region, valuation_rate, ...rest } = patch;
-      if (region || valuation_rate) {
-        try { return await apply(rest); } catch { /* perfil mínimo en cliente */ }
+  auth: {
+    async session() { const c = await sb(); return (await c.auth.getSession()).data.session; },
+    async onChange(cb) { const c = await sb(); return c.auth.onAuthStateChange((e, s) => cb(s, e)).data.subscription; },
+    // Acepta usuario o correo. El usuario se traduce a su correo con una función de la BD.
+    async signIn(login, password) {
+      const c = await sb();
+      let email = login.trim();
+      if (!email.includes('@')) {
+        const { data, error } = await c.rpc('email_for_login', { p_username: email.toLowerCase() });
+        if (error) throw error;
+        if (!data) throw new Error('Invalid login credentials');
+        email = data;
       }
-      return profileFromUser(user, patch);
-    }
+      const { error } = await c.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    },
+    async usernameAvailable(username) {
+      const c = await sb();
+      const { data, error } = await c.rpc('username_available', { p_username: username.toLowerCase() });
+      if (error) return true; // si la función no existe aún, la BD validará al guardar
+      return data;
+    },
+    async signUp(email, password, meta) {
+      const c = await sb();
+      const { data, error } = await c.auth.signUp({ email, password, options: { data: meta, emailRedirectTo: location.origin + location.pathname } });
+      if (error) throw error;
+      return { needsConfirm: !data.session };
+    },
+    async reset(email) {
+      const c = await sb();
+      const { error } = await c.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+      if (error) throw error;
+    },
+    async updatePassword(password) {
+      const c = await sb(); const { error } = await c.auth.updateUser({ password });
+      if (error) throw error;
+    },
+    async signOut() { const c = await sb(); await c.auth.signOut(); },
   },
-  async listBalances() {
-    const [accRes, txRes] = await Promise.all([
-      supabase.from('accounts').select('*'),
-      supabase.from('transactions').select('type, account_id, amount, to_account_id, to_amount'),
+
+  async loadAll() {
+    const c = await sb();
+    const { data: { user } } = await c.auth.getUser();
+    const missing = [];
+    const optional = async (table, q) => {
+      const res = await q;
+      if (res.error) { missing.push(table); return []; }
+      return res.data;
+    };
+
+    const [profileRes, accounts, transactions, budgets, recurring, rateRows] = await Promise.all([
+      c.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+      c.from('accounts').select('*').order('created_at').then(unwrap),
+      c.from('transactions').select('*').order('created_at', { ascending: false }).limit(5000).then(unwrap),
+      optional('budgets', c.from('budgets').select('*')),
+      optional('recurring_expenses', c.from('recurring_expenses').select('*').order('due_day')),
+      c.from('exchange_rates').select('rate_type, rate, rate_date, source, fetched_at')
+        .gte('rate_date', daysAgo(120)).order('rate_date').then((r) => (r.error ? [] : r.data)),
     ]);
-    const accounts = activeAccounts(unwrap(accRes));
-    const txs = txRes.error ? [] : (txRes.data || []);
-    return accounts.map((a) => ({ ...a, balance: computeBalance(a, txs) }));
+
+    const meta = user.user_metadata || {};
+    const profile = profileRes.data || {
+      id: user.id, display_name: meta.display_name || user.email.split('@')[0],
+      region: meta.region || 'VE', preferred_currency: meta.region === 'ES' ? 'EUR' : 'USD', valuation_rate: 'BCV_USD',
+    };
+    profile.email = user.email;
+    const { rates, meta: rateMeta } = ratesFromRows(rateRows);
+    return { profile, accounts, transactions, budgets, recurring, rates, rateMeta, rateHistory: rateRows, missing };
   },
-  async createAccount(acc) {
-    return unwrap(await supabase.from('accounts').insert(accountPayload(acc)).select().single());
+
+  async updateProfile(patch) {
+    const c = await sb();
+    const { data: { user } } = await c.auth.getUser();
+    return tolerant((p) => c.from('profiles').update(p).eq('id', user.id).select().single(), patch);
   },
-  async updateAccount(id, patch) {
-    const { data: { user } } = await supabase.auth.getUser();
-    const { archived, balance, ...safe } = patch;
-    return unwrap(await supabase.from('accounts').update(safe).eq('id', id).eq('user_id', user.id).select().single());
+  async insert(table, row) {
+    const c = await sb();
+    return tolerant((p) => c.from(table).insert(p).select().single(), row);
   },
-  async listTransactions({ limit = 1500, from, to, accountId } = {}) {
-    const [txRes, accRes] = await Promise.all([
-      supabase.from('transactions').select('*').order('created_at', { ascending: false }).limit(limit),
-      supabase.from('accounts').select('*'),
-    ]);
-    return filterTxs(attachAccounts(unwrap(txRes), accRes.error ? [] : (accRes.data || [])), { from, to, accountId });
+  async update(table, id, patch) {
+    const c = await sb();
+    return tolerant((p) => c.from(table).update(p).eq('id', id).select().single(), patch);
   },
-  async createTransaction(tx) {
-    return unwrap(await supabase.from('transactions').insert(txPayload(tx)).select().single());
-  },
-  async listBudgets() {
-    try { return unwrap(await supabase.from('budgets').select('*').order('category')) || []; }
-    catch { return []; }
-  },
-  async upsertBudget(row) {
-    const { data: { user } } = await supabase.auth.getUser();
-    return unwrap(await supabase.from('budgets').upsert({ ...row, user_id: user.id }, { onConflict: 'user_id,category,currency' }).select().single());
-  },
-  async deleteBudget(id) {
-    return unwrap(await supabase.from('budgets').delete().eq('id', id));
-  },
-  async listRecurring() {
-    try { return unwrap(await supabase.from('recurring_expenses').select('*').order('due_day')) || []; }
-    catch { return []; }
-  },
-  async createRecurring(row) {
-    const { data: { user } } = await supabase.auth.getUser();
-    return unwrap(await supabase.from('recurring_expenses').insert({ ...row, user_id: user.id }).select().single());
-  },
-  async updateRecurring(id, patch) {
-    return unwrap(await supabase.from('recurring_expenses').update(patch).eq('id', id).select().single());
-  },
-  async deleteRecurring(id) {
-    return unwrap(await supabase.from('recurring_expenses').delete().eq('id', id));
-  },
-  async latestRates() {
-    try {
-      const rows = unwrap(await supabase.from('latest_rates').select('*'));
-      return Object.fromEntries((rows || []).map((r) => [r.rate_type, Number(r.rate)]));
-    } catch {
-      return {};
-    }
-  },
-  async latestRateRows() {
-    try {
-      return unwrap(await supabase.from('latest_rates').select('*')) || [];
-    } catch {
-      return [];
-    }
+  async remove(table, id) {
+    const c = await sb();
+    unwrap(await c.from(table).delete().eq('id', id));
   },
 };
 
-// ---------- Demo en memoria ----------
-const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Caracas' });
-const demoState = {
-  profile: { id: 'demo', display_name: '', region: 'VE', preferred_currency: 'USD', valuation_rate: 'BCV_USD' },
-  rates: [
-    { rate_type: 'BCV_USD', rate: 180.25, rate_date: today, source: 'demo' },
-    { rate_type: 'BCV_EUR', rate: 205.1, rate_date: today, source: 'demo' },
-    { rate_type: 'PARALELO', rate: 252.4, rate_date: today, source: 'demo' },
-    { rate_type: 'USDT', rate: 249.9, rate_date: today, source: 'demo' },
-  ],
-  // El modo demo arranca vacío: sin cuentas, movimientos, presupuestos ni pagos de ejemplo.
-  accounts: [],
-  txs: [],
-  budgets: [],
-  recurring: [],
-};
-const uid = () => Math.random().toString(36).slice(2);
-const accById = (id) => demoState.accounts.find((a) => a.id === id);
+// ---------------------------------------------------------------------
+// Demo: datos de ejemplo realistas, guardados en localStorage
+// ---------------------------------------------------------------------
+const DEMO_KEY = 'fructosa-demo-v3';
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
+
+function seedDemo() {
+  const today = todayISO();
+  const now = Date.now();
+  const iso = (n) => new Date(now - n * 864e5).toISOString();
+  const rateHistory = [];
+  for (let n = 189; n >= 0; n--) {
+    const d = daysAgo(n);
+    const t = 189 - n;
+    const bcv = +(134 + t * 0.25 + Math.sin(t / 6) * 0.6).toFixed(2);
+    const par = +(bcv * (1.36 + Math.sin(t / 11) * 0.03 + t * 0.0004)).toFixed(2);
+    rateHistory.push(
+      { rate_type: 'BCV_USD', rate: bcv, rate_date: d, source: 'demo' },
+      { rate_type: 'BCV_EUR', rate: +(bcv * 1.138).toFixed(2), rate_date: d, source: 'demo' },
+      { rate_type: 'PARALELO', rate: par, rate_date: d, source: 'demo' },
+      { rate_type: 'USDT', rate: +(par * 0.992).toFixed(2), rate_date: d, source: 'demo' },
+    );
+  }
+  const { rates } = ratesFromRows(rateHistory);
+  const A = { efe: uid(), zel: uid(), bam: uid(), bin: uid(), pm: uid() };
+  const accounts = [
+    { id: A.efe, name: 'Efectivo', currency: 'USD', kind: 'cash', initial_balance: 120, color: '#CAFFBF', icon: '💵', archived: false, sort_order: 0, created_at: iso(195) },
+    { id: A.zel, name: 'Zelle', currency: 'USD', kind: 'digital', initial_balance: 380, color: '#A0C4FF', icon: '📱', archived: false, sort_order: 1, created_at: iso(195) },
+    { id: A.bam, name: 'Bancamiga', currency: 'VES', kind: 'bank', initial_balance: 25000, color: '#FFADAD', icon: '🏦', archived: false, sort_order: 2, created_at: iso(195) },
+    { id: A.pm, name: 'Pago Móvil', currency: 'VES', kind: 'bank', initial_balance: 4000, color: '#FFD6A5', icon: '📲', archived: false, sort_order: 3, created_at: iso(195) },
+    { id: A.bin, name: 'Binance', currency: 'USDT', kind: 'crypto', initial_balance: 350, color: '#FDFFB6', icon: '🪙', archived: false, sort_order: 4, created_at: iso(195) },
+  ];
+  const txs = [];
+  const rateOn = (d, k) => rateHistory.find((r) => r.rate_date === d && r.rate_type === k)?.rate ?? rates[k];
+  const add = (n, t) => { const d = daysAgo(n); txs.push({ id: uid(), occurred_on: d, created_at: iso(n), ...t(d) }); };
+  const vesPay = (n, ves, acc, cat, desc) => add(n, (d) => {
+    const used = rateOn(d, acc === A.bin ? 'USDT' : 'PARALELO');
+    return { type: 'expense', account_id: acc, amount: +(ves / used).toFixed(2), category: cat, description: desc,
+      original_amount: ves, original_currency: 'VES', rate_applied: used, rate_bcv: rateOn(d, 'BCV_USD'), rate_paralelo: used };
+  });
+
+  for (const m of [0, 1, 2, 3, 4, 5]) {
+    const base = m * 30;
+    const k = 1 + ((m * 7) % 5) / 20; // variación entre meses
+    add(base + 1, () => ({ type: 'income', account_id: A.zel, amount: 900, category: 'Sueldo', description: 'Sueldo quincena' }));
+    add(base + 15, () => ({ type: 'income', account_id: A.zel, amount: 900, category: 'Sueldo', description: 'Sueldo quincena' }));
+    if (m % 2 === 0) add(base + 9, () => ({ type: 'income', account_id: A.bin, amount: 180 + m * 20, category: 'Freelance', description: 'Diseño de logo' }));
+    if (m > 0) add(base + 3, () => ({ type: 'expense', account_id: A.zel, amount: 300, category: 'Hogar', description: 'Alquiler' }));
+    if (m > 0) add(base + 5, () => ({ type: 'expense', account_id: A.zel, amount: 15.99, category: 'Suscripciones', description: 'Netflix' }));
+    add(base + 6, () => ({ type: 'expense', account_id: A.bam, amount: Math.round(4200 * k), category: 'Servicios', description: 'Luz y agua' }));
+    add(base + 4, () => ({ type: 'transfer', account_id: A.zel, amount: 150, to_account_id: A.bam, to_amount: +(150 * rateOn(daysAgo(base + 4), 'PARALELO')).toFixed(2), category: 'Cambio de divisa', description: 'Cambio a bolívares' }));
+    add(base + 12, () => ({ type: 'transfer', account_id: A.zel, amount: 60, to_account_id: A.pm, to_amount: +(60 * rateOn(daysAgo(base + 12), 'PARALELO')).toFixed(2), category: 'Cambio de divisa', description: 'Recarga Pago Móvil' }));
+    add(base + 2, () => ({ type: 'transfer', account_id: A.zel, amount: 550, to_account_id: A.efe, to_amount: 550, category: 'Transferencia interna', description: 'Retiro a efectivo' }));
+    add(base + 11, () => ({ type: 'expense', account_id: A.efe, amount: Math.round(70 * k), category: 'Mercado', description: 'Mercado semanal' }));
+    add(base + 18, () => ({ type: 'expense', account_id: A.efe, amount: Math.round(58 * k), category: 'Mercado', description: 'Mercado semanal' }));
+    add(base + 25, () => ({ type: 'expense', account_id: A.efe, amount: 64, category: 'Mercado', description: 'Mercado semanal' }));
+    add(base + 13, () => ({ type: 'expense', account_id: A.pm, amount: Math.round(9000 * k), category: 'Transporte', description: 'Gasolina' }));
+    add(base + 21, () => ({ type: 'expense', account_id: A.efe, amount: Math.round(40 * k), category: 'Salidas', description: 'Cine con la familia' }));
+    add(base + 16, () => ({ type: 'expense', account_id: A.bin, amount: 50, category: 'Remesas', description: 'Ayuda a la abuela' }));
+    add(base + 23, () => ({ type: 'expense', account_id: A.bam, amount: Math.round(6500 * k), category: 'Salud', description: 'Farmacia' }));
+    add(base + 20, () => ({ type: 'expense', account_id: A.zel, amount: Math.round(85 * k), category: m % 2 ? 'Ropa' : 'Educación', description: m % 2 ? 'Zapatos' : 'Curso online' }));
+    add(base + 7, () => ({ type: 'expense', account_id: A.bam, amount: Math.round(22000 * k), category: 'Mercado', description: 'Supermercado' }));
+    add(base + 17, () => ({ type: 'expense', account_id: A.zel, amount: 150, category: 'Remesas', description: 'Ayuda a mamá' }));
+    add(base + 26, () => ({ type: 'expense', account_id: A.efe, amount: Math.round(35 * k), category: 'Comida', description: 'Almuerzo' }));
+    add(base + 27, () => ({ type: 'expense', account_id: A.efe, amount: 45, category: 'Salidas', description: 'Cumpleaños de la prima' }));
+    vesPay(base + 2, 3600, A.efe, 'Comida', 'Arepera');
+    vesPay(base + 8, 5200, A.zel, 'Comida', 'Pizza');
+    vesPay(base + 14, 4400, A.efe, 'Comida', 'Hamburguesas');
+    vesPay(base + 22, 3900, A.efe, 'Comida', 'Panadería');
+    vesPay(base + 19, 2900, A.bin, 'Transporte', 'Taxi');
+  }
+  vesPay(0, 4100, A.efe, 'Comida', 'Panadería');
+  for (const t of txs) t.occurred_on > today && (t.occurred_on = today);
+
+  const budgets = [
+    { id: uid(), category: 'Comida', monthly_limit: 90, currency: 'USD' },
+    { id: uid(), category: 'Mercado', monthly_limit: 220, currency: 'USD' },
+    { id: uid(), category: 'Salidas', monthly_limit: 60, currency: 'USD' },
+    { id: uid(), category: 'Transporte', monthly_limit: 60, currency: 'USD' },
+  ];
+  const day = Number(today.slice(8));
+  const recurring = [
+    { id: uid(), name: 'Alquiler', amount: 300, currency: 'USD', category: 'Hogar', due_day: Math.min(28, day + 2), account_id: A.zel, is_active: true },
+    { id: uid(), name: 'Netflix', amount: 15.99, currency: 'USD', category: 'Suscripciones', due_day: Math.min(28, day + 5), account_id: A.zel, is_active: true },
+    { id: uid(), name: 'Internet', amount: 4800, currency: 'VES', category: 'Servicios', due_day: Math.max(1, day - 3), account_id: A.bam, is_active: true },
+  ];
+  // El internet de este mes ya se pagó: queda enlazado al gasto fijo.
+  txs.push({ id: uid(), type: 'expense', account_id: A.bam, amount: 4800, category: 'Servicios', description: 'Internet',
+    occurred_on: daysAgo(Math.min(3, day - 1)), created_at: iso(2), recurring_id: recurring[2].id });
+
+  return {
+    profile: { id: 'demo', display_name: 'Luis', username: 'luis', email: 'demo@lafructosa.app', region: 'VE', preferred_currency: 'USD', valuation_rate: 'BCV_USD' },
+    accounts, transactions: txs, budgets, recurring_expenses: recurring, rateHistory,
+  };
+}
+
+function demoLoad() {
+  try {
+    const s = JSON.parse(localStorage.getItem(DEMO_KEY));
+    if (s?.accounts) return s;
+  } catch { /* almacenamiento bloqueado */ }
+  const s = seedDemo();
+  demoSave(s);
+  return s;
+}
+let demoState;
+function demoSave(s = demoState) { try { localStorage.setItem(DEMO_KEY, JSON.stringify(s)); } catch { /* sin almacenamiento */ } }
+const state = () => (demoState ??= demoLoad());
+const wait = (v) => new Promise((r) => setTimeout(() => r(v), 120));
+const clone = (v) => JSON.parse(JSON.stringify(v));
 
 const demo = {
-  async getProfile() { return normalizeProfile(demoState.profile); },
-  async updateProfile(patch) {
-    Object.assign(demoState.profile, patch);
-    return normalizeProfile(demoState.profile);
+  auth: {
+    async session() { return { user: { id: 'demo', email: 'demo@lafructosa.app' } }; },
+    async onChange() { return { unsubscribe() {} }; },
+    async signIn() {}, async signUp() { return { needsConfirm: false }; }, async usernameAvailable(u) { return u !== 'luis'; }, async reset() {}, async updatePassword() {},
+    async signOut() { localStorage.removeItem(DEMO_KEY); demoState = null; location.href = location.pathname + '?demo'; },
   },
-  async listBalances() {
-    return demoState.accounts.map((a) => ({ ...a, balance: computeBalance(a, demoState.txs) }));
+  async loadAll() {
+    const s = state();
+    const { rates, meta } = ratesFromRows(s.rateHistory);
+    return wait(clone({ profile: s.profile, accounts: s.accounts, transactions: s.transactions, budgets: s.budgets,
+      recurring: s.recurring_expenses, rates, rateMeta: meta, rateHistory: s.rateHistory, missing: [] }));
   },
-  async createAccount(acc) { const a = { id: uid(), sort_order: 99, ...acc }; demoState.accounts.push(a); return a; },
-  async updateAccount(id, patch) {
-    const a = demoState.accounts.find((x) => x.id === id);
-    if (!a) throw new Error('Cuenta no encontrada');
-    Object.assign(a, patch);
-    return { ...a };
+  async updateProfile(patch) { Object.assign(state().profile, patch); demoSave(); return wait(clone(state().profile)); },
+  async insert(table, row) {
+    const r = { id: uid(), created_at: new Date().toISOString(), ...row };
+    state()[table].push(r); demoSave(); return wait(clone(r));
   },
-  async listTransactions({ from, to, accountId } = {}) {
-    return filterTxs(
-      demoState.txs.map((t) => ({ ...t, account: accById(t.account_id), to_account: t.to_account_id ? accById(t.to_account_id) : null })),
-      { from, to, accountId }
-    );
+  async update(table, id, patch) {
+    const r = state()[table].find((x) => x.id === id);
+    if (!r) throw new Error('No encontrado');
+    Object.assign(r, patch); demoSave(); return wait(clone(r));
   },
-  async createTransaction(tx) {
-    const t = { id: uid(), created_at: new Date().toISOString(), ...tx };
-    demoState.txs.push(t);
-    return t;
+  async remove(table, id) {
+    const s = state();
+    s[table] = s[table].filter((x) => x.id !== id);
+    if (table === 'accounts') s.transactions = s.transactions.filter((t) => t.account_id !== id && t.to_account_id !== id);
+    demoSave(); return wait();
   },
-  async listBudgets() { return demoState.budgets.map((b) => ({ ...b })); },
-  async upsertBudget(row) {
-    const found = demoState.budgets.find((b) => b.category === row.category && b.currency === row.currency);
-    if (found) { Object.assign(found, row); return { ...found }; }
-    const b = { id: uid(), ...row };
-    demoState.budgets.push(b);
-    return b;
-  },
-  async deleteBudget(id) { demoState.budgets = demoState.budgets.filter((b) => b.id !== id); },
-  async listRecurring() { return demoState.recurring.map((r) => ({ ...r })); },
-  async createRecurring(row) {
-    const r = { id: uid(), is_active: true, ...row };
-    demoState.recurring.push(r);
-    return r;
-  },
-  async updateRecurring(id, patch) {
-    const r = demoState.recurring.find((x) => x.id === id);
-    if (!r) throw new Error('Recurrente no encontrado');
-    Object.assign(r, patch);
-    return { ...r };
-  },
-  async deleteRecurring(id) { demoState.recurring = demoState.recurring.filter((r) => r.id !== id); },
-  async latestRates() { return Object.fromEntries(demoState.rates.map((r) => [r.rate_type, r.rate])); },
-  async latestRateRows() { return demoState.rates; },
+  reset() { localStorage.removeItem(DEMO_KEY); demoState = null; },
 };
 
-const persist = isDemo ? demo : real;
-let liveRates = null;
-
-export async function refreshRates() {
-  liveRates = await fetchLiveMarketRates();
-  return liveRates;
-}
-
-export const api = {
-  ...persist,
-  async latestRates() {
-    if (liveRates) return liveRates.rates;
-    try {
-      liveRates = await fetchLiveMarketRates();
-      return liveRates.rates;
-    } catch {
-      return persist.latestRates();
-    }
-  },
-  async latestRateRows() {
-    if (liveRates) return liveRates.rows;
-    try {
-      liveRates = await fetchLiveMarketRates();
-      return liveRates.rows;
-    } catch {
-      return persist.latestRateRows();
-    }
-  },
-  async refreshRates() {
-    return refreshRates();
-  },
-};
+export const api = isDemo ? demo : real;

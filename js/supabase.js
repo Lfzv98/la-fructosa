@@ -1,10 +1,7 @@
+// Cliente Supabase. Solo se carga en modo real (el demo no lo descarga).
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 
-export const isConfigured = !SUPABASE_URL.includes('TU-PROYECTO');
-
-export const supabase = createClient(
-  isConfigured ? SUPABASE_URL : 'https://placeholder.supabase.co',
-  isConfigured ? SUPABASE_ANON_KEY : 'placeholder',
-  { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'fructosa-auth' } }
-);
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, storageKey: 'fructosa-auth' },
+});
