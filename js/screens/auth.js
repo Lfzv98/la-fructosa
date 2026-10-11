@@ -62,7 +62,8 @@ function PasswordInput({ value, onInput, autocomplete, show, setShow }) {
   </div>`;
 }
 
-export function AuthScreen() {
+// onSession(session): la app entra al inicio al instante en cuanto Supabase devuelve una sesión válida.
+export function AuthScreen({ onSession }) {
   const [mode, setMode] = useState('login'); // login | signup | reset
   const [f, setF] = useState({ login: '', email: '', password: '', password2: '', name: '', username: '', region: '' });
   const [show, setShow] = useState(false);
@@ -92,10 +93,13 @@ export function AuthScreen() {
     if (mode === 'signup' && !validateSignup()) return;
     setBusy(true);
     try {
-      if (mode === 'login') await api.auth.signIn(f.login, f.password);
-      else if (mode === 'signup') {
+      if (mode === 'login') {
+        const r = await api.auth.signIn(f.login, f.password);
+        if (r?.session) onSession?.(r.session);
+      } else if (mode === 'signup') {
         const r = await api.auth.signUp(f.email.trim(), f.password, { display_name: f.name.trim(), username: f.username, region: f.region });
-        if (r.needsConfirm) { go('login'); setF((x) => ({ ...x, login: x.username, password: '' })); setNotice(`Te enviamos un correo a ${f.email}. Confírmalo y luego entra con @${f.username}.`); }
+        if (r.session) onSession?.(r.session);
+        else if (r.needsConfirm) { go('login'); setF((x) => ({ ...x, login: x.username, password: '' })); setNotice(`Te enviamos un correo a ${f.email}. Confírmalo y luego entra con @${f.username}.`); }
       } else {
         await api.auth.reset(f.email.trim());
         setNotice('Si el correo existe, te llegará un enlace para crear una contraseña nueva.');
@@ -174,13 +178,15 @@ export function CompleteProfile() {
     if (!region) er.region = 'Elige tu país para continuar.';
     setErrors(er);
     if (Object.keys(er).length) return;
+    // Guardado optimista: el perfil se aplica ya en la app y la pantalla principal se muestra
+    // de inmediato. La escritura sigue en segundo plano; si el usuario resulta repetido,
+    // el store revierte y esta pantalla vuelve con el aviso.
     setBusy(true);
-    try {
-      await actions.updateProfile({ username, region, preferred_currency: REGIONS[region].base });
-      toast(`¡Listo, @${username}!`);
-    } catch (x) {
-      setErrors({ form: /duplicate|unique/i.test(x.message) ? 'Ese usuario ya está en uso.' : errorText(x) });
-    } finally { setBusy(false); }
+    actions.updateProfile({ username, region, preferred_currency: REGIONS[region].base }, { optimistic: true })
+      .then(() => toast(`¡Listo, @${username}!`))
+      .catch((x) => toast(/duplicate|unique/i.test(x?.message || '') ? `El usuario @${username} ya está en uso. Elige otro.` : errorText(x), { tone: 'bad' }))
+      .finally(() => setBusy(false));
+    location.hash = '#/inicio';
   }
 
   return html`<main class="auth">

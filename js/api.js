@@ -78,8 +78,9 @@ const real = {
         if (!data) throw new Error('Invalid login credentials');
         email = data;
       }
-      const { error } = await c.auth.signInWithPassword({ email, password });
+      const { data, error } = await c.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      return { session: data.session };
     },
     async usernameAvailable(username) {
       const c = await sb();
@@ -91,7 +92,15 @@ const real = {
       const c = await sb();
       const { data, error } = await c.auth.signUp({ email, password, options: { data: meta, emailRedirectTo: location.origin + location.pathname } });
       if (error) throw error;
-      return { needsConfirm: !data.session };
+      // Con sesión válida la app entra de inmediato. Usuario y país (ya van en user_metadata)
+      // se copian a `profiles` en segundo plano, sin bloquear la interfaz.
+      if (data.session) {
+        const { username, region } = meta || {};
+        if (username && region) {
+          setTimeout(() => real.updateProfile({ username, region, preferred_currency: region === 'ES' ? 'EUR' : 'USD' }).catch(() => {}), 0);
+        }
+      }
+      return { session: data.session, needsConfirm: !data.session };
     },
     async reset(email) {
       const c = await sb();

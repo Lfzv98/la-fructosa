@@ -1,6 +1,6 @@
 // Estado global: carga los datos una vez, calcula saldos y estadísticas,
 // y expone acciones que actualizan la BD y la interfaz al instante.
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { api, isDemo } from './api.js';
 import { fetchLiveRates } from './rates.js';
 import { REGIONS, convert, consolidate, todayISO, monthKey } from './money.js';
@@ -41,6 +41,8 @@ export function DataProvider({ children }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [live, setLive] = useState(null);
+  const dataRef = useRef(null);
+  dataRef.current = data;
 
   const reload = useCallback(async () => {
     setError(null);
@@ -152,9 +154,17 @@ export function DataProvider({ children }) {
       await api.remove(table, id);
       dropLocal(table, id);
     },
-    async updateProfile(patch) {
-      const p = await api.updateProfile(patch);
-      setData((d) => ({ ...d, profile: { ...d.profile, ...p } }));
+    // optimistic: aplica el cambio en pantalla al instante y lo revierte si la BD lo rechaza.
+    async updateProfile(patch, { optimistic = false } = {}) {
+      const before = optimistic ? dataRef.current?.profile : null;
+      if (optimistic) setData((d) => ({ ...d, profile: { ...d.profile, ...patch } }));
+      try {
+        const p = await api.updateProfile(patch);
+        setData((d) => ({ ...d, profile: { ...d.profile, ...p } }));
+      } catch (e) {
+        if (before) setData((d) => ({ ...d, profile: before }));
+        throw e;
+      }
     },
   }), [reload]);
 

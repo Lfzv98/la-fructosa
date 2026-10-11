@@ -138,10 +138,14 @@ function App() {
     return () => sub?.unsubscribe();
   }, []);
 
+  // Sesión válida (login o registro): se adopta al instante y se fuerza #/inicio, sin esperar
+  // a escrituras secundarias ni al evento de Supabase.
+  const adoptSession = (s) => { setSession(s); location.hash = '#/inicio'; };
+
   return html`<${React.Fragment}>
     ${session === undefined ? html`<main class="center-screen"><${Spinner} /></main>`
       : session ? html`<${DataProvider} key=${session.user.id}><${Shell} recovery=${recovery} clearRecovery=${() => setRecovery(false)} /><//>`
-      : html`<${AuthScreen} />`}
+      : html`<${AuthScreen} onSession=${adoptSession} />`}
     <${UpdateBanner} />
     <${ToastHost} />
     <${ConfirmHost} />
