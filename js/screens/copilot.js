@@ -1,6 +1,6 @@
 // Copiloto IA: chat con respuestas en streaming + configuración del proveedor.
 import { useEffect, useRef, useState } from 'react';
-import { html, Icon, Sheet, Field, toast, errorText, vibrate } from '../ui.js';
+import { html, Icon, Sheet, Field, toast, confirmDialog, errorText, vibrate } from '../ui.js';
 import { api } from '../api.js';
 import { useData, usePref } from '../store.js';
 import { go } from './common.js';
@@ -11,10 +11,24 @@ import {
   getSpeechRecognition, VoiceSession, speakReply, stopSpeech, cleanSpeechText,
 } from '../ai.js';
 
-// La conversación vive en memoria (no se guarda) y se borra si cambia el usuario.
+// La conversación se guarda en la cuenta (tabla ai_chats, migración 005) y en este dispositivo,
+// para retomarla al volver o desde otro equipo. Se borra con "Nueva conversación".
 let CHAT = [];
 let CHAT_OWNER = null;
 let uid = 0;
+const MAX_SAVED = 60; // últimos mensajes que se guardan
+
+// Solo lo necesario para volver a mostrarla: sin audio, sin errores ni estados a medias.
+const slim = (list) => list.filter((m) => m.text && !m.error).slice(-MAX_SAVED).map((m) => {
+  const blocks = m.blocks && Object.fromEntries(Object.entries(m.blocks).filter(([, v]) => v && v !== 'saving'));
+  return { role: m.role, text: m.text, ...(m.isVoice ? { isVoice: true } : {}), ...(blocks && Object.keys(blocks).length ? { blocks } : {}) };
+});
+const revive = (list) => (Array.isArray(list) ? list : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string')
+  .map((m) => ({ ...m, id: ++uid }));
+const CHAT_KEY = (id) => 'fructosa-chat-' + (id || 'anon');
+const readLocalChat = (id) => { try { return JSON.parse(localStorage.getItem(CHAT_KEY(id))) || null; } catch { return null; } };
+const writeLocalChat = (id, messages) => { try { localStorage.setItem(CHAT_KEY(id), JSON.stringify({ at: new Date().toISOString(), messages })); } catch { /* sin espacio */ } };
+const clearLocalChat = (id) => { try { localStorage.removeItem(CHAT_KEY(id)); } catch { /* nada */ } };
 
 // Aviso de uso de Fructosa: se muestra la primera vez que cada persona abre el chat (se recuerda por usuario).
 const NOTICE_KEY = (id) => 'fructosa-ai-aviso-' + (id || 'anon');
@@ -32,7 +46,7 @@ function AiNotice({ onClose }) {
         <li>Presupuestos, pagos fijos y consejos para ahorrar</li>
       </ul>
       <p>Cualquier otro tema queda fuera de su alcance.</p>
-      <p class="muted">🔒 Para responderte, Fructosa lee un resumen de tus datos. Solo tú los ves y la conversación no se guarda.</p>
+      <p class="muted">🔒 Para responderte, Fructosa lee un resumen de tus datos. Tu conversación se guarda en tu cuenta para que la retomes cuando quieras; solo tú la ves y puedes borrarla al empezar una nueva.</p>
     </div>
   <//>`;
 }
@@ -88,7 +102,7 @@ export function AiSettings({ onSaved }) {
         <button type="button" class="icon-btn sm" onClick=${() => setShow(!show)} aria-label=${show ? 'Ocultar clave' : 'Mostrar clave'}><${Icon} name=${show ? 'eyeOff' : 'eye'} size=${18} /></button>
       </div>
     <//>
-    <p class="hint ai-note">🔒 Al preguntar, un resumen de tus cuentas, tasas y últimos movimientos se envía a ${p.name} para responder. La clave se guarda solo en este dispositivo. No guardamos la conversación.</p>
+    <p class="hint ai-note">🔒 Al preguntar, un resumen de tus cuentas, tasas y últimos movimientos se envía a ${p.name} para responder. La clave se guarda solo en este dispositivo. La conversación se guarda en tu cuenta y solo tú la ves.</p>
     ${err.form && html`<p class="form-error">${err.form}</p>`}
     <div class="row-btns">
       <button class="btn primary grow" onClick=${save}>Guardar</button>
@@ -181,7 +195,12 @@ function Bubble({ m, d, onBlock, speaking, onToggleSpeak }) {
 export function Copilot() {
   const d = useData();
   const { profile, region, actions } = d;
-  const [msgs, setMsgsRaw] = useState(() => { if (CHAT_OWNER !== profile.id) { CHAT = []; CHAT_OWNER = profile.id; } return CHAT; });
+  const [msgs, setMsgsRaw] = useState(() => {
+    if (CHAT_OWNER !== profile.id) { CHAT = revive(readLocalChat(profile.id)?.messages); CHAT_OWNER = profile.id; }
+    return CHAT;
+  });
+  // null = comprobando · true = guardada en tu cuenta · false = solo en este dispositivo
+  const [synced, setSynced] = useState(null);
   const setMsgs = (fn) => setMsgsRaw((cur) => { const next = typeof fn === 'function' ? fn(cur) : fn; CHAT = next; return next; });
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -205,6 +224,37 @@ export function Copilot() {
   const ready = aiReady(cfg) || SHARED_AI; // con IA incluida el chat funciona sin configurar nada
 
   useEffect(() => { const el = log.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs]);
+
+  // Al abrir: trae la conversación guardada en la cuenta si es más reciente que la de este dispositivo.
+  const loaded = useRef(false); // no se guarda nada hasta saber qué hay en la cuenta (evita pisar otro equipo)
+  useEffect(() => {
+    let alive = true;
+    api.chat.load().then((row) => {
+      if (!alive) return;
+      loaded.current = true;
+      setSynced(true);
+      const local = readLocalChat(profile.id);
+      if (row?.messages?.length && (!local?.at || new Date(row.updated_at) > new Date(local.at))) {
+        setMsgs((cur) => (cur.some((m) => !m.text && !m.error) ? cur : revive(row.messages))); // no pisar una respuesta en curso
+        writeLocalChat(profile.id, row.messages);
+      }
+    }).catch((e) => { if (alive) { loaded.current = true; setSynced(false); console.warn('[chat] no se pudo leer la conversación guardada', e); } });
+    return () => { alive = false; };
+  }, [profile.id]);
+
+  // Guarda al terminar cada respuesta (y al confirmar movimientos): en el dispositivo al instante, en la cuenta poco después.
+  const saveTimer = useRef(null);
+  useEffect(() => {
+    if (busy || !loaded.current) return;
+    const data = slim(msgs);
+    if (!data.length) return;
+    writeLocalChat(profile.id, data);
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      api.chat.save(data).then(() => setSynced(true)).catch((e) => { setSynced(false); console.warn('[chat] no se pudo guardar en la cuenta', e); });
+    }, 800);
+    return () => clearTimeout(saveTimer.current);
+  }, [msgs, busy]);
   useEffect(() => () => {
     ctl.current?.abort();
     stopSpeech();
@@ -430,7 +480,18 @@ export function Copilot() {
     } catch (e) { mark(undefined); toast(errorText(e), { tone: 'bad' }); }
   }
 
-  const reset = () => { ctl.current?.abort(); stopSpeech(); setSpeakingId(null); setMsgs([]); setBusy(false); };
+  async function reset() {
+    const ok = await confirmDialog({
+      title: '¿Empezar una conversación nueva?',
+      body: 'La conversación actual se borrará de tu cuenta y de este dispositivo.',
+      confirm: 'Borrar y empezar', tone: 'danger',
+    });
+    if (!ok) return;
+    ctl.current?.abort(); stopSpeech(); setSpeakingId(null); clearTimeout(saveTimer.current);
+    setMsgs([]); setBusy(false);
+    clearLocalChat(profile.id);
+    api.chat.clear().catch((e) => console.warn('[chat] no se pudo borrar la conversación guardada', e));
+  }
   const back = () => (history.length > 1 ? history.back() : go('#/'));
 
   return html`<div class="chat" role="region" aria-label="Copiloto IA">
@@ -443,12 +504,13 @@ export function Copilot() {
     </header>
 
     <div class="chat-log" ref=${log} aria-live="polite">
+      ${synced === false && msgs.length > 0 && html`<p class="chat-note chat-saved-local">💾 Esta conversación se guarda solo en este dispositivo. Si cambias de equipo o borras los datos del navegador, se perderá.</p>`}
       ${!msgs.length && html`<div class="chat-empty">
         <div class="chat-spark"><${Icon} name="sparkle" size=${30} /></div>
         <h2>Hola${profile.display_name ? ', ' + profile.display_name : ''} 👋</h2>
         <p>Soy Fructosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento.</p>
         ${!ready && html`<button class="btn primary" onClick=${() => setSetup(true)}><${Icon} name="lock" size=${16} /> Conectar mi IA</button>`}
-        <p class="chat-note">🔒 Para responderte se analiza un resumen de tus cuentas, tasas y últimos movimientos. No se guarda la conversación.</p>
+        <p class="chat-note">🔒 Para responderte se analiza un resumen de tus cuentas, tasas y últimos movimientos. Tu conversación se guarda en tu cuenta y solo tú la ves.</p>
         <div class="chat-sugg">${suggestions.map((s) => html`<button key=${s} class="chip" onClick=${() => send(s)}>${s}</button>`)}</div>
       </div>`}
       ${msgs.map((m) => html`<${Bubble} key=${m.id} m=${m} d=${d} onBlock=${onBlock} speaking=${speakingId === m.id} onToggleSpeak=${onToggleSpeak} />`)}

@@ -228,6 +228,28 @@ const real = {
     const c = await sb();
     unwrap(await c.from(table).delete().eq('id', id));
   },
+
+  // Conversación con Fructosa: una fila por usuario en ai_chats (migración 005). RLS: solo la propia.
+  chat: {
+    async load() {
+      const c = await sb();
+      const { data: { session } } = await c.auth.getSession();
+      if (!session?.user) return null;
+      return unwrap(await c.from('ai_chats').select('messages, updated_at').eq('user_id', session.user.id).maybeSingle());
+    },
+    async save(messages) {
+      const c = await sb();
+      const { data: { session } } = await c.auth.getSession();
+      if (!session?.user) return;
+      unwrap(await c.from('ai_chats').upsert({ user_id: session.user.id, messages, updated_at: new Date().toISOString() }));
+    },
+    async clear() {
+      const c = await sb();
+      const { data: { session } } = await c.auth.getSession();
+      if (!session?.user) return;
+      unwrap(await c.from('ai_chats').delete().eq('user_id', session.user.id));
+    },
+  },
 };
 
 // ---------------------------------------------------------------------
@@ -373,5 +395,8 @@ const demo = {
   },
   reset() { localStorage.removeItem(DEMO_KEY); demoState = null; },
 };
+
+// En demo la conversación vive solo en este navegador (la guarda la pantalla del chat).
+demo.chat = { async load() { return null; }, async save() {}, async clear() {} };
 
 export const api = isDemo ? demo : real;

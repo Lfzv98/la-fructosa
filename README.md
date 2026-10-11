@@ -58,6 +58,7 @@ la-fructosa/
     ├── migrations/002_mejoras.sql     # Actualiza una base existente a la 2.0
     ├── migrations/003_tasas_automaticas.sql  # pg_cron: tasas 2 veces al día
     ├── migrations/004_usuarios.sql    # Usuario único para entrar + país del registro
+    ├── migrations/005_conversaciones.sql # Guarda la conversación con Fructosa (RLS por usuario)
     └── functions/update-rates/index.ts       # Edge Function que guarda las tasas
 ```
 
@@ -66,7 +67,7 @@ la-fructosa/
 1. **No borres `js/config.js`**: tiene tus claves y el zip no lo trae a propósito.
    Copia todo lo demás encima de tu repositorio.
 2. Supabase → SQL Editor → ejecuta `supabase/migrations/002_mejoras.sql` y luego
-   `supabase/migrations/004_usuarios.sql` (no borran nada; puedes correrlas de nuevo sin problema).
+   `supabase/migrations/004_usuarios.sql` y `supabase/migrations/005_conversaciones.sql` (no borran nada; puedes correrlas de nuevo sin problema).
 3. Sube a GitHub (`main`). Al abrir la app verás "Hay una versión nueva" → Actualizar.
 
 ## Instalación desde cero
