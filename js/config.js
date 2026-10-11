@@ -10,7 +10,7 @@ export const SUPABASE_ANON_KEY = "sb_publishable_yNEvh9BPnRoTVDbfQAa0ZQ_AF3gJgVE
 // OPCIÓN 1 · RECOMENDADA — Proxy seguro. La clave vive como secreto en Supabase y la app
 // se identifica con la sesión del usuario. Pasos en supabase/functions/ai-proxy/index.ts.
 // Ejemplo: https://bkausossugbbyfsersmb.supabase.co/functions/v1/ai-proxy
-export const AI_PROXY_URL = "";
+export const AI_PROXY_URL = "https://bkausossugbbyfsersmb.supabase.co/functions/v1/ai-proxy";
 
 // OPCIÓN 2 · NO recomendada — Clave global dentro de la app. Cualquiera podrá leerla y usarla,
 // gastar tu cuota y GitHub/Google/Groq/xAI suelen revocarla al detectarla. Déjala vacía si no la necesitas.

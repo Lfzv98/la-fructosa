@@ -10,7 +10,8 @@
 //  · Solo acepta peticiones desde los orígenes permitidos (CORS).
 //
 // Configurar y desplegar (una sola vez):
-//   supabase secrets set AI_API_KEY=tu-clave AI_UPSTREAM=groq AI_MODEL=llama-3.3-70b-versatile
+//   Gemini (lo más simple, un solo secreto):  supabase secrets set GEMINI_API_KEY=tu-clave
+//   Otro proveedor:  supabase secrets set AI_API_KEY=tu-clave AI_UPSTREAM=groq AI_MODEL=llama-3.3-70b-versatile
 //   supabase functions deploy ai-proxy
 // AI_UPSTREAM: groq | gemini | xai.  Opcional: AI_ALLOWED_ORIGINS="https://lfzv98.github.io"
 // Luego pon en js/config.js:  export const AI_PROXY_URL = 'https://<proyecto>.supabase.co/functions/v1/ai-proxy';
@@ -22,9 +23,14 @@ const UPSTREAMS: Record<string, { url: string; model: string }> = {
   xai: { url: 'https://api.x.ai/v1/chat/completions', model: 'grok-3-mini' },
 };
 
-const KEY = Deno.env.get('AI_API_KEY') ?? '';
-const UP = UPSTREAMS[Deno.env.get('AI_UPSTREAM') ?? 'groq'] ?? UPSTREAMS.groq;
-const MODEL = Deno.env.get('AI_MODEL') || UP.model;
+const GEMINI_MODELS = 'gemini-2.0-flash,gemini-2.5-flash,gemini-flash-latest';
+// Lo normal para Gemini: un solo secreto, GEMINI_API_KEY (AI_API_KEY + AI_UPSTREAM sigue valiendo para otros proveedores).
+const GEMINI_KEY = Deno.env.get('GEMINI_API_KEY') ?? '';
+const KEY = GEMINI_KEY || (Deno.env.get('AI_API_KEY') ?? '');
+const UP = UPSTREAMS[Deno.env.get('AI_UPSTREAM') ?? (GEMINI_KEY ? 'gemini' : 'groq')] ?? UPSTREAMS.groq;
+// AI_MODEL admite varios modelos separados por coma: se prueban en orden si uno no existe (404),
+// no tiene cupo (429), está saturado (5xx) o tarda más de 8 s en empezar a responder.
+const MODELS = (Deno.env.get('AI_MODEL') || (UP === UPSTREAMS.gemini ? GEMINI_MODELS : UP.model)).split(',').map((s) => s.trim()).filter(Boolean);
 const ORIGINS = (Deno.env.get('AI_ALLOWED_ORIGINS') ?? 'https://lfzv98.github.io,http://localhost:8000,http://127.0.0.1:8000')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
@@ -87,26 +93,37 @@ Deno.serve(async (req) => {
     .map((m) => ({ role: String(m.role), content: String(m.content).slice(0, MAX_CHARS) }));
   if (!messages.length) return reply(400, 'Mensajes no válidos');
 
-  const payload = {
-    model: MODEL, stream: true, temperature: 0.3, max_tokens: MAX_TOKENS,
-    messages: [{ role: 'system', content: SERVER_GUARD }, ...messages],
-  };
-
-  // 4. Proveedor (la clave solo viaja de servidor a servidor)
-  let upstream: Response;
-  try {
-    upstream = await fetch(UP.url, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(60_000),
-    });
-  } catch (_) {
-    return reply(502, 'El proveedor de IA no responde');
+  // 4. Proveedor (la clave solo viaja de servidor a servidor). Prueba los modelos en orden.
+  let upstream: Response | null = null;
+  let lastStatus = 502;
+  for (const model of MODELS) {
+    const payload = {
+      model, stream: true, temperature: 0.3, max_tokens: MAX_TOKENS,
+      messages: [{ role: 'system', content: SERVER_GUARD }, ...messages],
+    };
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 8_000); // solo hasta que empieza a responder
+    try {
+      const res = await fetch(UP.url, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: ctl.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) { upstream = res; break; }
+      lastStatus = res.status;
+      console.error('ai-proxy upstream', model, res.status); // nunca se registra la clave ni la conversación
+      await res.body?.cancel();
+      if (![404, 429].includes(res.status) && res.status < 500) break; // clave inválida, etc.: otro modelo no ayuda
+    } catch (_) {
+      clearTimeout(timer);
+      lastStatus = 504;
+      console.error('ai-proxy upstream', model, 'sin respuesta');
+    }
   }
-  if (!upstream.ok) {
-    console.error('ai-proxy upstream', upstream.status); // nunca se registra la clave ni la conversación
-    return reply(upstream.status === 429 ? 429 : 502, upstream.status === 429 ? 'El proveedor alcanzó su límite. Inténtalo más tarde.' : 'El proveedor de IA rechazó la consulta');
+  if (!upstream) {
+    return reply(lastStatus === 429 ? 429 : 502, lastStatus === 429 ? 'El proveedor alcanzó su límite. Inténtalo más tarde.' : 'El proveedor de IA no respondió. Inténtalo de nuevo.');
   }
   return new Response(upstream.body, {
     status: 200,
