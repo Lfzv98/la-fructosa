@@ -103,7 +103,19 @@
   <script type="module" src="./js/app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', { scope: './' }));
+      // Recarga una sola vez cuando una versión nueva toma el control (sin bucles).
+      const hadController = Boolean(navigator.serviceWorker.controller);
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || reloaded) return;
+        reloaded = true;
+        location.reload();
+      });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js', { scope: './' })
+          .then((reg) => reg.update())
+          .catch(() => { /* la app funciona igual sin service worker */ });
+      });
     }
   </script>
 </body>

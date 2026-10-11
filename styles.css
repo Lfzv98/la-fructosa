@@ -347,3 +347,43 @@
   background: #FFADAD;
   color: #152033;
 }
+
+/* Avisos de formulario: suaves, legibles, sin rojo agresivo */
+.form-note {
+  margin: 0;
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  background: #FFE4E4;
+  color: #4A1F1F;
+}
+
+.auth-card .form-note { background: #FFE4E4; color: #4A1F1F; }
+
+/* Aviso de sincronización: neutro, nunca bloquea la interfaz */
+.dash-sync {
+  margin: 0 0 0.75rem;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  background: rgba(160, 196, 255, 0.12);
+  color: #BEE3F8;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.dash-sync button { color: #FFADAD; font-weight: 600; }
+
+.dash-avatar {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #A0C4FF;
+  color: #152033;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}

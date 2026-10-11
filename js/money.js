@@ -61,8 +61,8 @@ export const REGIONS = {
   VE: {
     id: 'VE',
     flag: '🇻🇪',
-    label: 'Venezuela (Multimoneda / VES - Tasa BCV y Paralelo)',
-    cover: 'Venezuela (Multimoneda / VES - Tasa BCV y Paralelo)',
+    label: 'Venezuela (Multimoneda / VES - Tasas de cambio oficiales y paralelas)',
+    cover: 'Venezuela (Multimoneda / VES - Tasas de cambio oficiales y paralelas)',
     hint: 'USD, VES y USDT · BCV y paralelo',
     currency: 'USD',
     showRates: true,

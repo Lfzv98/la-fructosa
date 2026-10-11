@@ -41,10 +41,28 @@ function Segmented({ value, onChange, options }) {
     </div>`;
 }
 
+// Mensajes de formulario en español claro (nunca textos técnicos de la API).
+function friendlyError(error) {
+  const raw = String(error?.message ?? error ?? '').toLowerCase();
+  if (raw.includes('invalid login')) return 'Correo o contraseña incorrectos.';
+  if (raw.includes('already registered') || raw.includes('already been registered')) return 'Ese correo ya tiene una cuenta. Inicia sesión.';
+  if (raw.includes('email not confirmed')) return 'Confirma tu correo antes de entrar.';
+  if (raw.includes('password') && raw.includes('least')) return 'La contraseña debe tener al menos 8 caracteres.';
+  if (raw.includes('rate limit') || raw.includes('too many')) return 'Demasiados intentos. Espera un momento.';
+  if (raw.includes('failed to fetch') || raw.includes('network')) return 'Sin conexión. Revisa tu internet e inténtalo de nuevo.';
+  if (error?.message && !/[{}]|pgrst|schema cache|relationship|column/i.test(error.message)) return error.message;
+  return 'No se pudo completar la acción. Inténtalo de nuevo.';
+}
+
 function ErrorBox({ error }) {
   if (!error) return null;
-  return html`<p class="text-sm text-salmon-800 dark:text-salmon-100 bg-salmon-100/80 dark:bg-salmon-900/50 rounded-lg p-2">${error.message ?? String(error)}</p>`;
+  return html`<p class="form-note" role="alert">${friendlyError(error)}</p>`;
 }
+
+// Acciones secundarias: un fallo se registra en consola y nunca rompe la UI.
+const quietly = (fn) => async (...args) => {
+  try { await fn(...args); } catch (err) { console.warn(err?.message || err); }
+};
 
 function calcFormat(n) {
   if (!Number.isFinite(n)) return '0';
@@ -303,6 +321,10 @@ function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleC
   const zone = regionOf(profile);
   const { total, missing } = consolidate(balances, target, rates, valuation);
   const parts = balanceBreakdown(balances, target, rates, valuation);
+  const market = rates.USDT ?? rates.PARALELO;
+  const gapText = rates.BCV_USD && market
+    ? `Brecha BCV vs. USDT: ${(((market - rates.BCV_USD) / rates.BCV_USD) * 100).toFixed(1)} %`
+    : '';
   const subtitle = zone.showRates
     ? `Convertido a tasa ${RATE_LABELS[valuation]} del día`
     : `Expresado en ${CURRENCIES[target]?.label ?? target}`;
@@ -337,7 +359,7 @@ function Home({ profile, balances, rates, onAddAccount, onEditAccount, onToggleC
           </div>`}
         ${zone.showRates && html`
           <div class="flex items-center justify-between gap-2 mt-2">
-            <p class="dash-balance-note">${ratesNote || LIVE_RATES_NOTE}</p>
+            <p class="dash-balance-note">${gapText || ratesNote || LIVE_RATES_NOTE}</p>
             <button type="button" onClick=${onRefreshRates} disabled=${ratesBusy}
               class="rounded-full text-xs font-semibold px-3 py-1.5" style=${{ background: '#FFADAD', color: '#152033' }}
               aria-label="Actualizar tasas">${ratesBusy ? '…' : '🔄'}</button>
@@ -636,62 +658,32 @@ function SpreadCard({ spread, debit, currency }) {
 }
 
 // ---------------------------------------------------------------------
-// Exportación CSV / Excel
+// Periodos
 // ---------------------------------------------------------------------
+const TX_LABEL = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
+
 function periodRange(period) {
   if (period === 'prev') return monthBounds(-1);
   if (period === 'year') return yearBounds();
   return monthBounds(0);
 }
 
-function ExportReport({ balances, compact = false }) {
-  const [period, setPeriod] = useState('current');
-  const [accountId, setAccountId] = useState('');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const range = periodRange(period);
-
-  async function exportCsv() {
-    setBusy(true); setError(null);
-    try {
-      const rows = await api.listTransactions({
-        from: range.from, to: range.to, accountId: accountId || undefined, limit: 2000,
-      });
-      downloadCsv(`la-fructosa-${range.from}_${range.to}.csv`, transactionsToCsv(rows));
-    } catch (err) { setError(err); } finally { setBusy(false); }
-  }
-
-  return html`
-    <div class=${(compact ? '' : card + ' ') + 'p-4 space-y-3'}>
-      ${!compact && html`<h3 class="font-semibold">Exportar reporte</h3>`}
-      <${Segmented} value=${period} onChange=${setPeriod}
-        options=${[['current', 'Mes actual'], ['prev', 'Mes anterior'], ['year', 'Año']]} />
-      <${Field} label="Cuenta">
-        <select class=${input} value=${accountId} onChange=${(e) => setAccountId(e.target.value)}>
-          <option value="">Todas las cuentas</option>
-          ${balances.map((a) => html`<option key=${a.id} value=${a.id}>${accountIcon(a)} ${a.name} · ${a.currency}</option>`)}
-        </select>
-      <//>
-      <${ErrorBox} error=${error} />
-      <button type="button" class=${btnPrimary} disabled=${busy} onClick=${exportCsv}>
-        ${busy ? 'Preparando…' : '📥 Exportar reporte'}
-      </button>
-      <p class="text-[11px] opacity-60">CSV / Excel · ${range.from} — ${range.to}</p>
-    </div>`;
-}
-
 // ---------------------------------------------------------------------
 // Movimientos
 // ---------------------------------------------------------------------
+const TYPE_FILTERS = [['all', 'Todos'], ['income', 'Ingresos'], ['expense', 'Gastos'], ['transfer', 'Transf.']];
+
 function Movements({ txs, balances }) {
   const [period, setPeriod] = useState('current');
+  const [kind, setKind] = useState('all');
   const [accountId, setAccountId] = useState('');
   const range = periodRange(period);
   const filtered = useMemo(() => txs.filter((t) => {
     const day = txDay(t);
     return (!day || (day >= range.from && day <= range.to))
+      && (kind === 'all' || t.type === kind)
       && (!accountId || t.account_id === accountId || t.to_account_id === accountId);
-  }), [txs, range.from, range.to, accountId]);
+  }), [txs, range.from, range.to, kind, accountId]);
   const groups = useMemo(() => {
     const m = new Map();
     for (const t of filtered) {
@@ -706,40 +698,37 @@ function Movements({ txs, balances }) {
     <section class="space-y-4">
       <${Segmented} value=${period} onChange=${setPeriod}
         options=${[['current', 'Mes actual'], ['prev', 'Mes ant.'], ['year', 'Año']]} />
-      <select class=${input} value=${accountId} onChange=${(e) => setAccountId(e.target.value)}>
-        <option value="">Todas las cuentas</option>
-        ${balances.map((a) => html`<option key=${a.id} value=${a.id}>${accountIcon(a)} ${a.name}</option>`)}
-      </select>
-      <button type="button" class=${btnPrimary}
-        onClick=${() => {
-          const rows = txs.filter((t) => {
-            const day = txDay(t);
-            return (!day || (day >= range.from && day <= range.to))
-              && (!accountId || t.account_id === accountId || t.to_account_id === accountId);
-          });
-          downloadCsv(`la-fructosa-${range.from}_${range.to}.csv`, transactionsToCsv(rows));
-        }}>
-        📥 Exportar reporte
-      </button>
+      <${Segmented} value=${kind} onChange=${setKind} options=${TYPE_FILTERS} />
+      <div class="grid grid-cols-[1fr_auto] gap-2">
+        <select class=${input} value=${accountId} onChange=${(e) => setAccountId(e.target.value)} aria-label="Filtrar por cuenta">
+          <option value="">Todas las cuentas</option>
+          ${balances.map((a) => html`<option key=${a.id} value=${a.id}>${accountIcon(a)} ${a.name}</option>`)}
+        </select>
+        <button type="button" class="rounded-xl border border-azul-700 px-4 text-sm font-semibold disabled:opacity-40"
+          disabled=${filtered.length === 0}
+          onClick=${() => downloadCsv(`la-fructosa-${range.from}_${range.to}.csv`, transactionsToCsv(filtered))}>
+          📥 CSV
+        </button>
+      </div>
       ${filtered.length === 0
-        ? html`<div class=${card + ' p-5 text-center opacity-80'}>No hay movimientos en este período.</div>`
+        ? html`<div class=${card + ' p-5 text-center opacity-80'}>No hay movimientos con estos filtros.</div>`
         : groups.map(([day, list]) => html`
           <div key=${day}>
             <h3 class="text-xs uppercase tracking-wide opacity-60 mb-2">${day === 'sin-fecha' ? 'Sin fecha' : new Date(day + 'T12:00').toLocaleDateString('es-VE', { weekday: 'long', day: 'numeric', month: 'short' })}</h3>
-            <ul class=${card + ' divide-y divide-azul-100 dark:divide-azul-800 overflow-hidden'}>
+            <ul class=${card + ' divide-y divide-azul-800 overflow-hidden'}>
               ${list.map((t) => html`
-                <li key=${t.id} class=${'p-3 flex items-center gap-3 ' + (t.type === 'expense' ? 'bg-salmon-50/80 dark:bg-salmon-900/25' : '')}>
-                  <span class="text-xl">${t.type === 'income' ? '⬇️' : t.type === 'expense' ? '⬆️' : '🔁'}</span>
+                <li key=${t.id} class="p-3 flex items-center gap-3">
+                  <span class="text-xl" aria-hidden="true">${t.type === 'income' ? '⬇️' : t.type === 'expense' ? '⬆️' : '🔁'}</span>
                   <div class="flex-1 min-w-0">
-                    <p class="font-medium truncate">${t.description || t.category}</p>
+                    <p class="font-medium truncate">${t.description || t.category || TX_LABEL[t.type]}</p>
                     <p class="text-xs opacity-60 truncate">
-                      ${t.account?.name}${t.to_account ? ' → ' + t.to_account.name : ''}
+                      ${TX_LABEL[t.type]} · ${t.account?.name ?? 'Cuenta'}${t.to_account ? ' → ' + t.to_account.name : ''}
                       ${t.original_currency === 'VES' ? ` · ${fmt(t.original_amount, 'VES')}` : ''}
                     </p>
                   </div>
                   <div class="text-right">
-                    <p class=${'font-semibold tabular ' + (t.type === 'income' ? 'text-azul-600 dark:text-azul-200' : t.type === 'expense' ? 'text-salmon-700 dark:text-salmon-200' : '')}>
-                      ${t.type === 'income' ? '+' : '−'}${fmt(t.amount, t.account?.currency)}
+                    <p class=${'font-semibold tabular ' + (t.type === 'income' ? 'text-azul-200' : t.type === 'expense' ? 'text-salmon-200' : '')}>
+                      ${t.type === 'income' ? '+' : t.type === 'expense' ? '−' : ''}${fmt(t.amount, t.account?.currency)}
                     </p>
                     ${t.spread_usd != null && html`<p class="text-[11px] opacity-60 tabular">brecha ${fmt(Math.abs(t.spread_usd))}</p>`}
                   </div>
@@ -819,7 +808,7 @@ function Budgets({ budgets, txs, rates, profile, onChanged }) {
               </div>
               <div class="text-right">
                 <p class="text-sm tabular font-semibold">${fmt(total, b.currency)} / ${fmt(limit, b.currency)}</p>
-                <button type="button" class="text-[11px] opacity-50" onClick=${async () => { await api.deleteBudget(b.id); onChanged(); }}>Quitar</button>
+                <button type="button" class="text-[11px] opacity-50" onClick=${quietly(async () => { await api.deleteBudget(b.id); onChanged(); })}>Quitar</button>
               </div>
             </div>
             <div class="h-2.5 rounded-full bg-azul-50 dark:bg-azul-900 overflow-hidden">
@@ -962,7 +951,7 @@ function Recurring({ items, txs, balances, rates, profile, onChanged }) {
                 ${st.kind === 'paid' ? 'Pagado' : busyId === r.id ? '…' : 'Registrar pago'}
               </button>
               <button type="button" class="rounded-xl border border-azul-200 dark:border-azul-600 text-sm"
-                onClick=${async () => { await api.updateRecurring(r.id, { is_active: false }); onChanged(); }}>
+                onClick=${quietly(async () => { await api.updateRecurring(r.id, { is_active: false }); onChanged(); })}>
                 Pausar
               </button>
             </div>
@@ -975,59 +964,15 @@ function Recurring({ items, txs, balances, rates, profile, onChanged }) {
 }
 
 function Plan({ budgets, recurring, txs, balances, rates, profile, onChanged }) {
-  const [view, setView] = useState('budgets');
   return html`
-    <section class="space-y-4">
-      <${Segmented} value=${view} onChange=${setView}
-        options=${[['budgets', 'Presupuestos'], ['recurring', 'Recurrentes']]} />
-      ${view === 'budgets'
-        ? html`<${Budgets} budgets=${budgets} txs=${txs} rates=${rates} profile=${profile} onChanged=${onChanged} />`
-        : html`<${Recurring} items=${recurring} txs=${txs} balances=${balances} rates=${rates} profile=${profile} onChanged=${onChanged} />`}
-    </section>`;
-}
-
-// ---------------------------------------------------------------------
-// Tasas + calculadora rápida
-// ---------------------------------------------------------------------
-function Rates({ rows, rates, onRefresh, busy, note, error }) {
-  const [ves, setVes] = useState('');
-  const market = rates.USDT ?? rates.PARALELO;
-  const gap = rates.BCV_USD && market ? ((market - rates.BCV_USD) / rates.BCV_USD) * 100 : null;
-  return html`
-    <section class="space-y-4">
-      <div class="flex items-center justify-between gap-3">
-        <p class="text-sm text-azul-700 dark:text-sol-100">${note || 'Tasas BCV y USDT Binance P2P'}</p>
-        <button type="button" onClick=${onRefresh} disabled=${busy}
-          class="shrink-0 rounded-full bg-salmon text-azul-900 text-sm font-semibold px-3 py-1.5 disabled:opacity-50">
-          ${busy ? 'Actualizando…' : '🔄 Actualizar'}
-        </button>
+    <section class="space-y-6">
+      <div class="space-y-3">
+        <h2 class="font-semibold">📊 Presupuestos</h2>
+        <${Budgets} budgets=${budgets} txs=${txs} rates=${rates} profile=${profile} onChanged=${onChanged} />
       </div>
-      ${error && html`<${ErrorBox} error=${error} />`}
-      <div class="grid grid-cols-1 gap-3">
-        ${LIVE_RATE_KEYS.map((k) => {
-          const r = rows.find((x) => x.rate_type === k);
-          return html`
-            <div key=${k} class=${rateCard + ' p-4'}>
-              <p class="text-xs opacity-60">${RATE_LABELS[k]}</p>
-              <p class="text-2xl font-bold tabular">${r ? fmtRate(r.rate) : '—'}</p>
-              <p class="text-[11px] opacity-50">${r ? `${r.rate_date} · ${r.source ?? ''}` : 'sin datos'}</p>
-            </div>`;
-        })}
-      </div>
-      ${gap != null && html`
-        <div class="rounded-2xl bg-sol-100 text-azul-900 p-4">
-          <p class="text-sm">Brecha BCV vs. USDT Binance</p>
-          <p class="text-3xl font-bold tabular">${gap.toFixed(1)}%</p>
-        </div>`}
-      <div class=${card + ' p-4 space-y-3'}>
-        <h3 class="font-semibold">Calculadora</h3>
-        <input class=${input + ' tabular'} type="number" inputmode="decimal" step="any" placeholder="Monto en Bs." value=${ves} onInput=${(e) => setVes(e.target.value)} />
-        ${Number(ves) > 0 && html`
-          <ul class="text-sm space-y-1">
-            ${LIVE_RATE_KEYS.filter((k) => rates[k]).map((k) => html`
-              <li key=${k} class="flex justify-between"><span class="opacity-70">${RATE_LABELS[k]}</span>
-                <b class="tabular">${fmt(Number(ves) / rates[k], k === 'USDT' ? 'USDT' : k === 'BCV_EUR' ? 'EUR' : 'USD')}</b></li>`)}
-          </ul>`}
+      <div class="space-y-3">
+        <h2 class="font-semibold">🔄 Pagos recurrentes</h2>
+        <${Recurring} items=${recurring} txs=${txs} balances=${balances} rates=${rates} profile=${profile} onChanged=${onChanged} />
       </div>
     </section>`;
 }
@@ -1041,71 +986,42 @@ const MANUAL = [
     icon: '💵',
     title: 'Mis Cuentas y Divisas',
     steps: [
-      '1. En Inicio, toca + Nueva.',
-      '2. Elige el tipo: Zelle (USD), Efectivo (USD, VES o EUR), Pago Móvil / banco nacional (VES), Wire (USD o EUR), USDT / Binance, o una cuenta personalizada.',
-      '3. Ponle un nombre claro y la moneda de esa billetera. Cada cuenta guarda su saldo en su propia divisa.',
-      '4. El recuadro azul de Inicio suma todas tus cuentas y las convierte a dólares o bolívares, según lo que elijas en Ajustes, usando la tasa del día.',
-      '5. Toca una cuenta para editarla. El total se actualiza solo cuando registras ingresos, gastos o traspasos.',
+      '1. En Inicio, toca + Nueva cuenta.',
+      '2. Elige el tipo (Zelle, PayPal, Wise, Efectivo, Wire, Pago Móvil, USDT o personalizada), su nombre y su moneda.',
+      '3. La tarjeta de saldo de Inicio suma todas tus cuentas y las convierte a tu moneda base con la tasa del día.',
+      '4. Toca una cuenta para editarla. El total se actualiza solo al registrar movimientos.',
     ],
   },
   {
     id: 'tasas',
     icon: '📈',
-    title: 'Tasas de Cambio Automáticas',
+    title: 'Tasas de Cambio (Venezuela)',
     steps: [
-      '1. Al abrir la app se cargan las tres tasas vivas: Dólar BCV, Euro BCV y USDT Binance P2P.',
-      '2. Las ves en Inicio (franja de tasas) y en Más → Tasas, con la fecha y la fuente.',
-      '3. Toca 🔄 Actualizar si quieres forzar un refresco. Verás el aviso «Actualizado según BCV y USDT Binance».',
-      '4. En Ajustes eliges si el saldo total valora el dólar a tasa BCV o a USDT. Eso no cambia el dinero en cada cuenta: solo la conversión del total.',
-      '5. La calculadora de Tasas convierte un monto en bolívares a USD, EUR o USDT con las tasas del momento.',
+      '1. Al abrir la app se cargan Dólar BCV, Euro BCV y USDT Binance. Las ves dentro de la tarjeta de saldo en Inicio.',
+      '2. Toca 🔄 para refrescarlas. Si no hay conexión, se conservan las últimas disponibles.',
+      '3. En Más eliges si el total valora el dólar a tasa BCV o a USDT. Solo cambia la conversión del total, no el dinero de cada cuenta.',
     ],
   },
   {
     id: 'movimientos',
     icon: '💸',
-    title: 'Registrar Movimientos y Transferencias',
+    title: 'Registrar y Revisar Movimientos',
     steps: [
-      '1. Toca Nuevo en la barra de abajo.',
-      '2. Ingreso: elige la cuenta que recibe, la categoría (Sueldo, Remesas…) y el monto. El saldo de esa cuenta sube.',
-      '3. Gasto: elige de qué cuenta sale, la categoría (Comida, Servicios, Transporte…) y el monto. El saldo baja. Si pagaste en bolívares desde una cuenta en divisa, marca «Pagué en bolívares» e indica la tasa usada.',
-      '4. Traspaso: mueve dinero entre dos cuentas tuyas (por ejemplo Zelle → Efectivo). Elige origen y destino. El patrimonio total no cambia: solo cambia de billetera.',
-      '5. Revisa todo en Movs. Ahí ves el historial agrupado por día.',
+      '1. Toca el botón ＋ del centro. Se abre un único formulario.',
+      '2. Ingreso: cuenta que recibe, categoría y monto. Gasto: cuenta de la que sale. Transferencia: origen y destino.',
+      '3. Si pagaste en bolívares desde una cuenta en divisa, marca «Pagué en bolívares» e indica la tasa usada.',
+      '4. En Movs ves el historial por día y filtras por periodo, tipo (Ingresos, Gastos, Transferencias) y cuenta.',
+      '5. El botón 📥 CSV descarga lo que estás viendo, listo para Excel o Numbers.',
     ],
   },
   {
-    id: 'presupuestos',
+    id: 'plan',
     icon: '📊',
-    title: 'Presupuestos Mensuales',
+    title: 'Plan: Presupuestos y Pagos Recurrentes',
     steps: [
-      '1. Ve a Plan → Presupuestos y toca + Presupuesto.',
-      '2. Elige la categoría (Mercado, Servicios, Transporte, Salud…) y un límite mensual en USD, VES, EUR o USDT.',
-      '3. La barra compara ese tope con tus gastos del mes en curso.',
-      '4. Azul = vas bien (menos del 75%). Amarillo = cerca del límite (75% o más). Salmón = te pasaste.',
-      '5. Puedes quitar o ajustar un presupuesto cuando quieras. No bloquea el gasto: solo te avisa.',
-    ],
-  },
-  {
-    id: 'recurrentes',
-    icon: '🔄',
-    title: 'Gastos Fijos y Suscripciones',
-    steps: [
-      '1. Ve a Plan → Recurrentes y toca + Pago recurrente.',
-      '2. Anota el nombre (Alquiler, Internet, Netflix…), el monto, la categoría, el día de cobro (1 al 31) y la cuenta de la que se descuenta.',
-      '3. Si el vencimiento está a 1–5 días, verás una insignia amarilla. Si ya pasó el día, el aviso pasa a salmón.',
-      '4. Cuando pagues de verdad, toca Registrar pago. En un clic se crea el gasto y se descuenta de la cuenta elegida.',
-      '5. Pausar oculta el compromiso sin borrar el historial de pagos ya registrados.',
-    ],
-  },
-  {
-    id: 'exportar',
-    icon: '📥',
-    title: 'Exportar a Excel',
-    steps: [
-      '1. En Movs o en Más → Ajustes busca el botón Exportar reporte.',
-      '2. Filtra por Mes actual, Mes anterior o Año, y opcionalmente por una cuenta.',
-      '3. Toca Exportar reporte. Se descarga un archivo CSV que Excel y Numbers abren sin problema.',
-      '4. El archivo trae: Fecha, Descripción, Categoría, Tipo (Ingreso / Gasto / Transferencia), Monto Original, Moneda, Cuenta y Tasa de Cambio.',
-      '5. Úsalo para tu contabilidad familiar o para enviárselo a quien lleve las cuentas, sin darle acceso a la app.',
+      '1. En Plan defines un límite mensual por categoría. La barra compara el tope con tus gastos del mes: azul va bien, amarillo desde 75 %, salmón si te pasaste.',
+      '2. Más abajo registras pagos fijos (alquiler, internet, streaming) con su día de cobro y cuenta.',
+      '3. Cuando falten 1 a 5 días verás una insignia amarilla. Toca Registrar pago para crear el gasto en un clic.',
     ],
   },
   {
@@ -1113,10 +1029,9 @@ const MANUAL = [
     icon: '🔐',
     title: 'Privacidad y Seguridad',
     steps: [
-      'Cada familiar entra con su propio correo. La base de datos (Supabase) aplica seguridad RLS: una fila solo se ve si pertenece a tu usuario (auth.uid() = user_id).',
-      'Nadie de la familia —ni otro miembro con cuenta— puede leer, editar o borrar tus billeteras, movimientos, presupuestos o suscripciones.',
-      'En el celular la app funciona como PWA: puedes instalarla en la pantalla de inicio. Cierra sesión desde Ajustes cuando uses un teléfono compartido.',
-      'Tus datos no se mezclan con los de otra persona. Si no ves un movimiento, es que está en otra cuenta de usuario, no en la tuya.',
+      'Cada persona entra con su propio correo. La base de datos aplica seguridad RLS: una fila solo se ve si pertenece a tu usuario.',
+      'Nadie más puede leer, editar o borrar tus cuentas, movimientos, presupuestos o pagos recurrentes.',
+      'Puedes instalar la app desde el navegador (Compartir → Agregar a inicio en iPhone, o el botón Instalar en Chrome). Cierra sesión desde Más si usas un equipo compartido.',
     ],
   },
 ];
@@ -1150,47 +1065,42 @@ function UserManual() {
 }
 
 // ---------------------------------------------------------------------
-// Ajustes
+// Más: perfil, preferencias y ayuda (una sola página, sin submenús)
 // ---------------------------------------------------------------------
-function Settings({ profile, onSave, balances }) {
+function More({ profile, onSave }) {
   const zone = regionOf(profile);
+  const who = greetName(profile);
   return html`
     <section class="space-y-4">
-      <${UserManual} />
+      <div class=${card + ' p-4 flex items-center gap-3'}>
+        <span class="dash-avatar" aria-hidden="true">${(who || 'F').slice(0, 1).toUpperCase()}</span>
+        <div class="min-w-0">
+          <p class="font-semibold truncate">${profile.display_name || 'Mi perfil'}</p>
+          <p class="text-xs opacity-70">${zone.flag} Moneda base · ${profile.preferred_currency}</p>
+        </div>
+      </div>
+
       <div class=${card + ' p-4 space-y-4'}>
         <div class="space-y-2">
-          <p class="text-sm opacity-70">Región y moneda base principal</p>
+          <p class="text-sm opacity-70">Región y moneda base</p>
           <${RegionPicker} value=${zone.id} onChange=${(id) => onSave(patchForRegion(id, profile))} />
         </div>
-        <${Field} label="Moneda base predilecta">
+        <${Field} label="Mostrar el saldo total en">
           <${Segmented} value=${profile.preferred_currency} onChange=${(v) => onSave({ preferred_currency: v })}
             options=${[['EUR', 'Euros'], ['USD', 'Dólares'], ['VES', 'Bolívares']]} />
         <//>
         ${zone.showRates && html`
           <${Field} label="Valorar dólares a tasa">
             <${Segmented} value=${profile.valuation_rate} onChange=${(v) => onSave({ valuation_rate: v })}
-              options=${[['BCV_USD', 'BCV'], ['PARALELO', 'USDT']]} />
+              options=${[['BCV_USD', 'BCV oficial'], ['PARALELO', 'USDT / paralelo']]} />
           <//>`}
       </div>
-      <${ExportReport} balances=${balances} />
-      ${!isDemo && html`
-        <button class="w-full rounded-xl border border-salmon-600 text-salmon-700 dark:text-salmon-200 dark:border-salmon-300 py-3 font-semibold"
-          onClick=${() => supabase.auth.signOut()}>Cerrar sesión</button>`}
-    </section>`;
-}
 
-function More({ profile, onSave, balances, rateRows, rates, onRefresh, ratesBusy, ratesNote, ratesError }) {
-  const showRates = regionOf(profile).showRates;
-  const [view, setView] = useState(showRates ? 'rates' : 'settings');
-  return html`
-    <section class="space-y-4">
-      ${showRates && html`
-        <${Segmented} value=${view} onChange=${setView}
-          options=${[['rates', 'Tasas'], ['settings', 'Ajustes']]} />`}
-      ${showRates && view === 'rates'
-        ? html`<${Rates} rows=${rateRows} rates=${rates} onRefresh=${onRefresh}
-            busy=${ratesBusy} note=${ratesNote} error=${ratesError} />`
-        : html`<${Settings} profile=${profile} onSave=${onSave} balances=${balances} />`}
+      <${UserManual} />
+
+      ${!isDemo && html`
+        <button type="button" class="w-full rounded-xl border border-salmon-300 text-salmon-200 py-3 font-semibold"
+          onClick=${() => supabase.auth.signOut()}>Cerrar sesión</button>`}
     </section>`;
 }
 
@@ -1215,59 +1125,51 @@ function MainApp() {
   const [budgets, setBudgets] = useState([]);
   const [recurring, setRecurring] = useState([]);
   const [rates, setRates] = useState({});
-  const [rateRows, setRateRows] = useState([]);
   const [ratesBusy, setRatesBusy] = useState(false);
   const [ratesNote, setRatesNote] = useState('');
-  const [ratesError, setRatesError] = useState(null);
-  const [error, setError] = useState(null);
+  const [syncIssue, setSyncIssue] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
 
   const applyLiveRates = useCallback(async () => {
-    setRatesBusy(true); setRatesError(null);
+    setRatesBusy(true);
     try {
       const live = await api.refreshRates();
       setRates(live.rates);
-      setRateRows(live.rows);
       setRatesNote(live.sourceNote || LIVE_RATES_NOTE);
     } catch (err) {
-      setRatesError(err);
-      try {
-        const [r, rr] = await Promise.all([api.latestRates(), api.latestRateRows()]);
-        setRates(r); setRateRows(rr);
-      } catch { /* se mantienen las últimas tasas en pantalla */ }
+      console.warn('Tasas en vivo no disponibles:', err?.message || err);
+      try { setRates(await api.latestRates()); } catch { /* se conservan las últimas tasas */ }
     } finally {
       setRatesBusy(false);
     }
   }, []);
 
+  // Carga defensiva: cada consulta falla por separado y la UI siempre se muestra.
   const load = useCallback(async () => {
-    const [pRes, bRes, tRes] = await Promise.allSettled([
-      api.getProfile(), api.listBalances(), api.listTransactions(),
+    const [pRes, bRes, tRes, buRes, reRes] = await Promise.allSettled([
+      api.getProfile(), api.listBalances(), api.listTransactions(), api.listBudgets(), api.listRecurring(),
     ]);
-    const notices = [];
-    if (pRes.status === 'fulfilled') setProfile(pRes.value);
-    else {
-      notices.push(pRes.reason);
+    let failed = 0;
+    const take = (res, ok) => {
+      if (res.status === 'fulfilled') ok(res.value);
+      else { failed += 1; console.warn('Consulta fallida:', res.reason?.message || res.reason); }
+    };
+    take(pRes, setProfile);
+    if (pRes.status === 'rejected') {
       setProfile((prev) => prev || normalizeProfile({ display_name: '', preferred_currency: 'USD', region: 'VE' }));
     }
-    if (bRes.status === 'fulfilled') setBalances(bRes.value);
-    else notices.push(bRes.reason);
-    if (tRes.status === 'fulfilled') setTxs(tRes.value);
-    else notices.push(tRes.reason);
-    try {
-      const [bu, rec] = await Promise.all([api.listBudgets(), api.listRecurring()]);
-      setBudgets(bu); setRecurring(rec);
-    } catch {
-      setBudgets([]); setRecurring([]);
-    }
+    take(bRes, setBalances);
+    take(tRes, setTxs);
+    take(buRes, setBudgets);
+    take(reRes, setRecurring);
+    setSyncIssue(failed > 0);
     await applyLiveRates();
-    setError(notices[0] ? (notices[0].message ? notices[0] : new Error(String(notices[0]))) : null);
   }, [applyLiveRates]);
   useEffect(() => { load(); }, [load]);
 
   async function saveProfile(patch) {
     try { setProfile(await api.updateProfile(patch)); }
-    catch (err) { setError(err); }
+    catch (err) { console.warn('No se guardó el perfil:', err?.message || err); setSyncIssue(true); }
   }
 
   if (!profile) return html`<main class="min-h-screen grid place-items-center opacity-60">Cargando…</main>`;
@@ -1288,18 +1190,15 @@ function MainApp() {
         <div class="dash-toolbar">
           ${isDemo && html`<span class="text-[10px] font-bold uppercase rounded-full px-2 py-1" style=${{ background: '#FDFFB6', color: '#152033' }}>Demo</span>`}
           <button type="button" class="dash-icon-btn" onClick=${() => setCalcOpen(true)} aria-label="Calculadora">🧮</button>
-          <button type="button" class="dash-icon-btn" onClick=${() => setTab('more')} aria-label="Perfil">👤</button>
-          ${!isDemo && html`
-            <button type="button" class="dash-icon-btn" onClick=${() => supabase.auth.signOut()} aria-label="Cerrar sesión">⎋</button>`}
         </div>
       </header>
 
       <main class="flex-1 px-5 pb-28 pt-2">
-        ${error && html`
-          <div class="mb-3 flex items-start gap-2">
-            <div class="flex-1"><${ErrorBox} error=${error} /></div>
-            <button type="button" class="text-xs opacity-60 pt-2" onClick=${() => setError(null)}>Cerrar</button>
-          </div>`}
+        ${syncIssue && html`
+          <p class="dash-sync" role="status">
+            Mostrando los datos disponibles.
+            <button type="button" onClick=${() => { setSyncIssue(false); load(); }}>Reintentar</button>
+          </p>`}
         ${tab === 'home' && html`<${Home} profile=${profile} balances=${balances} rates=${rates}
           onAddAccount=${() => setSheet({ mode: 'create' })}
           onEditAccount=${(a) => setSheet({ mode: 'edit', account: a })}
@@ -1308,9 +1207,7 @@ function MainApp() {
         ${tab === 'movs' && html`<${Movements} txs=${txs} balances=${balances} />`}
         ${tab === 'plan' && html`<${Plan} budgets=${budgets} recurring=${recurring} txs=${txs}
           balances=${balances} rates=${rates} profile=${profile} onChanged=${load} />`}
-        ${tab === 'more' && html`<${More} profile=${profile} onSave=${saveProfile} balances=${balances}
-          rateRows=${rateRows} rates=${rates} onRefresh=${applyLiveRates}
-          ratesBusy=${ratesBusy} ratesNote=${ratesNote} ratesError=${ratesError} />`}
+        ${tab === 'more' && html`<${More} profile=${profile} onSave=${saveProfile} />`}
       </main>
 
       <nav class="dash-dock fixed bottom-0 inset-x-0 safe-bottom">
