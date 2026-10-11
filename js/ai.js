@@ -43,8 +43,9 @@ export function normalizeKey(raw) {
     .replace(/^["'`]+|["'`]+$/g, '')
     .replace(/^(?:key|api_?key)=/i, '');
 }
-// Aviso suave (no bloquea): las claves de Google AI Studio empiezan por AIza.
-export const keyLooksOdd = (key) => Boolean(key) && !/^AIza[\w-]{20,}$/.test(key);
+// Aviso suave (no bloquea nada): Google AI Studio entrega claves con formato AIza… (clásico) o AQ.… (nuevo).
+// Cualquier otra cosa solo muestra una pista; guardar y probar solo exigen que la clave no esté vacía.
+export const keyLooksOdd = (key) => Boolean(key) && !/^(AIza[\w-]{20,}|AQ\.[\w.-]{20,})$/.test(key);
 
 // ¿Es un error de clave (y no del modelo)? Google responde 400 API_KEY_INVALID, 401 o 403 PERMISSION_DENIED.
 const isKeyError = (status, text) => status === 401 || status === 403
@@ -53,7 +54,7 @@ const isKeyError = (status, text) => status === 401 || status === 403
 const canFallback = (status, text) => !isKeyError(status, text) && (status === 404 || status === 429 || status >= 500
   || (status === 400 && /model|not supported|unsupported/i.test(text)));
 export const PROVIDERS = {
-  gemini: { name: 'Google Gemini', label: 'Google Gemini', model: AI_MODEL, hint: 'Clave de Google AI Studio (aistudio.google.com). Empieza por AIza…' },
+  gemini: { name: 'Google Gemini', label: 'Google Gemini', model: AI_MODEL, hint: 'Clave de Google AI Studio (aistudio.google.com). Empieza por AIza… o AQ.…' },
 };
 export const AI_INTRO = (userName = '') => 
   `Hola, soy Fructuosa, tu asistente personal de finanzas. ¿Cómo estás${userName ? ', ' + userName : ''}? ¿En qué te puedo ayudar hoy?`;

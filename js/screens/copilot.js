@@ -59,7 +59,7 @@ export function AiSettings({ onSaved }) {
 
   return html`<div class="stack">
     ${SHARED_AI && html`<div class="callout good">✓ El copiloto ya funciona sin configurar nada. Esto es <b>opcional</b>: úsalo solo si prefieres usar tu propia clave de Google Gemini.</div>`}
-    <${Field} label="Clave de API" error=${err.apiKey} hint=${keyLooksOdd(normalizeKey(cfg.apiKey)) ? 'Las claves de Google AI Studio suelen empezar por AIza…; revisa que la copiaste completa.' : p.hint}>
+    <${Field} label="Clave de API" error=${err.apiKey} hint=${keyLooksOdd(normalizeKey(cfg.apiKey)) ? 'Las claves de Google AI Studio empiezan por AIza… o AQ.…; revisa que la copiaste completa. Igual puedes guardarla y probarla.' : p.hint}>
       <div class="input-affix right">
         <input class="input" type=${show ? 'text' : 'password'} name="fructosa-ai-key" autocomplete="off" autocapitalize="none" spellcheck="false"
           data-lpignore="true" data-1p-ignore="true" data-form-type="other" readOnly=${!armed} onFocus=${() => setArmed(true)}
