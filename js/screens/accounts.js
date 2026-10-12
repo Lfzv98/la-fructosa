@@ -77,7 +77,7 @@ export function AccountForm({ account, onClose }) {
 
   async function submit(close) {
     const e = {};
-    if (!f.name.trim()) e.name = 'Escribe un nombre para la cuenta (por ejemplo, Zelle o Efectivo).';
+    if (!f.name.trim()) e.name = 'Escribe un nombre para la cuenta (por ejemplo, Efectivo o el nombre de tu banco).';
     const ib = f.initial_balance === '' ? 0 : parseAmount(f.initial_balance);
     if (!isFinite(ib)) e.initial_balance = 'Monto no válido.';
     setErr(e);

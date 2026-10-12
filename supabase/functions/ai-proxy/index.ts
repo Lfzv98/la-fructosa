@@ -84,7 +84,7 @@ const MAX_MESSAGES = 30;
 const MAX_CHARS = 40_000;          // por mensaje (el prompt con datos es largo)
 const MAX_TOKENS = 2048;           // respuesta (en Gemini 3 incluye el "pensamiento": con 700 se quedaba sin texto)
 const FIRST_BYTE_MS = 30_000;      // Gemini 3 piensa antes de responder: 8 s cortaba respuestas buenas
-const LIMIT = 30;                  // peticiones…
+const LIMIT = 50;                  // peticiones (preguntas y voz)…
 const WINDOW_MS = 10 * 60 * 1000;  // …cada 10 minutos por usuario
 
 const hits = new Map<string, number[]>();
@@ -95,6 +95,44 @@ function limited(user: string): boolean {
   list.push(now);
   hits.set(user, list);
   return false;
+}
+
+// Voz natural (v4): convierte la respuesta de Fructosa en audio con los modelos "-tts" de Gemini.
+// Devuelve { audio: base64, mimeType } (PCM 16 bits, 24 kHz). Solo con GEMINI_API_KEY.
+const MAX_TTS_CHARS = 3000;
+const VOICES = new Set(['Aoede', 'Kore', 'Leda', 'Zephyr', 'Callirrhoe', 'Autonoe', 'Despina', 'Erinome', 'Laomedeia', 'Achernar', 'Gacrux', 'Pulcherrima', 'Vindemiatrix', 'Sulafat']);
+export function ttsChain(names: Iterable<string> | null): string[] {
+  const env = (Deno.env.get('TTS_MODEL') ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+  const ver = (m: string) => (m.match(/gemini-(\d+(?:\.\d+)?)/) ?? ['', '0'])[1].split('.').map(Number);
+  const found = [...(names ?? [])].filter((m) => /^gemini-.*tts/.test(m))
+    .sort((a, b) => { const va = ver(a), vb = ver(b); return (vb[0] - va[0]) || ((vb[1] ?? 0) - (va[1] ?? 0)) || (Number(a.includes('pro')) - Number(b.includes('pro'))); });
+  const chain = [...new Set([...env, ...found])];
+  return chain.length ? chain : ['gemini-2.5-flash-preview-tts'];
+}
+async function speak(tts: { text?: unknown; voice?: unknown }, cors: Record<string, string>, reply: (s: number, m: string) => Response): Promise<Response> {
+  if (!GEMINI_KEY) return reply(503, 'La voz natural no está configurada en el servidor');
+  const text = String(tts.text ?? '').slice(0, MAX_TTS_CHARS).trim();
+  if (!text) return reply(400, 'Falta el texto');
+  const voice = VOICES.has(String(tts.voice)) ? String(tts.voice) : 'Aoede';
+  await modelChain(); // refresca el catálogo de modelos
+  for (const model of ttsChain(catalog?.names ?? null)) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(GEMINI_KEY)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: AbortSignal.timeout(30_000),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text }] }],
+          generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } } },
+        }),
+      });
+      if (!res.ok) { console.error('ai-proxy tts', model, res.status); await res.body?.cancel(); continue; }
+      const j = await res.json();
+      const part = (j?.candidates?.[0]?.content?.parts ?? []).find((p: { inlineData?: { data?: string } }) => p?.inlineData?.data);
+      if (part) return new Response(JSON.stringify({ audio: part.inlineData.data, mimeType: part.inlineData.mimeType ?? 'audio/L16;rate=24000' }), { status: 200, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
+    } catch (_) { console.error('ai-proxy tts', model, 'sin respuesta'); }
+  }
+  return reply(502, 'No se pudo generar la voz');
 }
 
 // Regla fija del servidor: aunque alguien llame a la función sin la app, solo hay finanzas.
@@ -114,7 +152,7 @@ Deno.serve(async (req) => {
 
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   // GET: la app pregunta qué sabe hacer esta versión (v2 = lee capturas y recibos).
-  if (req.method === 'GET') return new Response(JSON.stringify({ ok: true, v: 3, images: true }), { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
+  if (req.method === 'GET') return new Response(JSON.stringify({ ok: true, v: 4, images: true, tts: Boolean(GEMINI_KEY) }), { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
   if (req.method !== 'POST') return reply(405, 'Método no permitido');
   if (!KEY) return reply(503, 'El copiloto no está configurado en el servidor');
   if (origin && !originOk(origin)) return reply(403, 'Origen no permitido');
@@ -132,8 +170,9 @@ Deno.serve(async (req) => {
   // 3. Petición validada y reducida a lo imprescindible
   const raw = await req.text();
   if (raw.length > MAX_BODY) return reply(413, 'La solicitud es demasiado grande');
-  let body: { messages?: { role?: string; content?: unknown }[] };
+  let body: { messages?: { role?: string; content?: unknown }[]; tts?: { text?: unknown; voice?: unknown } };
   try { body = JSON.parse(raw); } catch { return reply(400, 'JSON no válido'); }
+  if (body.tts) return await speak(body.tts, cors, reply);
   if (!Array.isArray(body.messages) || !body.messages.length) return reply(400, 'Faltan mensajes');
 
   // Contenido: texto, o (solo del usuario) texto + UNA imagen en base64 (captura de Pago Móvil, recibo…).

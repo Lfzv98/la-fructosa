@@ -8,7 +8,7 @@ import { categoryMeta, fmt, fmtRate, todayISO } from '../money.js';
 import {
   PROVIDERS, SHARED_AI, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, resolveAi, systemPrompt, withGuard, parseReply,
   runCalc, resolveTx, streamChat, testConnection, AI_INTRO, userFirstName, normalizeKey, keyLooksOdd,
-  getSpeechRecognition, VoiceSession, speakReply, stopSpeech, cleanSpeechText, prepareImage, proxySupportsImages,
+  getSpeechRecognition, VoiceSession, speakReply, speechLangFor, stopSpeech, cleanSpeechText, prepareImage, proxySupportsImages,
 } from '../ai.js';
 
 // La conversación se guarda en la cuenta (tabla ai_chats, migración 005) y en este dispositivo,
@@ -286,6 +286,8 @@ export function Copilot() {
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
   }, []);
 
+  // Voz de Fructosa: acento del país y voz natural de Gemini cuando está disponible.
+  const voiceOpts = { region: region.code, getConfig: () => resolveAi(() => api.auth.accessToken()) };
   const base = region.base;
   const sym = base === 'EUR' ? '20 €' : '$20';
   const suggestions = [
@@ -356,6 +358,7 @@ export function Copilot() {
       if ((isVoice || voiceMode) && fullReply) {
         setSpeakingId(bot.id);
         speakReply(fullReply, {
+          ...voiceOpts,
           onEnd: () => setSpeakingId((cur) => (cur === bot.id ? null : cur)),
         });
       }
@@ -386,7 +389,7 @@ export function Copilot() {
 
     try {
       const recog = new Speech();
-      recog.lang = 'es-VE';
+      recog.lang = speechLangFor(region.code);
       recog.continuous = true;
       recog.interimResults = true;
 
@@ -442,6 +445,7 @@ export function Copilot() {
         onTranscript: (t) => setLiveTranscript(t),
         onVolume: (v) => setAudioVolume(v),
         onError: (err) => toast(err.message, { tone: 'bad' }),
+        lang: speechLangFor(region.code),
       });
       voiceSessionRef.current = session;
       await session.start();
@@ -492,6 +496,7 @@ export function Copilot() {
       stopSpeech();
       setSpeakingId(msg.id);
       speakReply(msg.text, {
+        ...voiceOpts,
         onEnd: () => setSpeakingId((cur) => (cur === msg.id ? null : cur)),
       });
     }

@@ -143,7 +143,7 @@ export function TxForm({ tx, preset = {}, onClose }) {
   if (!active.length) {
     return html`<${Sheet} title="Nuevo movimiento" onClose=${onClose}>
       <div class="empty"><${Art} name="bank" class="empty-art" /><h3>Primero crea una cuenta</h3>
-      <p>Todo movimiento sale de una cuenta o entra en ella (efectivo, banco, Zelle…).</p>
+      <p>Todo movimiento sale de una cuenta o entra en ella (${region.examples})</p>
       <button class="btn primary" onClick=${() => { onClose(); setTimeout(() => { location.hash = '#/cuentas?nueva=1'; }, 150); }}>Crear cuenta</button></div>
     <//>`;
   }

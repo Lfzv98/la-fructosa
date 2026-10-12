@@ -12,7 +12,7 @@ function slidesFor(region) {
     { art: 'coins', title: 'Bienvenido a La Fructosa', text: `Todo tu dinero en un solo lugar: ${region?.examples || 'efectivo, bancos, apps de pago y cripto'} Cada cuenta es independiente y nadie ve la de los demás.` },
     rates
       ? { art: 'currencies', title: 'Varias monedas, un solo total', text: 'Cada cuenta lleva su moneda (USD, Bs., USDT o EUR). La app las convierte con la tasa del día y te dice cuánto tienes en total.' }
-      : { art: 'currencies', title: 'Todo en tu moneda', text: `Cada cuenta lleva su moneda (${cur}…) y la app te dice cuánto tienes en total en ${region?.base || 'tu moneda'}. Agrega tus propios bancos y apps.` },
+      : { art: ['ES', 'US'].includes(region?.code) ? `currencies_${region.code}` : 'currencies', title: 'Todo en tu moneda', text: `Cada cuenta lleva su moneda (${cur}…) y la app te dice cuánto tienes en total en ${region?.base || 'tu moneda'}. Agrega tus propios bancos y apps.` },
     { art: 'growth', title: 'Registra en segundos', text: rates
       ? 'Toca +, escribe el monto y elige la categoría. Si pagas en bolívares desde una cuenta en dólares, la app calcula el costo real y la brecha.'
       : 'Toca +, escribe el monto y elige la categoría (alquiler, mercado, servicios, seguros, impuestos…). También puedes dictárselo a Fructosa.' },

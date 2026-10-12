@@ -23,13 +23,15 @@ test('cada país tiene textos, plantillas y bancos', () => {
     assert.ok(BY_REGION[k], `BY_REGION.${k}`);
     assert.ok(ACCOUNT_TEMPLATES[k]?.length && BANK_PICK_TEMPLATES[k]?.length && BANK_GROUPS[k]?.length, k);
     for (const c of REGIONS[k].currencies) assert.ok(CURRENCIES[c], c);
-    assert.ok(REGIONS[k].currencies.includes('VES'), `${k} ofrece bolívares`);
+    assert.equal(REGIONS[k].currencies.includes('VES'), ['VE', 'INT'].includes(k), `${k} y los bolívares`);
   }
 });
 
-test('las tasas se activan fuera de Venezuela solo con cuentas en bolívares', () => {
+test('las tasas solo existen en Venezuela (y en "Otro país" con cuentas en bolívares)', () => {
   assert.equal(regionFor('US', []).rates, false);
-  assert.equal(regionFor('US', [{ currency: 'VES' }]).rates, true);
+  assert.equal(regionFor('US', [{ currency: 'VES' }]).rates, false);
+  assert.equal(regionFor('ES', [{ currency: 'VES' }]).rates, false);
+  assert.equal(regionFor('INT', [{ currency: 'VES' }]).rates, true);
   assert.equal(regionFor('INT', [{ currency: 'VES', archived: true }]).rates, false);
   assert.equal(regionFor('VE', []).rates, true);
   assert.equal(regionFor('XX').label, 'Venezuela');
@@ -43,7 +45,7 @@ test('bancos según la moneda, en cualquier país', () => {
     assert.equal(ves.length, 1);
     assert.ok(ves[0].banks.includes('Banco de Venezuela (BDV)'));
     const usd = bankGroupsFor(k, 'USD').flatMap((g) => g.banks);
-    assert.ok(usd.includes('Zelle') && !usd.includes('Banesco'), k);
+    assert.ok(!usd.includes('Banesco'), k);
     assert.equal(bankGroupsFor(k, 'USDT')[0].title, 'Cripto (USDT)');
   }
 });
@@ -73,4 +75,22 @@ test('cada país tiene su experiencia propia (v27)', async () => {
   assert.equal(setTimeZoneFor('VE'), 'America/Caracas');
   assert.ok(setTimeZoneFor('ES'));
   setTimeZoneFor('VE');
+});
+
+test('España y Estados Unidos no ven nada de Venezuela (v29)', async () => {
+  const { manualFor, localize } = await import('../js/howToUseIt.js');
+  const VE_WORDS = /bol[ií]var|Bs\.|\bVES\b|BCV|[Pp]aralelo|Pago M[oó]vil|Banesco|Bancamiga|Venezuela|venezolan|Zinli|brecha/;
+  for (const k of ['ES', 'US']) {
+    const groups = BANK_GROUPS[k].flatMap((g) => [g.title, ...g.banks]).join(' ');
+    assert.ok(!VE_WORDS.test(groups), `${k} bancos: ${groups.match(VE_WORDS)}`);
+    assert.ok(!BANK_PICK_TEMPLATES[k].some((t) => t.currency === 'VES'), k);
+    assert.ok(!ACCOUNT_TEMPLATES[k].some((t) => t.currency === 'VES'), k);
+    const m = manualFor(regionFor(k));
+    const text = JSON.stringify([m.CORE, m.MORE, m.FINANCE_GUIDE, BY_REGION[k]]);
+    assert.ok(!VE_WORDS.test(text), `${k} manual: ${text.match(new RegExp('.{60}' + VE_WORDS.source + '.{40}', 'i'))}`);
+  }
+  // Estados Unidos tampoco ve Europa.
+  const us = JSON.stringify([BANK_GROUPS.US, ACCOUNT_TEMPLATES.US, REGIONS.US.currencies, manualFor(regionFor('US'))]);
+  assert.ok(!/\bEUR\b|euro|Bizum|España|Revolut|N26/i.test(us), us.match(/.{40}(\bEUR\b|euro|Bizum|España|Revolut|N26).{20}/i)?.[0]);
+  assert.equal(localize({ __v: true, VE: 'a', ES: null, US: 'c', INT: 'a' }, { code: 'ES' }), null);
 });

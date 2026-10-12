@@ -29,7 +29,7 @@ export function Home() {
   const over = budgetRows.filter((x) => x.ratio >= 1).length;
 
   const tip = pickTip({ stats, budgetsOver: over, upcoming: upcoming.length, savingsRate, spread: stats.spread,
-    hasAccounts: active.length > 0, hasTx: txs.length > 0, regionHasRates: region.rates });
+    hasAccounts: active.length > 0, hasTx: txs.length > 0, regionHasRates: region.rates, examples: region.examples });
 
   const altVal = val === 'PARALELO' ? 'BCV_USD' : 'PARALELO';
   const alt = region.rates && rates[altVal] ? consolidate(active, target, rates, altVal).total : null;

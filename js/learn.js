@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { html, Icon, Sheet } from './ui.js';
 import { fmt, fmtPct } from './money.js';
+import { useData } from './store.js';
 
 export const GLOSSARY = {
   consolidado: {
@@ -67,9 +68,42 @@ export const GLOSSARY = {
   },
 };
 
+// Textos que cambian por país: fuera de Venezuela no se habla de bolívares ni de BCV.
+const LOCAL = {
+  ES: {
+    consolidado: ['Es la suma de todas tus cuentas convertida a una sola moneda (la que elijas en Ajustes).',
+      'Si tienes 1.000 € en tu banco y 200 $ en PayPal, la app pasa los dólares a euros y te muestra un solo número: tu patrimonio líquido.'],
+    transferencia: ['Mover dinero entre tus propias cuentas no es gasto ni ingreso: tu patrimonio no cambia.',
+      'Si las cuentas tienen monedas distintas (por ejemplo, de euros a USDT en Binance), registra cuánto salió y cuánto llegó, y la app calcula a qué tasa cambiaste.'],
+  },
+  US: {
+    consolidado: ['Es la suma de todas tus cuentas convertida a una sola moneda.',
+      'Si tienes $1.000 en Chase y 200 USDT en Binance, la app los suma y te muestra un solo número: tu patrimonio líquido.'],
+    transferencia: ['Mover dinero entre tus propias cuentas no es gasto ni ingreso: tu patrimonio no cambia.',
+      'Por ejemplo, pasar dinero de tu checking a tu savings, o pagar con Zelle desde tu cuenta de Chase a tu cuenta de Bank of America.'],
+  },
+  INT: {
+    consolidado: ['Es la suma de todas tus cuentas convertida a una sola moneda (la que elijas en Ajustes).',
+      'Si tienes cuentas en dólares, euros o USDT, la app las convierte y te muestra un solo número: tu patrimonio líquido.'],
+  },
+};
+const VE_ONLY = new Set(['brecha', 'costoReal']);
+// Glosario de la persona: lo de bolívares y brecha solo si su país usa tasas.
+export function glossaryFor(region) {
+  const code = region?.code || 'VE';
+  const out = {};
+  for (const [k, g] of Object.entries(GLOSSARY)) {
+    if (VE_ONLY.has(k) && !region?.rates) continue;
+    const body = !region?.rates && LOCAL[code]?.[k];
+    out[k] = body ? { ...g, body } : g;
+  }
+  return out;
+}
+
 export function Learn({ term, label }) {
   const [open, setOpen] = useState(false);
-  const g = GLOSSARY[term];
+  const { region } = useData() || {};
+  const g = glossaryFor(region)[term];
   if (!g) return null;
   return html`
     <button type="button" class="learn" onClick=${(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true); }}
@@ -89,8 +123,8 @@ export function Learn({ term, label }) {
 }
 
 // Consejo contextual para el inicio, según cómo va el mes.
-export function pickTip({ stats, budgetsOver, upcoming, savingsRate, spread, hasAccounts, hasTx, regionHasRates }) {
-  if (!hasAccounts) return { emoji: '👋', text: 'Empieza creando tus cuentas: efectivo, banco, Zelle, Binance… Con el saldo inicial de cada una, la app calcula todo lo demás.', term: 'consolidado' };
+export function pickTip({ stats, budgetsOver, upcoming, savingsRate, spread, hasAccounts, hasTx, regionHasRates, examples }) {
+  if (!hasAccounts) return { emoji: '👋', text: `Empieza creando tus cuentas: ${examples || 'efectivo, banco, apps de pago…'} Con el saldo inicial de cada una, la app calcula todo lo demás.`, term: 'consolidado' };
   if (!hasTx) return { emoji: '✍️', text: 'Registra tu primer gasto con el botón +. Hacerlo al momento (no al final del día) es el hábito que más ayuda a controlar el dinero.' };
   if (budgetsOver > 0) return { emoji: '🚨', text: `Te pasaste en ${budgetsOver} presupuesto${budgetsOver > 1 ? 's' : ''} este mes. Revisa en Presupuestos dónde se fue el dinero.`, term: 'presupuesto' };
   if (upcoming > 0) return { emoji: '📅', text: `Tienes ${upcoming} pago${upcoming > 1 ? 's' : ''} fijo${upcoming > 1 ? 's' : ''} en los próximos 7 días. Asegúrate de tener saldo en la cuenta correcta.`, term: 'fijos' };

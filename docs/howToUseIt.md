@@ -1,4 +1,4 @@
-# La Fructosa · Manual de uso (v27)
+# La Fructosa · Manual de uso (v29)
 
 App: https://lfzv98.github.io/la-fructosa/
 
@@ -11,11 +11,11 @@ Una cuenta es cualquier lugar donde guardas dinero: la cartera, un banco, una ap
 1. Entra a Más › Cuentas y toca "+ Nueva" (la primera vez, la bienvenida te ofrece crearlas de una vez).
 2. Usa una plantilla rápida (Pago Móvil, Zelle, Efectivo USD, Binance…) o arma la tuya.
 3. Elige la moneda (USD, VES, USDT o EUR) y el tipo (Efectivo, Banco, Digital o Cripto).
-4. Escribe el nombre. La app te sugiere bancos y apps de tu país (en España: BBVA, Santander, CaixaBank, Bizum…; en Estados Unidos: Chase, Bank of America, Wells Fargo, Venmo, Apple Pay…) y, según la moneda: en bolívares, la lista completa de bancos venezolanos (BDV, Banesco, Mercantil, Provincial, BNC, Bancamiga, Tesoro, Bancaribe, Exterior, Banplus, BFC, Activo, Plaza, Sofitasa, 100% Banco, DelSur, Bancrecer, R4, Banfanb y los demás); en dólares, euros o USDT, bancos internacionales, apps de pago (Zelle, PayPal, Wise, Zinli, Wally, Airtm…) y cripto (Binance, Bybit, OKX…). Si el tuyo no aparece, escríbelo.
+4. Escribe el nombre. Según la moneda, la app te sugiere: en bolívares, la lista completa de bancos venezolanos (BDV, Banesco, Mercantil, Provincial, BNC, Bancamiga, Tesoro, Bancaribe, Exterior, Banplus, BFC, Activo, Plaza, Sofitasa, 100% Banco, DelSur, Bancrecer, R4, Banfanb y los demás); en dólares, euros o USDT, bancos internacionales, apps de pago (Zelle, PayPal, Wise, Zinli, Wally, Airtm…) y cripto (Binance, Bybit, OKX…). Si el tuyo no aparece, escríbelo.
 5. Escribe el saldo que tienes hoy (puede ser 0) y toca "Crear cuenta". Desde ahí la app suma y resta sola con cada movimiento.
 
 - Archiva las cuentas que ya no uses: desaparecen de la lista pero su historial se conserva.
-- Vives fuera de Venezuela: elige tu país (o "Otro país") en Ajustes. Si conservas una cuenta en bolívares, créala igual: las tasas BCV, Paralelo y USDT se activan solas.
+- ¿Vives fuera de Venezuela? Elige tu país (o "Otro país") en Ajustes y la app se adapta.
 - En el inicio ves el patrimonio total de todas tus cuentas convertido a la moneda que prefieras (USD, Bs. o EUR).
 
 ### b) ➕ Registrar gastos, ingresos y transferencias
@@ -144,7 +144,7 @@ Elige un día fijo (domingo funciona bien) y compara el saldo de cada cuenta con
 
 ### 🛟 Fondo de emergencia primero
 
-Antes de invertir o hacer compras grandes, junta entre 3 y 6 meses de tus gastos básicos en una cuenta aparte y en una moneda estable (en euros o dólares si vives fuera; en Venezuela, USD o USDT). Créalo como Meta de ahorro y abónale cada mes.
+Antes de invertir o hacer compras grandes, junta entre 3 y 6 meses de tus gastos básicos en una cuenta aparte y en una moneda estable (USD o USDT). Créalo como Meta de ahorro y abónale cada mes.
 
 ### 🏁 Metas de ahorro con fecha
 
@@ -157,14 +157,6 @@ Una meta sin fecha es un deseo. Ponle monto y fecha en Más › Metas de ahorro 
 ### 💱 Cuida la brecha
 
 Si pagas en bolívares con respaldo en divisas, registra la tasa que usaste. La app te muestra cada mes cuánto te ahorró o te costó.
-
-### 🇪🇸 España: impuestos sin complicarte
-
-El IVA ya va incluido en lo que pagas. La declaración de la renta (IRPF) se presenta en primavera, normalmente de abril a finales de junio, desde la web o la app de la Agencia Tributaria: guarda tus nóminas y facturas importantes. Si tienes piso, el IBI llega una vez al año: crea un pago fijo o una meta y aparta un poco cada mes. Anota lo que pagues en la categoría Impuestos. Para tu caso concreto, consulta con un gestor.
-
-### 🇺🇸 Estados Unidos: impuestos y crédito, lo básico
-
-El sales tax se suma en la caja: el precio de la etiqueta no es el final. La declaración anual (IRS) se presenta normalmente hasta el 15 de abril: guarda tus W-2 o 1099. Si trabajas por tu cuenta, aparta una parte de cada pago para impuestos. Paga el total de la tarjeta de crédito cada mes: evitas intereses y cuidas tu credit score. Para tu caso concreto, consulta con un contador (CPA).
 
 ### 📅 Revisa el mes los lunes
 
@@ -180,8 +172,8 @@ Abre Análisis, mira tus tres categorías más altas y compáralas con el mes an
 ## Según tu país
 
 - **Venezuela:** Pago Móvil, efectivo en dólares y bolívares, Zelle, Binance (USDT) y tu banco venezolano. Además ves el dólar BCV, el Paralelo y el USDT, y la calculadora de brecha. Categoría extra: Condominio.
-- **Estados Unidos:** Todo en dólares: tu banco (Chase, Bank of America, Wells Fargo, Citi, Capital One…), checking y savings, tarjetas de crédito, Zelle, Venmo, Cash App, Apple Pay y PayPal. Categorías extra: Alquiler (renta), Seguros, Impuestos, Propinas y Reembolso de impuestos. No verás tasas ni brecha, salvo que conserves una cuenta en bolívares.
-- **España:** Todo en euros: tu banco (BBVA, Santander, CaixaBank, Sabadell, ING…), la cuenta con IBAN, la tarjeta, el efectivo en euros, Bizum, Revolut y PayPal. Categorías extra: Alquiler, Comunidad, Seguros, Impuestos, Devolución de Hacienda y Ayudas. No verás tasas ni brecha, salvo que conserves una cuenta en bolívares.
+- **Estados Unidos:** Todo en dólares: tu banco (Chase, Bank of America, Wells Fargo, Citi, Capital One…), checking y savings, tarjetas de crédito, Zelle, Venmo, Cash App, Apple Pay y PayPal. Categorías extra: Alquiler (renta), Seguros, Impuestos, Propinas y Reembolso de impuestos.
+- **España:** Todo en euros: tu banco (BBVA, Santander, CaixaBank, Sabadell, ING…), la cuenta con IBAN, la tarjeta, el efectivo en euros, Bizum, Revolut y PayPal. Categorías extra: Alquiler, Comunidad, Seguros, Impuestos, Devolución de Hacienda y Ayudas.
 - **Otro país:** Panamá, Colombia, Chile, México, Perú o donde vivas: tu banco local en dólares o euros, Wise, PayPal, Zelle, Binance y, si la tienes, tu cuenta venezolana en bolívares. Categorías extra: Alquiler, Seguros e Impuestos.
 
 ## Instalar en iPhone (Safari)

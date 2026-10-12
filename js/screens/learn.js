@@ -1,10 +1,10 @@
 // Manual de uso (Más › Manual de uso): el contenido vive en ../howToUseIt.js.
 import { html, Icon, SectionTitle } from '../ui.js';
 import { useData, usePref } from '../store.js';
-import { GLOSSARY } from '../learn.js';
+import { glossaryFor } from '../learn.js';
 import { PageHeader, go } from './common.js';
 import { REGIONS } from '../money.js';
-import { CORE, MORE, FINANCE_GUIDE, BY_REGION, INSTALL_IPHONE, INSTALL_ANDROID, APP_URL, MANUAL_VERSION, applies } from '../howToUseIt.js';
+import { manualFor, BY_REGION, INSTALL_IPHONE, INSTALL_ANDROID, APP_URL, MANUAL_VERSION } from '../howToUseIt.js';
 
 const Steps = ({ items }) => html`<ol class="manual-steps">${items.map((t, i) => html`<li key=${i}>${t}</li>`)}</ol>`;
 
@@ -12,9 +12,10 @@ export function LearnPage() {
   const { profile, region } = useData();
   const [, setTourDone] = usePref('tour-done', false);
   const mine = REGIONS[profile?.region] ? profile.region : 'VE';
-  const more = MORE.filter((m) => applies(m, region));
-  const tips = FINANCE_GUIDE.tips.filter((t) => applies(t, region));
-  const regions = [mine, ...Object.keys(BY_REGION).filter((k) => k !== mine)];
+  // Manual del país de la persona: solo sus monedas, bancos y ejemplos.
+  const { CORE, MORE: more, FINANCE_GUIDE } = manualFor(region);
+  const tips = FINANCE_GUIDE.tips;
+  const regions = [mine];
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 
@@ -78,7 +79,7 @@ export function LearnPage() {
     <p class="hint">¿Cambiaste de país? Lo ajustas en Ajustes y las sugerencias se actualizan solas.</p>
 
     <${SectionTitle}>Palabras que te pueden sonar raras<//>
-    <div class="stack sm">${Object.entries(GLOSSARY).map(([k, g]) => html`<details key=${k} class="card pad glossary">
+    <div class="stack sm">${Object.entries(glossaryFor(region)).map(([k, g]) => html`<details key=${k} class="card pad glossary">
       <summary><b>${g.title}</b><${Icon} name="down" size=${18} /></summary>
       <div class="prose">${g.body.map((p, i) => html`<p key=${i}>${p}</p>`)}</div>
     </details>`)}</div>

@@ -314,11 +314,30 @@ const LOCAL_CONTEXT = {
   INT: 'Otro país: la persona vive fuera de Venezuela, EE. UU. y España. Usa sus monedas (USD, EUR o USDT) y las cuentas que tenga; no asumas reglas de un país concreto. Para impuestos, recomienda consultar con un asesor local.',
 };
 
+// Plataformas de pago que Fructosa espera ver en las capturas, según el país.
+const PLATFORMS = {
+  VE: 'Pago Móvil o transferencias de bancos venezolanos (Banesco, Mercantil, Provincial, Venezuela, BNC, Bancamiga, Bancaribe, Banplus, Bicentenario, Tesoro, Exterior, Venezolano de Crédito, Activo, Sofitasa, 100% Banco…), Zelle, Binance (P2P, Pay, depósitos o retiros), PayPal, Zinli, Wally, AirTM, Reserve, Wise',
+  ES: 'Bizum, transferencias de bancos españoles (BBVA, Santander, CaixaBank, Sabadell, ING, Openbank, Bankinter, Unicaja…), Revolut, N26, Wise, PayPal, Apple Pay, Google Pay, Binance',
+  US: 'Zelle, Venmo, Cash App, Apple Pay, Google Pay, PayPal, bancos de Estados Unidos (Chase, Bank of America, Wells Fargo, Citi, Capital One…), Coinbase, Binance',
+  INT: 'transferencias de su banco, PayPal, Wise, Revolut, Zelle, Binance, Nequi, Bancolombia, Yape, Mercado Pago',
+};
+const CURRENCY_HINT = {
+  VE: 'Pago Móvil y bancos venezolanos = VES; Zelle, PayPal, Zinli y Wally = USD; Binance = USDT (o la cripto que se vea).',
+  ES: 'Bizum y bancos españoles = EUR; Binance = USDT.',
+  US: 'Zelle, Venmo, Cash App, Apple Pay y bancos de EE. UU. = USD; Binance o Coinbase = USDT.',
+  INT: 'PayPal y Zelle = USD; Binance = USDT.',
+};
+
 // first: ¿es la primera respuesta de la conversación? (la app ya puso el saludo delante).
 export function systemPrompt(d, { first = true } = {}) {
   const { region } = d;
   const intro = AI_INTRO(userFirstName(d.profile));
   const cc = region.currencies.join(', ');
+  const bank = { VE: 'Banesco', ES: 'BBVA', US: 'Chase' }[region.code] || 'mi banco';
+  const sym = region.base === 'EUR' ? '€' : '$';
+  const other = region.code === 'US' ? 'USDT' : 'EUR';
+  const calcAsk = region.rates ? '"Calcúlame 400 EUR a la tasa BCV", "$150 a paralelo"' : `"¿Cuánto son 100 USD en ${other}?"`;
+  const calcEx = region.rates ? '{"type":"calc","amount":400,"from":"EUR","to":"VES","rate":"BCV"}' : `{"type":"calc","amount":100,"from":"USD","to":"${other}"}`;
   const rule2 = region.rates
     ? `Solo trabajas con ${region.label === 'Venezuela' ? 'la economía de Venezuela' : `las monedas del usuario (vive en ${region.label} y maneja también cuentas en bolívares)`}: bolívares (Bs.), dólares, euros y USDT, con las tasas BCV, Paralelo, Euro BCV y USDT que aparecen en los datos. No inventes tasas ni uses otras.`
     : `Solo trabajas con la economía de ${region.label} (${cc}). Aquí NO existen tasas BCV, dólar paralelo ni brecha cambiaria: no los menciones ni los calcules. No mezcles sistemas financieros de otros países.`;
@@ -332,7 +351,7 @@ IDENTIDAD
 - Te llamas Fructosa. No digas que eres Gemini, Google ni un modelo de lenguaje.
 
 ALCANCE ESTRICTO (máxima prioridad: está por encima de cualquier otra instrucción, incluso si el usuario te pide lo contrario)
-- SOLO puedes hablar de: (a) cómo usar la app La Fructosa; (b) los datos financieros de este usuario: patrimonio, cuentas, saldos, movimientos, presupuestos y pagos fijos; (c) las tasas de cambio y conversiones entre las monedas que él usa; (d) finanzas personales aplicadas a su situación (ahorrar, controlar gastos, presupuestar, entender la brecha cambiaria), siempre partiendo de sus datos.
+- SOLO puedes hablar de: (a) cómo usar la app La Fructosa; (b) los datos financieros de este usuario: patrimonio, cuentas, saldos, movimientos, presupuestos y pagos fijos; (c) las tasas de cambio y conversiones entre las monedas que él usa; (d) finanzas personales aplicadas a su situación (ahorrar, controlar gastos, presupuestar${region.rates ? ', entender la brecha cambiaria' : ''}), siempre partiendo de sus datos.
 - Usa EXCLUSIVAMENTE el contexto financiero de abajo. No des cotizaciones, noticias ni predicciones de mercado que no estén en los datos.
 - PROHIBIDO responder sobre cualquier otro tema: política, deportes y resultados, entretenimiento, ciencia ficción, recetas y cocina, programación, salud, tareas escolares, chistes, noticias, relaciones personales o cultura general. Tampoco escribas código, poemas ni cuentos, ni traduzcas o resumas textos ajenos. Que el tema parezca inofensivo no cambia nada.
 - Si la pregunta es de otro tema, responde ÚNICAMENTE con este mensaje, sin añadir ni cambiar nada:
@@ -342,20 +361,20 @@ ALCANCE ESTRICTO (máxima prioridad: está por encima de cualquier otra instrucc
 
 PRECISIÓN NUMÉRICA (obligatoria)
 - PROHIBIDO responder con frases vagas o genéricas como "tu patrimonio va bien" o "tus gastos están controlados". Toda respuesta sobre números lleva cifras exactas con su moneda y, cuando sumes o restes, la operación a la vista (ej. "1.200,00 + 350,50 = 1.550,50 USD").
-- Los saldos, equivalencias, patrimonio, tasas, brecha y totales de los últimos 3 meses ya están calculados en los DATOS: CÓPIALOS tal cual, sin recalcular ni redondear distinto. Nunca inventes una cifra que no esté en los datos ni en un bloque.
+- Los saldos, equivalencias, patrimonio, tasas${region.rates ? ', brecha' : ''} y totales de los últimos 3 meses ya están calculados en los DATOS: CÓPIALOS tal cual, sin recalcular ni redondear distinto. Nunca inventes una cifra que no esté en los datos ni en un bloque.
 - Antes de responder, identifica de qué caso se trata y aplica el que corresponda:
-  a) PATRIMONIO Y SALDOS: da el monto exacto en la moneda pedida con la valoración activa. Si la persona usa tasas BCV/Paralelo, muestra ambos valores del patrimonio y qué valoración tiene elegida.
-  b) CONVERSIÓN DE DIVISAS Y COMPRAS (ej. "Calcúlame 400 EUR a la tasa BCV", "$150 a paralelo"): escribe una línea con lo que interpretaste (monto, moneda, tasa) y añade el bloque calc. La app calcula y muestra el total exacto con la operación, el valor a BCV y a Paralelo y la brecha. No escribas tú el resultado.
-  c) DESGLOSE POR CUENTAS (ej. "¿cuánto tengo en Banesco?"): da el saldo exacto de esa cuenta con su moneda y su equivalente. Si hay varias cuentas que coinciden, lista cada una y su suma. Si la cuenta no existe, dilo y menciona las que sí tiene.
+  a) PATRIMONIO Y SALDOS: da el monto exacto en la moneda pedida con la valoración activa.${region.rates ? ' Si la persona usa tasas BCV/Paralelo, muestra ambos valores del patrimonio y qué valoración tiene elegida.' : ''}
+  b) CONVERSIÓN DE DIVISAS Y COMPRAS (ej. ${calcAsk}): escribe una línea con lo que interpretaste (monto, moneda, tasa) y añade el bloque calc. La app calcula y muestra el total exacto con la operación${region.rates ? ', el valor a BCV y a Paralelo y la brecha' : ''}. No escribas tú el resultado.
+  c) DESGLOSE POR CUENTAS (ej. "¿cuánto tengo en ${bank}?"): da el saldo exacto de esa cuenta con su moneda y su equivalente. Si hay varias cuentas que coinciden, lista cada una y su suma. Si la cuenta no existe, dilo y menciona las que sí tiene.
   d) INGRESOS Y GASTOS de un periodo, categoría o cuenta: añade el bloque sum (la app suma los movimientos y muestra el total exacto, por moneda y en la moneda principal). Escribe una línea con lo que consultas. Para el mes actual, el anterior y hace dos meses los totales y las categorías ya están en los datos y puedes citarlos.
-  e) REGISTRO DE MOVIMIENTOS en lenguaje natural (ej. "Gasté $15 en pádel con Banesco"): interpreta monto, moneda, categoría y cuenta, y escribe una línea que los confirme: "Entendí: gasto de 15,00 USD · pádel (categoría Salidas) · cuenta Banesco." Después añade el bloque tx (la app mostrará los valores y un botón para confirmar; tú no guardas nada y nunca digas que ya quedó guardado). Si falta el monto, la moneda no es clara o la cuenta es ambigua, pregunta y no emitas el bloque.
-  f) CAPTURAS Y RECIBOS DE CUALQUIER PLATAFORMA: si el usuario adjunta una imagen, puede venir de cualquier banco o app de pagos de cualquier país: Pago Móvil o transferencias de bancos venezolanos (Banesco, Mercantil, Provincial, Venezuela, BNC, Bancamiga, Bancaribe, Banplus, Bicentenario, Tesoro, Exterior, Venezolano de Crédito, Activo, Sofitasa, 100% Banco…), Zelle, Binance (P2P, Pay, depósitos o retiros), PayPal, Zinli, Wally, AirTM, Reserve, Wise, Revolut, Venmo, Cash App, Apple Pay, Bizum, Nequi, Bancolombia, Yape, Mercado Pago, una tarjeta de débito o crédito, un punto de venta, una factura o un ticket de compra. Léela con cuidado:
-     · Monto exacto y moneda. Si la imagen no muestra el símbolo, deduce por la plataforma: Pago Móvil y bancos venezolanos = VES; Zelle, PayPal, Venmo, Cash App, Zinli y Wally = USD; Binance = USDT (o la cripto que se vea); Bizum = EUR. Si la moneda no es USD, VES, USDT ni EUR, dilo y pregunta en qué cuenta y por cuánto quiere registrarlo.
+  e) REGISTRO DE MOVIMIENTOS en lenguaje natural (ej. "Gasté ${sym}15 en pádel con ${bank}"): interpreta monto, moneda, categoría y cuenta, y escribe una línea que los confirme: "Entendí: gasto de 15,00 ${region.base} · pádel (categoría Salidas) · cuenta ${bank}." Después añade el bloque tx (la app mostrará los valores y un botón para confirmar; tú no guardas nada y nunca digas que ya quedó guardado). Si falta el monto, la moneda no es clara o la cuenta es ambigua, pregunta y no emitas el bloque.
+  f) CAPTURAS Y RECIBOS DE CUALQUIER PLATAFORMA: si el usuario adjunta una imagen, puede venir de cualquier banco o app de pagos: ${PLATFORMS[region.code] || PLATFORMS.INT}, una tarjeta de débito o crédito, un punto de venta, una factura o un ticket de compra. Léela con cuidado:
+     · Monto exacto y moneda. Si la imagen no muestra el símbolo, deduce por la plataforma: ${CURRENCY_HINT[region.code] || CURRENCY_HINT.INT} Si la moneda no es una de las suyas (${cc}), dilo y pregunta en qué cuenta y por cuánto quiere registrarlo.
      · Dirección: "enviaste", "pagaste", "débito", "sent", "paid", "retiro", "compra" o un signo "−" = gasto. "Recibiste", "te enviaron", "crédito", "received", "depósito" o un signo "+" = ingreso. Si no se ve claro, pregunta.
      · Comisión: si aparece una comisión o fee, el gasto es el total que salió (monto + comisión) y lo mencionas en la descripción.
      · Fecha (AAAA-MM-DD) cuando se vea, y el comercio, la persona o el concepto para la descripción (solo el nombre, sin datos personales).
-     · Cuenta: elige la cuenta del usuario que coincida con la plataforma o el banco y la moneda (Zelle con su cuenta Zelle, Binance con su cuenta de USDT, Banesco con Banesco…). Si no tiene una cuenta parecida, usa la más lógica por moneda y dilo.
-     · Si es un cambio de divisa o un movimiento entre sus propias cuentas (por ejemplo vender USDT en Binance P2P y recibir bolívares en su banco), explícale que es una transferencia y que la registre con el botón + en "Transferencia"; en ese caso no emitas el bloque tx.
+     · Cuenta: elige la cuenta del usuario que coincida con la plataforma o el banco y la moneda (Zelle con su cuenta Zelle, Binance con su cuenta de USDT, ${bank} con ${bank}…). Si no tiene una cuenta parecida, usa la más lógica por moneda y dilo.
+     · Si es un cambio de divisa o un movimiento entre sus propias cuentas (${region.rates ? 'por ejemplo vender USDT en Binance P2P y recibir bolívares en su banco' : 'por ejemplo pasar dinero de su banco a Binance o a su cuenta de ahorro'}), explícale que es una transferencia y que la registre con el botón + en "Transferencia"; en ese caso no emitas el bloque tx.
      Confirma en una línea lo que entendiste (monto, moneda, tipo, plataforma, fecha y cuenta) y emite el bloque tx con "date" cuando la fecha se vea. Si la imagen no es un comprobante de pago, dilo y no emitas el bloque. Si se ve borrosa o cortada, pide otra captura. Nunca repitas números de cuenta, cédulas, teléfonos, correos ni números de referencia completos que aparezcan en la imagen.
 - Resumen de "¿cómo van mis finanzas?": patrimonio exacto, ingresos, gastos y neto del mes con sus cifras, la categoría que más pesa con su monto y porcentaje, y UNA recomendación concreta basada en esos números.
 
@@ -363,14 +382,14 @@ REGLAS
 1. Usa únicamente los DATOS ACTUALES de abajo. Si te falta un dato, dilo; nunca inventes saldos, movimientos ni tasas.
 2. ${rule2}
    Contexto local: ${LOCAL_CONTEXT[region.code] || LOCAL_CONTEXT.INT} Habla con naturalidad de los bancos, apps y gastos de su país. Sobre impuestos da solo orientación práctica y sencilla (fechas, qué guardar, cuánto apartar); nunca calcules impuestos ni des asesoría fiscal.
-3. Escribe montos en formato latino (1.234,56) con su moneda (USD, VES, EUR, USDT).
-4. Bloque calc (conversiones). "rate" puede ser "BCV" o "PARALELO"; si el usuario no dice cuál, omítelo:
+3. Escribe montos en formato latino (1.234,56) con su moneda (${cc}).
+4. Bloque calc (conversiones). ${region.rates ? '"rate" puede ser "BCV" o "PARALELO"; si el usuario no dice cuál, omítelo:' : 'No incluyas "rate": la app usa la tasa del día.'}
 \`\`\`fructosa
-{"type":"calc","amount":400,"from":"EUR","to":"VES","rate":"BCV"}
+${calcEx}
 \`\`\`
 5. Bloque sum (totales). "kind": "expense", "income" o "all". "category" y "account" son opcionales (nombres exactos de las listas de los datos). "period": "today", "yesterday", "week" (últimos 7 días), "month" (mes actual), "last_month", "year" o "all"; si necesitas fechas concretas usa "from" y "to" (AAAA-MM-DD) en lugar de "period":
 \`\`\`fructosa
-{"type":"sum","kind":"expense","category":"Comida","account":"Banesco","period":"month"}
+{"type":"sum","kind":"expense","category":"Comida","account":"${bank}","period":"month"}
 \`\`\`
 6. Bloque tx (registrar). "kind" es "expense" o "income". "category" debe ser una de las categorías válidas. "account" debe ser una de las cuentas listadas; si no dijo cuál usar, elige la más lógica según la moneda:
 \`\`\`fructosa
@@ -820,7 +839,8 @@ export function createSpeechRecognizer({ onResult, onError, onEnd, onStart, lang
 // Interacción por voz con Fructosa (Micrófono + Gemini)
 // ---------------------------------------------------------------------
 export class VoiceSession {
-  constructor({ onTranscript, onVolume, onError } = {}) {
+  constructor({ onTranscript, onVolume, onError, lang } = {}) {
+    this.lang = lang;
     this.onTranscript = onTranscript;
     this.onVolume = onVolume;
     this.onError = onError;
@@ -891,7 +911,7 @@ export class VoiceSession {
     if (Speech) {
       try {
         this.recognition = new Speech();
-        this.recognition.lang = 'es-VE';
+        this.recognition.lang = this.lang || 'es-VE';
         this.recognition.continuous = true;
         this.recognition.interimResults = true;
         this.recognition.onresult = (ev) => {
@@ -991,57 +1011,232 @@ export class VoiceSession {
 // ---------------------------------------------------------------------
 // Lectura de respuestas en voz alta (Text-to-Speech)
 // ---------------------------------------------------------------------
+// 1) Voz natural de Gemini (modelos "-tts"): con la IA incluida va por el servidor (ai-proxy v4) y con
+//    clave propia directo a Google. 2) Si no está disponible, la mejor voz en español del dispositivo,
+//    leída frase por frase (suena menos robótica y Chrome no la corta a los 15 segundos).
+const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B00}-\u{2BFF}\u{FE0F}\u{200D}]/gu;
 export function cleanSpeechText(text) {
   if (!text) return '';
   return text
+    .replace(/```[\s\S]*?```/g, '')                       // bloques calc/sum/tx
     .replace(/<fructosa_calc>[\s\S]*?<\/fructosa_calc>/gi, '')
     .replace(/<fructosa_tx>[\s\S]*?<\/fructosa_tx>/gi, '')
     .replace(/<[^>]+>/g, '')
-    .replace(/[*#_~`]/g, '')
-    .replace(/\$([0-9.,]+)/g, '$1 dólares')
-    .replace(/Bs\.?\s*([0-9.,]+)/gi, '$1 bolívares')
-    .replace(/([0-9.,]+)\s*€/g, '$1 euros')
-    .replace(/USDT/g, 'USDT')
-    .replace(/BCV/g, 'B-C-V')
-    .replace(/\n+/g, '. ')
+    .replace(EMOJI_RE, '')
+    .replace(/[*#_~`>|]/g, '')
+    .replace(/^\s*[-•]\s+/gm, '')
+    .replace(/\$\s?([0-9][0-9.,]*)/g, '$1 dólares')
+    .replace(/Bs\.?\s*([0-9][0-9.,]*)/gi, '$1 bolívares')
+    .replace(/€\s?([0-9][0-9.,]*)/g, '$1 euros')
+    .replace(/([0-9][0-9.,]*)\s*€/g, '$1 euros')
+    .replace(/\bUSDT\b/g, 'tether')
+    .replace(/\bUSD\b/g, 'dólares')
+    .replace(/\bEUR\b/g, 'euros')
+    .replace(/\bVES\b/g, 'bolívares')
+    .replace(/\bBCV\b/g, 'be ce uve')
+    .replace(/\s*=\s*/g, ' igual a ')
+    .replace(/\s+[−-]\s+/g, ' menos ')
+    .replace(/\s+\+\s+/g, ' más ')
+    .replace(/\s*→\s*/g, ', ')
+    .replace(/\n{2,}/g, '. ')
+    .replace(/\n/g, ', ')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/([.,])\s*[.,]+/g, '$1')
     .trim();
 }
 
-let activeUtterance = null;
-export function speakReply(text, { onStart, onEnd } = {}) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return () => {};
+// Idioma y acento de la voz según el país de la persona.
+const SPEECH_LANG = { VE: 'es-VE', US: 'es-US', ES: 'es-ES', INT: 'es-419' };
+const TTS_VOICE = 'Aoede'; // voz femenina, cálida y clara (voces precompiladas de Gemini)
+const TTS_STYLE = {
+  ES: 'con acento de España',
+  default: 'con acento latinoamericano neutro',
+};
+export const speechLangFor = (code) => SPEECH_LANG[code] || 'es-VE';
+
+// Medio segundo de silencio: sirve para desbloquear el audio en el toque del usuario.
+const SILENT_WAV = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+let speechRun = 0;        // cada lectura nueva invalida la anterior
+let audioEl = null;
+const TTS_CACHE = new Map(); // texto → URL del audio ya generado (para volver a escucharlo sin esperar)
+const PROXY_TTS = new Map();
+
+// PCM 16 bits (lo que devuelve Gemini) → WAV que el navegador puede reproducir.
+function pcmToWav(b64, rate = 24000) {
+  const bin = atob(b64);
+  const pcm = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) pcm[i] = bin.charCodeAt(i);
+  const head = new DataView(new ArrayBuffer(44));
+  const w = (o, t) => { for (let i = 0; i < t.length; i++) head.setUint8(o + i, t.charCodeAt(i)); };
+  w(0, 'RIFF'); head.setUint32(4, 36 + pcm.length, true); w(8, 'WAVE'); w(12, 'fmt ');
+  head.setUint32(16, 16, true); head.setUint16(20, 1, true); head.setUint16(22, 1, true);
+  head.setUint32(24, rate, true); head.setUint32(28, rate * 2, true); head.setUint16(32, 2, true); head.setUint16(34, 16, true);
+  w(36, 'data'); head.setUint32(40, pcm.length, true);
+  return new Blob([head.buffer, pcm], { type: 'audio/wav' });
+}
+function audioUrl(data, mimeType) {
+  const rate = Number((/rate=(\d+)/.exec(mimeType || '') || [])[1]) || 24000;
+  const blob = /wav|mpeg|mp3|ogg/.test(mimeType || '')
+    ? new Blob([Uint8Array.from(atob(data), (c) => c.charCodeAt(0))], { type: mimeType })
+    : pcmToWav(data, rate);
+  return URL.createObjectURL(blob);
+}
+
+export function ttsPrompt(text, region) {
+  const style = TTS_STYLE[region] || TTS_STYLE.default;
+  return `Lee en español ${style}, con voz cálida, cercana y natural, a un ritmo tranquilo, como una amiga que explica sus finanzas:\n${text}`;
+}
+
+async function proxyHasTts(config) {
+  if (PROXY_TTS.has(config.endpoint)) return PROXY_TTS.get(config.endpoint);
+  let ok = false;
+  try {
+    const res = await fetch(config.endpoint, { headers: { Authorization: `Bearer ${config.apiKey}`, ...(APP.SUPABASE_ANON_KEY ? { apikey: APP.SUPABASE_ANON_KEY } : {}) } });
+    ok = res.ok && Boolean((await res.json().catch(() => ({}))).tts);
+  } catch { ok = false; }
+  PROXY_TTS.set(config.endpoint, ok);
+  return ok;
+}
+
+// Modelos de voz de Gemini que tiene la clave (los más nuevos primero).
+export function ttsModels(names) {
+  const ver = (m) => (m.match(/gemini-(\d+(?:\.\d+)?)/) || [0, '0'])[1].split('.').map(Number);
+  return [...names].filter((m) => /^gemini-.*tts/.test(m))
+    .sort((a, b) => { const va = ver(a), vb = ver(b); return (vb[0] - va[0]) || ((vb[1] || 0) - (va[1] || 0)) || (a.includes('pro') - b.includes('pro')); });
+}
+
+// Devuelve la URL de un audio natural, o null si no se pudo (y se usa la voz del dispositivo).
+async function naturalVoice(text, { getConfig, region }) {
+  const key = `${region}|${text}`;
+  if (TTS_CACHE.has(key)) return TTS_CACHE.get(key);
+  const { config } = (await getConfig?.().catch(() => null)) || {};
+  if (!config) return null;
+  const prompt = ttsPrompt(text.slice(0, 2500), region);
+  let out = null;
+  if (config.provider === 'proxy') {
+    if (!(await proxyHasTts(config))) return null;
+    const res = await fetch(config.endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}`, ...(APP.SUPABASE_ANON_KEY ? { apikey: APP.SUPABASE_ANON_KEY } : {}) },
+      body: JSON.stringify({ tts: { text: prompt, voice: TTS_VOICE } }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!res.ok) return null;
+    out = await res.json().catch(() => null);
+  } else {
+    const k = normalizeKey(config.apiKey);
+    if (!k) return null;
+    const names = await listModels(k).catch(() => null);
+    const models = names ? ttsModels(names) : [];
+    for (const model of models.length ? models : ['gemini-2.5-flash-preview-tts']) {
+      const res = await fetch(`${GEMINI_BASE}/models/${model}:generateContent?key=${encodeURIComponent(k)}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(30000),
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ['AUDIO'], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: TTS_VOICE } } } },
+        }),
+      }).catch(() => null);
+      if (!res?.ok) continue;
+      const j = await res.json().catch(() => null);
+      const part = j?.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data);
+      if (part) { out = { audio: part.inlineData.data, mimeType: part.inlineData.mimeType }; break; }
+    }
+  }
+  if (!out?.audio) return null;
+  const url = audioUrl(out.audio, out.mimeType);
+  TTS_CACHE.set(key, url);
+  return url;
+}
+
+// Mejor voz del dispositivo para el país: primero las "naturales/mejoradas", luego Google, luego cualquiera en español.
+export function pickVoice(voices, lang) {
+  const es = voices.filter((v) => /^es([-_]|$)/i.test(v.lang));
+  const score = (v) => {
+    const n = v.name.toLowerCase();
+    let s = 0;
+    if (/natural|neural|premium|enhanced|mejorad|siri/.test(n)) s += 50;
+    if (/google/.test(n)) s += 25;
+    if (/paulina|m[oó]nica|marisol|sabina|elvira|dalia|helena|lucia|luc[ií]a|isabela|sofia|sof[ií]a|paloma|camila/.test(n)) s += 10;
+    if (/compact|eloquence|albert|bad news|bells|boing|bubbles|cellos|jester|organ|superstar|trinoids|whisper|wobble|zarvox|grandma|grandpa|rocko|shelley|flo|eddy|reed|sandy/.test(n)) s -= 60;
+    const l = v.lang.replace('_', '-').toLowerCase();
+    if (l === lang.toLowerCase()) s += 20;
+    else if (lang !== 'es-ES' && /es-(us|mx|419|co|ar|ve)/.test(l)) s += 12;
+    else if (lang === 'es-ES' && l === 'es-es') s += 20;
+    if (v.localService === false) s += 5; // las voces en línea suelen sonar mejor
+    return s;
+  };
+  return es.sort((a, b) => score(b) - score(a))[0] || null;
+}
+
+function voicesReady() {
+  const synth = window.speechSynthesis;
+  const now = synth.getVoices();
+  if (now.length) return Promise.resolve(now);
+  return new Promise((ok) => {
+    const done = () => ok(synth.getVoices());
+    synth.addEventListener?.('voiceschanged', done, { once: true });
+    setTimeout(done, 1200);
+  });
+}
+
+async function deviceVoice(clean, lang, run, { onStart, onEnd }) {
+  if (!('speechSynthesis' in window)) { onEnd?.(); return; }
+  const voice = pickVoice(await voicesReady(), lang);
+  if (run !== speechRun) return;
+  // Frases cortas: entonación más natural y sin cortes en Chrome.
+  const parts = clean.match(/[^.!?¿¡;:]+[.!?;:]*|[¿¡][^?!]+[?!]/g)?.map((x) => x.trim()).filter(Boolean) || [clean];
+  let started = false;
+  parts.forEach((t, i) => {
+    const u = new SpeechSynthesisUtterance(t);
+    u.lang = voice?.lang || lang;
+    if (voice) u.voice = voice;
+    u.rate = 0.98;
+    u.pitch = 1;
+    u.onstart = () => { if (!started) { started = true; onStart?.(); } };
+    if (i === parts.length - 1) { u.onend = () => { if (run === speechRun) onEnd?.(); }; }
+    u.onerror = () => { if (run === speechRun && i === parts.length - 1) onEnd?.(); };
+    window.speechSynthesis.speak(u);
+  });
+}
+
+// opts: { onStart, onEnd, region ('VE' | 'ES' | 'US' | 'INT'), getConfig (async → { config }) }
+export function speakReply(text, { onStart, onEnd, region = 'VE', getConfig } = {}) {
+  if (typeof window === 'undefined') return () => {};
   stopSpeech();
   const clean = cleanSpeechText(text);
-  if (!clean) return () => {};
-
-  const u = new SpeechSynthesisUtterance(clean);
-  u.lang = 'es-VE';
-  u.rate = 1.05;
-  u.pitch = 1.02;
-
-  const voices = window.speechSynthesis.getVoices();
-  const esVoice = voices.find((v) => v.lang.startsWith('es-') && (v.name.includes('Google') || v.name.includes('Natural') || v.name.includes('Paulina') || v.name.includes('Monica') || v.name.includes('Sabina') || v.name.includes('Sofia')))
-    || voices.find((v) => v.lang.startsWith('es'));
-  if (esVoice) u.voice = esVoice;
-
-  u.onstart = () => onStart?.();
-  u.onend = () => { activeUtterance = null; onEnd?.(); };
-  u.onerror = () => { activeUtterance = null; onEnd?.(); };
-
-  activeUtterance = u;
-  window.speechSynthesis.speak(u);
+  if (!clean) { onEnd?.(); return () => {}; }
+  const run = ++speechRun;
+  const lang = speechLangFor(region);
+  // Se crea y "desbloquea" el reproductor ahora, mientras dura el toque del usuario (iPhone lo exige).
+  const el = new Audio(SILENT_WAV);
+  el.play().catch(() => {});
+  audioEl = el;
+  (async () => {
+    let url = null;
+    try { url = await naturalVoice(clean, { getConfig, region }); } catch { url = null; }
+    if (run !== speechRun) return;
+    if (url) {
+      el.onplay = () => onStart?.();
+      el.onended = () => { if (run === speechRun) { audioEl = null; onEnd?.(); } };
+      el.onerror = () => { if (run === speechRun) { el.onerror = null; deviceVoice(clean, lang, run, { onStart, onEnd }); } };
+      el.src = url;
+      try { await el.play(); return; } catch { el.onerror = null; /* el navegador bloqueó el audio: voz del dispositivo */ }
+      if (run !== speechRun) return;
+    }
+    audioEl = null;
+    deviceVoice(clean, lang, run, { onStart, onEnd });
+  })();
   return () => stopSpeech();
 }
 
 export function stopSpeech() {
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-    window.speechSynthesis.cancel();
-    activeUtterance = null;
-  }
+  speechRun++;
+  if (audioEl) { try { audioEl.pause(); } catch { /* nada */ } audioEl = null; }
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) window.speechSynthesis.cancel();
 }
 
 export function isSpeaking() {
-  return Boolean(typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking);
+  return Boolean((audioEl && !audioEl.paused) || (typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking));
 }
 
 // Prueba rápida de la clave (Ajustes). Valida la clave con ListModels y hace una llamada mínima a

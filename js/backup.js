@@ -58,12 +58,12 @@ const spreadOf = (t) => (t.original_currency === 'VES' && t.rate_bcv && t.rate_a
   ? Number(t.original_amount) / Number(t.rate_bcv) - Number(t.original_amount) / Number(t.rate_applied) : null);
 
 // Guía de colores (filas listas para una tabla de 2 columnas).
-export function legendRows() {
+export function legendRows(region) {
   return Object.entries(TONE_LABEL).map(([k, [name, text]]) => [
     { v: name, s: { bold: true, fill: XL[k].fill, color: XL[k].ink, border: k === 'total' ? 'total' : 'thin', indent: 1 } },
     { v: text, s: { border: 'thin', wrap: true, indent: 1 } },
   ]).concat([
-    [{ v: 'Brecha', s: { bold: true, border: 'thin', indent: 1 } }, { v: 'En la columna Brecha USD: verde = pagar en bolívares te ahorró; rojo = te costó.', s: { border: 'thin', wrap: true, indent: 1 } }],
+    ...(region?.rates ? [[{ v: 'Brecha', s: { bold: true, border: 'thin', indent: 1 } }, { v: 'En la columna Brecha USD: verde = pagar en bolívares te ahorró; rojo = te costó.', s: { border: 'thin', wrap: true, indent: 1 } }]] : []),
     [{ v: 'Saldo negativo', s: { bold: true, color: XL.expense.ink, border: 'thin', indent: 1 } }, { v: 'Cuentas o netos por debajo de cero se muestran en rojo.', s: { border: 'thin', wrap: true, indent: 1 } }],
     [{ v: 'Encabezado', s: { bold: true, color: 'FFFFFF', fill: XL.navy, border: 'thin', indent: 1 } }, { v: 'Títulos de cada columna. Tienen filtros: toca la flecha para ordenar o filtrar.', s: { border: 'thin', wrap: true, indent: 1 } }],
   ]);
@@ -137,9 +137,9 @@ export function backupSheets(d) {
     { cells: [{ v: 'Guía de colores', s: SECTION }], h: 22 },
     { cells: ['Color', 'Qué significa', '', ''].map((v) => ({ v, s: HEADER_STYLE })) },
     // La explicación ocupa de la columna B a la D (celdas combinadas).
-    ...legendRows().map(([color, text]) => ({ cells: [color, text, { v: '', s: text.s }, { v: '', s: text.s }], h: 32 })),
+    ...legendRows(d.region).map(([color, text]) => ({ cells: [color, text, { v: '', s: text.s }, { v: '', s: text.s }], h: 32 })),
   ];
-  const legendStart = resumen.length - legendRows().length - 1; // fila (0-based) del encabezado de la guía
+  const legendStart = resumen.length - legendRows(d.region).length - 1; // fila (0-based) del encabezado de la guía
   const merges = [];
   for (let r = legendStart; r < resumen.length; r++) merges.push(`B${r + 1}:D${r + 1}`);
 
@@ -205,7 +205,7 @@ export async function exportMovementsXlsx(txs, d, name = 'movimientos') {
       { cells: [{ v: 'Guía de colores', s: { bold: true, size: 16, color: XL.navy } }], h: 28 },
       [],
       ['Color', 'Qué significa'].map((v) => ({ v, s: HEADER_STYLE })),
-      ...legendRows().map((cells) => ({ cells, h: 30 })),
+      ...legendRows(d.region).map((cells) => ({ cells, h: 30 })),
     ] },
   ];
   const file = new File([buildXlsx(sheets)], `la-fructosa-${name}-${todayISO()}.xlsx`, {

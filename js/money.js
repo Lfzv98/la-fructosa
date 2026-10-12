@@ -23,25 +23,24 @@ export const RATE_HELP = {
 };
 
 // Cada región cambia qué monedas se ofrecen primero, si se muestran tasas y brecha, la zona horaria
-// para "hoy" y los textos de ejemplo. Las cuatro monedas (USD, VES, USDT, EUR) están disponibles en
-// todos los países: quien vive fuera y conserva una cuenta en bolívares la crea igual, y las tasas
-// se activan solas (ver regionFor).
+// para "hoy" y los textos de ejemplo. Cada país ve solo lo suyo: España (EUR, USD, USDT) y Estados
+// Unidos (USD, USDT) no ven bolívares ni Venezuela; "Otro país" ofrece las cuatro monedas.
 export const REGIONS = {
   VE:  { code: 'VE',  label: 'Venezuela',      short: 'VE',   flag: '🇻🇪', currencies: ['USD', 'VES', 'USDT', 'EUR'], base: 'USD', rates: true,
          tz: 'America/Caracas', examples: 'efectivo, Pago Móvil, Zelle, Binance…' },
-  US:  { code: 'US',  label: 'Estados Unidos', short: 'US',   flag: '🇺🇸', currencies: ['USD', 'USDT', 'EUR', 'VES'], base: 'USD', rates: false,
+  US:  { code: 'US',  label: 'Estados Unidos', short: 'US',   flag: '🇺🇸', currencies: ['USD', 'USDT'], base: 'USD', rates: false,
          tz: 'America/New_York', examples: 'Chase, Bank of America, Zelle, Venmo, Apple Pay…' },
-  ES:  { code: 'ES',  label: 'España',         short: 'ES',   flag: '🇪🇸', currencies: ['EUR', 'USD', 'USDT', 'VES'], base: 'EUR', rates: false,
+  ES:  { code: 'ES',  label: 'España',         short: 'ES',   flag: '🇪🇸', currencies: ['EUR', 'USD', 'USDT'], base: 'EUR', rates: false,
          tz: 'Europe/Madrid', examples: 'efectivo en euros, tu banco, Bizum, tarjeta…' },
   INT: { code: 'INT', label: 'Otro país',      short: 'Otro', flag: '🌎', currencies: ['USD', 'EUR', 'USDT', 'VES'], base: 'USD', rates: false,
          tz: '', examples: 'efectivo, tu banco local, Wise, PayPal, Binance…' },
 };
 
-// Región efectiva de una persona: fuera de Venezuela, tener una cuenta activa en bolívares
-// enciende las tasas BCV/Paralelo/USDT y la calculadora de brecha.
+// Región efectiva de una persona. En "Otro país", tener una cuenta activa en bolívares enciende las
+// tasas BCV/Paralelo/USDT y la calculadora de brecha. España y Estados Unidos nunca las muestran.
 export function regionFor(code, accounts = []) {
   const base = REGIONS[code] || REGIONS.VE;
-  if (base.rates) return base;
+  if (base.rates || base.code !== 'INT') return base;
   const ves = accounts.some((a) => !a.archived && a.currency === 'VES');
   return ves ? { ...base, rates: true } : base;
 }
@@ -101,10 +100,11 @@ export const ACCOUNT_TEMPLATES = {
 // toca el suyo en la lista desplegable (bank: true). Reemplazan a las plantillas con nombre de banco.
 // Fuera de Venezuela se ofrece también la cuenta en bolívares, para quien la conserva allá.
 const VES_PICK = { name: 'Banco venezolano (Bs.)', currency: 'VES', kind: 'bank', icon: '🏦', bank: true };
+// España y Estados Unidos: solo bancos del país (sin cuenta en bolívares).
 export const BANK_PICK_TEMPLATES = {
   VE: [VES_PICK, { name: 'Banco o app internacional (USD)', currency: 'USD', kind: 'bank', icon: '🏦', bank: true }],
-  US: [{ name: 'Cuenta en un banco', currency: 'USD', kind: 'bank', icon: '🏦', bank: true }, VES_PICK],
-  ES: [{ name: 'Cuenta en un banco', currency: 'EUR', kind: 'bank', icon: '🏦', bank: true }, VES_PICK],
+  US: [{ name: 'Cuenta en un banco', currency: 'USD', kind: 'bank', icon: '🏦', bank: true }],
+  ES: [{ name: 'Cuenta en un banco', currency: 'EUR', kind: 'bank', icon: '🏦', bank: true }],
   INT: [
     { name: 'Banco donde vives (USD)', currency: 'USD', kind: 'bank', icon: '🏦', bank: true },
     { name: 'Banco donde vives (EUR)', currency: 'EUR', kind: 'bank', icon: '🏦', bank: true },
@@ -143,16 +143,17 @@ const US_APPS = { title: 'Apps de pago en Estados Unidos', banks: [
 const ES_APPS = { title: 'Apps de pago en España', banks: [
   'Bizum', 'Apple Pay', 'Google Pay', 'PayPal', 'Revolut', 'N26', 'Wise', 'Openbank', 'Imagin', 'Bnext', 'MyInvestor',
 ] };
-const others = (exclude) => ({ title: 'Otras apps y billeteras', banks: PAY_APPS.banks.filter((b) => !exclude.banks.includes(b)) });
+// Cripto sin plataformas propias de Latinoamérica (para España y Estados Unidos).
+const CRYPTO_GLOBAL = { title: 'Cripto (USDT)', banks: CRYPTO.banks.filter((b) => b !== 'El Dorado') };
 export const BANK_GROUPS = {
   VE: [VE_GROUP, INTL_BANKS, PAY_APPS, CRYPTO],
   US: [
     { title: 'Bancos de Estados Unidos', banks: [
       'Chase', 'Bank of America (BOFA)', 'Wells Fargo', 'Citibank', 'Capital One', 'PNC Bank', 'TD Bank', 'US Bank',
       'Truist', 'Navy Federal', 'Ally Bank', 'Discover', 'Charles Schwab', 'Regions Bank', 'Fifth Third Bank', 'Citizens Bank',
-      'BMO', 'Santander Bank', 'Banesco USA', 'Amerant Bank', 'Chime', 'SoFi',
+      'BMO', 'Santander Bank', 'Amerant Bank', 'Chime', 'SoFi',
     ] },
-    US_APPS, CRYPTO, others(US_APPS), VE_GROUP,
+    US_APPS, CRYPTO_GLOBAL,
   ],
   ES: [
     { title: 'Bancos de España', banks: [
@@ -160,7 +161,7 @@ export const BANK_GROUPS = {
       'Kutxabank', 'Cajamar', 'EVO Banco', 'Caja Rural', 'Banca March', 'Deutsche Bank España', 'Banco Mediolanum',
       'Self Bank', 'Triodos Bank', 'Pibank', 'Banco Caminos',
     ] },
-    ES_APPS, CRYPTO, others(ES_APPS), VE_GROUP,
+    ES_APPS, CRYPTO_GLOBAL,
   ],
   INT: [INTL_BANKS, PAY_APPS, CRYPTO, VE_GROUP],
 };
@@ -178,7 +179,8 @@ export function bankGroupsFor(region, currency) {
   if (!currency) return groups;
   if (currency === 'VES') return [VE_GROUP];
   const fx = groups.filter((g) => !g.ves);
-  return currency === 'USDT' ? [CRYPTO, ...fx.filter((g) => g !== CRYPTO)] : fx;
+  const crypto = fx.find((g) => g.title === CRYPTO.title) || CRYPTO;
+  return currency === 'USDT' ? [crypto, ...fx.filter((g) => g !== crypto)] : fx;
 }
 
 // Compatibilidad

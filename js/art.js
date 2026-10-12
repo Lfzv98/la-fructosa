@@ -20,6 +20,17 @@ export const ART = {
     <circle class="f2" cx="64" cy="40" r="19"/><circle cx="64" cy="40" r="19"/>${T(64, 47, 22, '€')}
     <circle class="f3" cx="46" cy="68" r="17"/><circle cx="46" cy="68" r="17"/>${T(46, 73, 14, 'Bs')}`,
 
+  // Divisas de España: EUR · USD · USDT
+  currencies_ES: `
+    <circle class="f1" cx="34" cy="36" r="21"/><circle cx="34" cy="36" r="21"/>${T(34, 44, 24, '€')}
+    <circle class="f2" cx="64" cy="40" r="19"/><circle cx="64" cy="40" r="19"/>${T(64, 47, 22, '$')}
+    <circle class="f3" cx="46" cy="68" r="17"/><circle cx="46" cy="68" r="17"/>${T(46, 74, 18, '₮')}`,
+
+  // Divisas de Estados Unidos: USD · USDT
+  currencies_US: `
+    <circle class="f1" cx="38" cy="44" r="24"/><circle cx="38" cy="44" r="24"/>${T(38, 53, 27, '$')}
+    <circle class="f2" cx="66" cy="62" r="18"/><circle cx="66" cy="62" r="18"/>${T(66, 69, 19, '₮')}`,
+
   // Gráfico de crecimiento
   growth: `
     <path d="M14 14v68h70"/>
