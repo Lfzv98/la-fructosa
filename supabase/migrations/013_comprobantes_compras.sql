@@ -40,7 +40,7 @@ create table if not exists public.shopping_items (
   name        text not null check (char_length(name) between 1 and 80),
   qty         numeric(12, 3) not null default 1 check (qty > 0),
   price       numeric(20, 8) check (price is null or price >= 0),  -- precio por unidad (opcional)
-  currency    public.currency_code not null default 'USD',
+  currency    text not null default 'USD' check (currency in ('USD', 'VES', 'USDT', 'EUR')),  -- texto, como en la 011
   done        boolean not null default false,
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
