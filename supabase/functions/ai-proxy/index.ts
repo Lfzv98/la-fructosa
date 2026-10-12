@@ -13,7 +13,7 @@
 //   Gemini (lo más simple, un solo secreto):  supabase secrets set GEMINI_API_KEY=tu-clave
 //   Otro proveedor:  supabase secrets set AI_API_KEY=tu-clave AI_UPSTREAM=groq AI_MODEL=llama-3.3-70b-versatile
 //   supabase functions deploy ai-proxy
-// AI_UPSTREAM: groq | gemini | xai.  Opcional: AI_ALLOWED_ORIGINS="https://lfzv98.github.io"
+// AI_UPSTREAM: groq | gemini | xai.  Opcional: AI_ALLOWED_ORIGINS="https://lfzv98.github.io,https://la-fructosa.vercel.app"
 // Luego pon en js/config.js:  export const AI_PROXY_URL = 'https://<proyecto>.supabase.co/functions/v1/ai-proxy';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
@@ -70,8 +70,13 @@ async function modelChain(): Promise<string[]> {
   return chainFrom(MODELS, catalog?.names ?? null);
 }
 
-const ORIGINS = (Deno.env.get('AI_ALLOWED_ORIGINS') ?? 'https://lfzv98.github.io,http://localhost:8000,http://127.0.0.1:8000')
+// Orígenes permitidos (CORS), separados por coma. Acepta * como comodín, p. ej.
+// https://la-fructosa-*.vercel.app para las vistas previas de Vercel.
+const ORIGINS = (Deno.env.get('AI_ALLOWED_ORIGINS') ??
+  'https://lfzv98.github.io,https://la-fructosa.vercel.app,https://la-fructosa-*.vercel.app,http://localhost:8000,http://127.0.0.1:8000')
   .split(',').map((s) => s.trim()).filter(Boolean);
+const originOk = (o: string) => ORIGINS.some((p) => p === o ||
+  (p.includes('*') && new RegExp('^' + p.split('*').map((x) => x.replace(/[.+?^${}()|[\]\\/]/g, '\\$&')).join('[a-z0-9-]*') + '$').test(o)));
 
 const MAX_BODY = 2_000_000;        // bytes de la petición (una captura comprimida ocupa ~0,2–1,2 MB)
 const MAX_IMAGE = 1_500_000;       // caracteres base64 de la imagen (solo una por petición, del usuario)
@@ -99,7 +104,7 @@ const SERVER_GUARD = 'Eres Fructosa, la asistente personal de finanzas de la app
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin') ?? '';
   const cors = {
-    'Access-Control-Allow-Origin': ORIGINS.includes(origin) ? origin : ORIGINS[0] ?? '',
+    'Access-Control-Allow-Origin': originOk(origin) ? origin : ORIGINS[0] ?? '',
     'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Vary': 'Origin',
@@ -112,7 +117,7 @@ Deno.serve(async (req) => {
   if (req.method === 'GET') return new Response(JSON.stringify({ ok: true, v: 3, images: true }), { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } });
   if (req.method !== 'POST') return reply(405, 'Método no permitido');
   if (!KEY) return reply(503, 'El copiloto no está configurado en el servidor');
-  if (origin && !ORIGINS.includes(origin)) return reply(403, 'Origen no permitido');
+  if (origin && !originOk(origin)) return reply(403, 'Origen no permitido');
 
   // 1. Sesión válida
   const supa = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {

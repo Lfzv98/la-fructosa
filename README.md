@@ -5,7 +5,8 @@ tasas BCV / Paralelo / USDT, calculadora de brecha cambiaria, presupuestos,
 pagos fijos y análisis del mes. Cada familiar entra con su correo y **solo ve su propia información**
 (Row Level Security en Supabase).
 
-Producción: https://lfzv98.github.io/la-fructosa/ · Demo: agrega `?demo` a la URL.
+Producción: https://la-fructosa.vercel.app/ (principal, porque github.io está bloqueado por algunos proveedores en Venezuela)
+y https://lfzv98.github.io/la-fructosa/ (respaldo). Demo: agrega `?demo` a la URL.
 
 ## Acceso
 
@@ -91,10 +92,28 @@ la-fructosa/
 ## Instalación desde cero
 
 1. Proyecto nuevo en Supabase → SQL Editor → ejecuta `supabase/schema.sql`.
-2. Authentication → Providers → Email activo. URL Configuration → agrega la URL de GitHub Pages.
+2. Authentication → Providers → Email activo. URL Configuration → agrega las URLs de Vercel y GitHub Pages (ver "Hosting").
 3. Copia `js/config.example.js` como `js/config.js` y pon Project URL y anon key.
 4. Prueba local: `python3 -m http.server` y abre `http://localhost:8000/?demo`.
 5. GitHub Pages: Settings → Pages → Deploy from branch `main` / root.
+6. Vercel: importa el repositorio (Framework: Other, sin build, carpeta raíz). `vercel.json` ya trae los encabezados.
+
+## Hosting (Vercel + GitHub Pages)
+
+La app es estática y usa rutas relativas (`./`) en `index.html`, `manifest.webmanifest`, `sw.js` y el registro del
+service worker, así que funciona igual en un dominio raíz (`la-fructosa.vercel.app`) que en una subcarpeta
+(`lfzv98.github.io/la-fructosa/`). El ruteo es por `#/`, sin reescrituras de servidor.
+
+- `vercel.json`: sin build; `sw.js`, `index.html`, `manifest.webmanifest` y `js/config.js` sin caché HTTP (las
+  versiones nuevas se notan al momento); redirige `/la-fructosa/...` a `/` por si alguien pega el enlace viejo.
+- `.vercelignore`: no publica `supabase/` ni `tests/`.
+- Supabase Auth → URL Configuration: **Site URL** = `https://la-fructosa.vercel.app` y en **Redirect URLs**
+  `https://la-fructosa.vercel.app/**`, `https://la-fructosa-*.vercel.app/**` y `https://lfzv98.github.io/la-fructosa/**`.
+- Edge Functions `login` y `ai-proxy`: solo aceptan los orígenes de `AI_ALLOWED_ORIGINS` / `LOGIN_ALLOWED_ORIGINS`
+  (admiten `*`). Sin esos secretos usan github.io, `la-fructosa.vercel.app`, `la-fructosa-*.vercel.app` y localhost.
+  Si usas otro dominio, agrégalo al secreto y vuelve a desplegar las dos funciones.
+- Cada dominio es un "sitio" distinto para el navegador: al cambiar de github.io a Vercel hay que volver a entrar,
+  volver a activar el bloqueo con huella/Face ID y los avisos. Los datos están en Supabase y no se pierden.
 
 ## Novedades 3.2 (v23)
 

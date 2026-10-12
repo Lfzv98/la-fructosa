@@ -1,0 +1,6 @@
+# Lo que Vercel no necesita publicar (la app es estática: HTML, CSS, JS e íconos)
+supabase/
+tests/
+.github/
+*.zip
+/0*.sql

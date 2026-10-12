@@ -4,7 +4,11 @@
 // Solo datos, sin interfaz: así también se puede leer y probar fuera del navegador.
 
 export const MANUAL_VERSION = 'v23';
-export const APP_URL = 'https://lfzv98.github.io/la-fructosa/';
+// Enlace que se muestra en el manual: el de donde está abierta la app (Vercel, GitHub Pages
+// o el dominio que sea). Fuera del navegador (pruebas, docs/howToUseIt.md) se usa el oficial.
+const HERE = typeof location !== 'undefined' && /^https?:$/.test(location.protocol)
+  ? location.origin + location.pathname.replace(/[^/]*$/, '') : '';
+export const APP_URL = HERE || 'https://lfzv98.github.io/la-fructosa/';
 
 // Las cinco funciones principales, paso a paso. `only` limita una sección a ciertos países.
 export const CORE = [

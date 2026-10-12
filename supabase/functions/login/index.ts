@@ -9,9 +9,13 @@
 // (--no-verify-jwt porque quien entra todavía no tiene sesión.)
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 
+// Orígenes permitidos (CORS), separados por coma. Acepta * como comodín, p. ej.
+// https://la-fructosa-*.vercel.app para las vistas previas de Vercel.
 const ORIGINS = (Deno.env.get('LOGIN_ALLOWED_ORIGINS') ?? Deno.env.get('AI_ALLOWED_ORIGINS') ??
-  'https://lfzv98.github.io,http://localhost:8000,http://127.0.0.1:8000')
+  'https://lfzv98.github.io,https://la-fructosa.vercel.app,https://la-fructosa-*.vercel.app,http://localhost:8000,http://127.0.0.1:8000')
   .split(',').map((s) => s.trim()).filter(Boolean);
+const originOk = (o: string) => ORIGINS.some((p) => p === o ||
+  (p.includes('*') && new RegExp('^' + p.split('*').map((x) => x.replace(/[.+?^${}()|[\]\\/]/g, '\\$&')).join('[a-z0-9-]*') + '$').test(o)));
 
 const URL_ = Deno.env.get('SUPABASE_URL')!;
 const admin = createClient(URL_, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, { auth: { persistSession: false } });
@@ -30,7 +34,7 @@ function limited(key: string): boolean {
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin') ?? '';
   const cors = {
-    'Access-Control-Allow-Origin': ORIGINS.includes(origin) ? origin : ORIGINS[0] ?? '',
+    'Access-Control-Allow-Origin': originOk(origin) ? origin : ORIGINS[0] ?? '',
     'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Vary': 'Origin',
@@ -41,7 +45,7 @@ Deno.serve(async (req) => {
 
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
   if (req.method !== 'POST') return send(405, { error: { message: 'Método no permitido' } });
-  if (origin && !ORIGINS.includes(origin)) return send(403, { error: { message: 'Origen no permitido' } });
+  if (origin && !originOk(origin)) return send(403, { error: { message: 'Origen no permitido' } });
 
   let body: { login?: unknown; password?: unknown };
   try { body = await req.json(); } catch { return denied(); }
