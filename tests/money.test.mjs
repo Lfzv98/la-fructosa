@@ -74,3 +74,17 @@ test('el Excel de respaldo es un ZIP válido con sus hojas', async () => {
   assert.ok(text.includes('Café &amp; pan &lt;rico&gt;'));
   assert.ok(text.includes('<v>46306</v>')); // 11/10/2026 como fecha de Excel
 });
+
+test('el Excel lleva estilos: colores, formatos, filtros y columnas ocultas', async () => {
+  const blob = buildXlsx([{ name: 'Movimientos', filter: true, hidden: [2], rows: [
+    ['Fecha', 'Monto', 'ID'],
+    { cells: ['2026-10-11', { v: 12.5, s: { color: 'B42318', fmt: 'minus' } }, 'x'], s: { fill: 'FDECEC', border: 'thin' } },
+  ] }]);
+  const text = new TextDecoder().decode(new Uint8Array(await blob.arrayBuffer()));
+  assert.ok(text.includes('<v>46306</v>'));
+  assert.ok(text.includes('FFFDECEC') && text.includes('FFB42318')); // relleno rojo claro y texto rojo
+  assert.ok(text.includes('formatCode="&quot;-&quot;#,##0.00"'));
+  assert.ok(text.includes('<autoFilter ref="A1:C2"/>'));
+  assert.ok(text.includes('hidden="1"'));
+  assert.ok(text.includes('<pageMargins'));
+});

@@ -47,3 +47,30 @@ test('bancos según la moneda, en cualquier país', () => {
     assert.equal(bankGroupsFor(k, 'USDT')[0].title, 'Cripto (USDT)');
   }
 });
+
+test('cada país tiene su experiencia propia (v27)', async () => {
+  const { categoriesFor, categoryMeta, setTimeZoneFor, REGIONS: R } = await import('../js/money.js');
+  // España: euros, bancos españoles y Bizum; sin tasas.
+  assert.equal(R.ES.base, 'EUR');
+  assert.equal(regionFor('ES', []).rates, false);
+  assert.ok(BANK_GROUPS.ES[0].banks.includes('CaixaBank'));
+  assert.ok(bankGroupsFor('ES', 'EUR').flatMap((g) => g.banks).includes('Bizum'));
+  assert.ok(ACCOUNT_TEMPLATES.ES.some((t) => t.name === 'Bizum' && t.currency === 'EUR'));
+  // Estados Unidos: dólares, Chase/BofA y apps locales; sin tasas.
+  assert.equal(R.US.base, 'USD');
+  const us = bankGroupsFor('US', 'USD').flatMap((g) => g.banks);
+  for (const b of ['Chase', 'Bank of America (BOFA)', 'Wells Fargo', 'Venmo', 'Cash App', 'Apple Pay', 'PayPal']) assert.ok(us.includes(b), b);
+  // Categorías por país: comunes + propias, "Otros" al final.
+  const es = categoriesFor('ES', 'expense').map((c) => c.name);
+  assert.ok(es.includes('Comunidad') && es.includes('Impuestos') && es.at(-1) === 'Otros');
+  assert.ok(!categoriesFor('VE', 'expense').some((c) => c.name === 'Comunidad'));
+  assert.ok(categoriesFor(regionFor('US'), 'income').some((c) => c.name === 'Reembolso de impuestos'));
+  assert.equal(categoryMeta('Devolución de Hacienda', 'income').emoji, '🧾');
+  // Consejos de impuestos solo en su país.
+  const tipES = FINANCE_GUIDE.tips.find((t) => t.only?.[0] === 'ES');
+  assert.ok(applies(tipES, regionFor('ES')) && !applies(tipES, regionFor('VE')) && !applies(tipES, regionFor('US')));
+  // Zona horaria: Venezuela siempre Caracas.
+  assert.equal(setTimeZoneFor('VE'), 'America/Caracas');
+  assert.ok(setTimeZoneFor('ES'));
+  setTimeZoneFor('VE');
+});

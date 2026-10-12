@@ -146,7 +146,7 @@ export function Home() {
     <section>
       <${SectionTitle} action=${html`<a href="#/cuentas">Gestionar</a>`}>Cuentas<//>
       ${active.length === 0
-        ? html`<${Empty} art="bank" title="Crea tu primera cuenta" text="Efectivo, Zelle, Pago Móvil, Binance… cada una con su moneda."
+        ? html`<${Empty} art="bank" title="Crea tu primera cuenta" text=${`${region.examples.charAt(0).toUpperCase()}${region.examples.slice(1)} Cada una con su moneda.`}
             action=${html`<button class="btn primary" onClick=${() => go('#/cuentas?nueva=1')}>Crear cuenta</button>`} />`
         : html`<div class="card list">${active.map((a) => html`<${AccountRow} key=${a.id} a=${a} target=${target}
             converted=${convert(a.balance, a.currency, target, rates, val)} onClick=${() => go('#/cuenta/' + a.id)} />`)}</div>`}

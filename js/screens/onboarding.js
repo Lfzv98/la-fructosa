@@ -4,15 +4,25 @@ import { html, Icon, Art, toast, errorText } from '../ui.js';
 import { useData, usePref } from '../store.js';
 import { ACCOUNT_TEMPLATES, BANK_PICK_TEMPLATES, bankGroupsFor, BANK_SUGGESTIONS, CURRENCIES, KINDS, ACCOUNT_COLORS, parseAmount } from '../money.js';
 
-const SLIDES = [
-  { art: 'coins', title: 'Bienvenido a La Fructosa', text: 'Todo tu dinero en un solo lugar: efectivo, bancos, Zelle, Pago Móvil y criptomonedas. Cada cuenta es independiente y nadie ve la de los demás.' },
-  { art: 'currencies', title: 'Varias monedas, un solo total', text: 'Cada cuenta lleva su moneda (USD, Bs., USDT o EUR). La app las convierte con la tasa del día y te dice cuánto tienes en total.' },
-  { art: 'growth', title: 'Registra en segundos', text: 'Toca +, escribe el monto y elige la categoría. Si pagas en bolívares desde una cuenta en dólares, la app calcula el costo real y la brecha.' },
-  { art: 'target', title: 'Planifica y aprende', text: 'Pon topes por categoría, programa tus pagos fijos y revisa el Análisis del mes. Toca cualquier ⓘ para entender un concepto.' },
-];
+// Las diapositivas cambian según el país: lo de bolívares, tasas y brecha solo aparece donde aplica.
+function slidesFor(region) {
+  const rates = Boolean(region?.rates);
+  const cur = region?.currencies?.slice(0, 3).join(', ') || 'USD, EUR, USDT';
+  return [
+    { art: 'coins', title: 'Bienvenido a La Fructosa', text: `Todo tu dinero en un solo lugar: ${region?.examples || 'efectivo, bancos, apps de pago y cripto'} Cada cuenta es independiente y nadie ve la de los demás.` },
+    rates
+      ? { art: 'currencies', title: 'Varias monedas, un solo total', text: 'Cada cuenta lleva su moneda (USD, Bs., USDT o EUR). La app las convierte con la tasa del día y te dice cuánto tienes en total.' }
+      : { art: 'currencies', title: 'Todo en tu moneda', text: `Cada cuenta lleva su moneda (${cur}…) y la app te dice cuánto tienes en total en ${region?.base || 'tu moneda'}. Agrega tus propios bancos y apps.` },
+    { art: 'growth', title: 'Registra en segundos', text: rates
+      ? 'Toca +, escribe el monto y elige la categoría. Si pagas en bolívares desde una cuenta en dólares, la app calcula el costo real y la brecha.'
+      : 'Toca +, escribe el monto y elige la categoría (alquiler, mercado, servicios, seguros, impuestos…). También puedes dictárselo a Fructosa.' },
+    { art: 'target', title: 'Planifica y aprende', text: 'Pon topes por categoría, programa tus pagos fijos y revisa el Análisis del mes. Toca cualquier ⓘ para entender un concepto.' },
+  ];
+}
 
 export function Onboarding() {
-  const { active, profile, actions } = useData();
+  const { active, profile, actions, region } = useData();
+  const SLIDES = slidesFor(region);
   const [, setDone] = usePref('onboarded', false);
   const [i, setI] = useState(0);
   const needsSetup = active.length === 0;

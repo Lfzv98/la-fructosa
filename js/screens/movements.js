@@ -3,11 +3,12 @@ import { useMemo, useState } from 'react';
 import { html, Icon, Money, Empty, Segmented } from '../ui.js';
 import { useData } from '../store.js';
 import { TxRow, PageHeader } from './common.js';
-import { exportCSV } from '../export.js';
-import { CATEGORIES, todayISO, monthKey, monthLabel, addMonths, dayLabel } from '../money.js';
+import { exportMovementsXlsx } from '../backup.js';
+import { categoriesFor, todayISO, monthKey, monthLabel, addMonths, dayLabel } from '../money.js';
 
 export function Movements({ query }) {
-  const { txs, accById, accounts, target } = useData();
+  const d = useData();
+  const { txs, accById, accounts, target, region } = d;
   const [ym, setYm] = useState(monthKey(todayISO()));
   const [type, setType] = useState(query.get('tipo') || 'all');
   const [account, setAccount] = useState(query.get('cuenta') || '');
@@ -37,13 +38,13 @@ export function Movements({ query }) {
   }
   const dayNet = (items) => items.reduce((s, t) => s + (t.type === 'income' ? t.value : t.type === 'expense' ? -t.value : 0), 0);
   const isCurrent = ym === monthKey(todayISO());
-  const allCats = [...new Set([...CATEGORIES.expense, ...CATEGORIES.income].map((c) => c.name))];
+  const allCats = [...new Set([...categoriesFor(region, 'expense'), ...categoriesFor(region, 'income')].map((c) => c.name))];
   const activeFilters = (account ? 1 : 0) + (category ? 1 : 0);
 
   return html`<div class="page">
     <${PageHeader} title="Movimientos" actions=${html`
       <button class=${'icon-btn' + (searching ? ' on' : '')} onClick=${() => { setSearching(!searching); setQ(''); }} aria-label="Buscar"><${Icon} name="search" /></button>
-      <button class="icon-btn" onClick=${() => exportCSV(filtered, accById)} aria-label="Exportar CSV" disabled=${!filtered.length}><${Icon} name="download" /></button>`} />
+      <button class="icon-btn" onClick=${() => exportMovementsXlsx(filtered, d)} aria-label="Exportar a Excel" disabled=${!filtered.length}><${Icon} name="download" /></button>`} />
 
     ${searching && html`<div class="search"><${Icon} name="search" size=${18} />
       <input class="input" autofocus placeholder="Buscar en todos los meses…" value=${q} onInput=${(e) => setQ(e.target.value)} />

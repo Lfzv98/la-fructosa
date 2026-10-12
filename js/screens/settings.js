@@ -8,7 +8,7 @@ import { exportCSV } from '../export.js';
 import { api, isDemo } from '../api.js';
 import { REGIONS, RATE_LABELS } from '../money.js';
 import { AiSettings } from './copilot.js';
-import { BackupButton, downloadBackup } from '../backup.js';
+import { BackupButton, downloadBackup, exportMovementsXlsx } from '../backup.js';
 import { LockSettings, clearLock } from '../lock.js';
 import { applyTheme } from '../theme.js';
 import { pushSupport, publicKey, currentSubscription, enablePush, disablePush, updatePushPrefs, DEFAULT_PREFS } from '../push.js';
@@ -16,7 +16,8 @@ import { pushSupport, publicKey, currentSubscription, enablePush, disablePush, u
 export const APP_VERSION = '3.1.0';
 
 export function More() {
-  const { region, txs, accById, recurring, budgets, goals, loans } = useData();
+  const d = useData();
+  const { region, txs, accById, recurring, budgets, goals, loans } = d;
   const owed = loans.filter((l) => !l.settled).length;
   const tiles = [
     ['#/cuentas', 'wallet', 'Cuentas', 'Saldos y billeteras', '#A0C4FF'],
@@ -33,7 +34,8 @@ export function More() {
     <${PageHeader} title="Más" />
     <div class="tiles">${tiles.map(([h, i, t, s, c]) => html`<a key=${h} href=${h} class="tile" style=${{ '--tc': c }}>
       <span class="tile-ico"><${Icon} name=${i} /></span><b>${t}</b><small>${s}</small></a>`)}</div>
-    <button class="btn soft block" onClick=${() => exportCSV(txs, accById, 'todo')} disabled=${!txs.length}><${Icon} name="download" size=${18} /> Exportar todos los movimientos (CSV)</button>
+    <button class="btn soft block" onClick=${() => exportMovementsXlsx(txs, d, 'todo')} disabled=${!txs.length}><${Icon} name="download" size=${18} /> Exportar todos los movimientos (Excel)</button>
+    <button class="btn ghost block" onClick=${() => exportCSV(txs, accById, 'todo')} disabled=${!txs.length}>Exportar en CSV (texto simple)</button>
   </div>`;
 }
 

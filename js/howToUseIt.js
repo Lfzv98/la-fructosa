@@ -3,7 +3,7 @@
 // se genera a partir de este archivo (node tests/howToUseIt.test.mjs --write).
 // Solo datos, sin interfaz: así también se puede leer y probar fuera del navegador.
 
-export const MANUAL_VERSION = 'v23';
+export const MANUAL_VERSION = 'v27';
 // Enlace que se muestra en el manual: el de donde está abierta la app (Vercel, GitHub Pages
 // o el dominio que sea). Fuera del navegador (pruebas, docs/howToUseIt.md) se usa el oficial.
 const HERE = typeof location !== 'undefined' && /^https?:$/.test(location.protocol)
@@ -21,7 +21,7 @@ export const CORE = [
       'Entra a Más › Cuentas y toca "+ Nueva" (la primera vez, la bienvenida te ofrece crearlas de una vez).',
       'Usa una plantilla rápida (Pago Móvil, Zelle, Efectivo USD, Binance…) o arma la tuya.',
       'Elige la moneda (USD, VES, USDT o EUR) y el tipo (Efectivo, Banco, Digital o Cripto).',
-      'Escribe el nombre. Si es tipo Banco, la app te sugiere bancos según la moneda: en bolívares, la lista completa de bancos venezolanos (BDV, Banesco, Mercantil, Provincial, BNC, Bancamiga, Tesoro, Bancaribe, Exterior, Banplus, BFC, Activo, Plaza, Sofitasa, 100% Banco, DelSur, Bancrecer, R4, Banfanb y los demás); en dólares, euros o USDT, bancos internacionales, apps de pago (Zelle, PayPal, Wise, Zinli, Wally, Airtm…) y cripto (Binance, Bybit, OKX…). Si el tuyo no aparece, escríbelo.',
+      'Escribe el nombre. La app te sugiere bancos y apps de tu país (en España: BBVA, Santander, CaixaBank, Bizum…; en Estados Unidos: Chase, Bank of America, Wells Fargo, Venmo, Apple Pay…) y, según la moneda: en bolívares, la lista completa de bancos venezolanos (BDV, Banesco, Mercantil, Provincial, BNC, Bancamiga, Tesoro, Bancaribe, Exterior, Banplus, BFC, Activo, Plaza, Sofitasa, 100% Banco, DelSur, Bancrecer, R4, Banfanb y los demás); en dólares, euros o USDT, bancos internacionales, apps de pago (Zelle, PayPal, Wise, Zinli, Wally, Airtm…) y cripto (Binance, Bybit, OKX…). Si el tuyo no aparece, escríbelo.',
       'Escribe el saldo que tienes hoy (puede ser 0) y toca "Crear cuenta". Desde ahí la app suma y resta sola con cada movimiento.',
     ],
     tips: [
@@ -90,9 +90,9 @@ export const CORE = [
     intro: 'Tus datos son tuyos y puedes llevártelos cuando quieras para tu control local.',
     steps: [
       'Respaldo completo en Excel: Más › Ajustes › Respaldo › "Descargar todos mis datos (Excel)". Trae resumen, cuentas, movimientos, presupuestos, pagos fijos, metas, préstamos y tasas.',
-      'Movimientos en CSV: en Movimientos filtra lo que quieras (mes, cuenta, categoría) y toca el ícono de descarga ⬇️. En Análisis, el mismo ícono exporta el mes que estás viendo.',
+      'Movimientos en Excel: en Movimientos filtra lo que quieras (mes, cuenta, categoría) y toca el ícono de descarga ⬇️. En Análisis, el mismo ícono exporta el mes que estás viendo. En Más también puedes exportarlo todo en Excel o en CSV (texto simple).',
       'En iPhone, cuando aparezca el menú de compartir, toca "Guardar en Archivos" y elige una carpeta (iCloud Drive o En mi iPhone). En computadora se descarga directo.',
-      'Abre el archivo en Excel, Numbers o Google Sheets. El CSV viene separado por punto y coma, con acentos y montos listos para Excel en español.',
+      'Abre el archivo en Excel, Numbers o Google Sheets. Viene listo para leer: encabezados en azul oscuro, ingresos en verde (+), gastos en rojo (−), transferencias en azul, ajustes e inactivos en gris y totales en amarillo. La hoja Resumen trae la guía de colores, y cada tabla tiene filtros.',
     ],
     tips: [
       'Haz tu respaldo cada semana, después de conciliar. Si pasan 7 días sin respaldo, la app te lo recuerda.',
@@ -196,7 +196,7 @@ export const FINANCE_GUIDE = {
     {
       emoji: '🛟',
       title: 'Fondo de emergencia primero',
-      body: 'Antes de invertir o hacer compras grandes, junta entre 3 y 6 meses de tus gastos básicos en una cuenta aparte, en una moneda estable (USD o USDT). Créalo como Meta de ahorro y abónale cada mes.',
+      body: 'Antes de invertir o hacer compras grandes, junta entre 3 y 6 meses de tus gastos básicos en una cuenta aparte y en una moneda estable (en euros o dólares si vives fuera; en Venezuela, USD o USDT). Créalo como Meta de ahorro y abónale cada mes.',
     },
     {
       emoji: '🏁',
@@ -213,6 +213,18 @@ export const FINANCE_GUIDE = {
       title: 'Cuida la brecha',
       body: 'Si pagas en bolívares con respaldo en divisas, registra la tasa que usaste. La app te muestra cada mes cuánto te ahorró o te costó.',
       only: 'rates',
+    },
+    {
+      emoji: '🇪🇸',
+      title: 'España: impuestos sin complicarte',
+      body: 'El IVA ya va incluido en lo que pagas. La declaración de la renta (IRPF) se presenta en primavera, normalmente de abril a finales de junio, desde la web o la app de la Agencia Tributaria: guarda tus nóminas y facturas importantes. Si tienes piso, el IBI llega una vez al año: crea un pago fijo o una meta y aparta un poco cada mes. Anota lo que pagues en la categoría Impuestos. Para tu caso concreto, consulta con un gestor.',
+      only: ['ES'],
+    },
+    {
+      emoji: '🇺🇸',
+      title: 'Estados Unidos: impuestos y crédito, lo básico',
+      body: 'El sales tax se suma en la caja: el precio de la etiqueta no es el final. La declaración anual (IRS) se presenta normalmente hasta el 15 de abril: guarda tus W-2 o 1099. Si trabajas por tu cuenta, aparta una parte de cada pago para impuestos. Paga el total de la tarjeta de crédito cada mes: evitas intereses y cuidas tu credit score. Para tu caso concreto, consulta con un contador (CPA).',
+      only: ['US'],
     },
     {
       emoji: '📅',
@@ -232,19 +244,19 @@ export const FINANCE_GUIDE = {
 export const BY_REGION = {
   VE: {
     title: 'Venezuela',
-    text: 'Pago Móvil, efectivo en dólares y bolívares, Zelle, Binance (USDT) y tu banco venezolano. Además ves el dólar BCV, el Paralelo y el USDT, y la calculadora de brecha.',
+    text: 'Pago Móvil, efectivo en dólares y bolívares, Zelle, Binance (USDT) y tu banco venezolano. Además ves el dólar BCV, el Paralelo y el USDT, y la calculadora de brecha. Categoría extra: Condominio.',
   },
   US: {
     title: 'Estados Unidos',
-    text: 'Zelle, Venmo, Cash App, Apple Pay, tu tarjeta de crédito y tu cuenta de cheques (checking account). Todo en dólares; si conservas una cuenta en bolívares, las tasas se activan solas.',
+    text: 'Todo en dólares: tu banco (Chase, Bank of America, Wells Fargo, Citi, Capital One…), checking y savings, tarjetas de crédito, Zelle, Venmo, Cash App, Apple Pay y PayPal. Categorías extra: Alquiler (renta), Seguros, Impuestos, Propinas y Reembolso de impuestos. No verás tasas ni brecha, salvo que conserves una cuenta en bolívares.',
   },
   ES: {
-    title: 'España y Europa',
-    text: 'Bizum, tu cuenta con IBAN, la tarjeta de débito y el efectivo en euros. Si conservas una cuenta en bolívares, las tasas se activan solas.',
+    title: 'España',
+    text: 'Todo en euros: tu banco (BBVA, Santander, CaixaBank, Sabadell, ING…), la cuenta con IBAN, la tarjeta, el efectivo en euros, Bizum, Revolut y PayPal. Categorías extra: Alquiler, Comunidad, Seguros, Impuestos, Devolución de Hacienda y Ayudas. No verás tasas ni brecha, salvo que conserves una cuenta en bolívares.',
   },
   INT: {
     title: 'Otro país',
-    text: 'Panamá, Colombia, Chile, México, Perú o donde vivas: tu banco local en dólares o euros, Wise, PayPal, Zelle, Binance y, si la tienes, tu cuenta venezolana en bolívares.',
+    text: 'Panamá, Colombia, Chile, México, Perú o donde vivas: tu banco local en dólares o euros, Wise, PayPal, Zelle, Binance y, si la tienes, tu cuenta venezolana en bolívares. Categorías extra: Alquiler, Seguros e Impuestos.',
   },
 };
 
@@ -263,7 +275,9 @@ export const INSTALL_ANDROID = [
 ];
 
 // ¿Esta sección aplica a la persona? (rates = tiene tasas activas: Venezuela o cuentas en Bs.)
-export const applies = (item, region) => !item.only || (item.only === 'rates' && Boolean(region?.rates));
+// `only` también puede ser una lista de países (['ES'], ['US']…).
+export const applies = (item, region) => !item.only
+  || (item.only === 'rates' ? Boolean(region?.rates) : Array.isArray(item.only) && item.only.includes(region?.code));
 
 // Versión en Markdown (docs/howToUseIt.md), para leer fuera de la app o imprimir.
 export function toMarkdown() {

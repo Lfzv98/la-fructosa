@@ -9,9 +9,9 @@ import { REGIONS } from '../money.js';
 export const USERNAME_RE = /^[a-z0-9._]{3,20}$/;
 
 const REGION_INFO = {
-  VE: 'USD, Bs. y USDT · tasas BCV y paralelo · calculadora de brecha',
-  US: 'Dólares · sin tasas ni brecha (salvo que tengas cuentas en Bs.)',
-  ES: 'Euros · sin tasas ni brecha (salvo que tengas cuentas en Bs.)',
+  VE: 'USD, Bs. y USDT · Pago Móvil, Zelle, Binance · tasas BCV y paralelo',
+  US: 'Dólares · Chase, BofA, Zelle, Venmo, Apple Pay · sin tasas ni brecha',
+  ES: 'Euros · bancos españoles, Bizum, efectivo · sin tasas ni brecha',
   INT: 'Panamá, Colombia, Chile, México y demás · USD, EUR, USDT y Bs.',
 };
 

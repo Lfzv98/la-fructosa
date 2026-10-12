@@ -4,7 +4,7 @@ import { html, Icon, Money, Sheet, Field, Segmented, Empty, Progress, SectionTit
 import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { PageHeader, go } from './common.js';
-import { CATEGORIES, CURRENCIES, categoryMeta, convert, fmt, parseAmount, todayISO, monthKey, addMonths, daysInMonth, monthLabel } from '../money.js';
+import { categoriesFor, CURRENCIES, categoryMeta, convert, fmt, parseAmount, todayISO, monthKey, addMonths, daysInMonth, monthLabel } from '../money.js';
 
 export function Budgets() {
   const { budgets, monthStats, target, rates, val, missing, txs } = useData();
@@ -90,7 +90,8 @@ function BudgetForm({ budget, preset, avg, onClose }) {
   const { budgets, actions, target, region } = useData();
   const editing = Boolean(budget);
   const taken = new Set(budgets.filter((b) => b.id !== budget?.id).map((b) => b.category));
-  const options = CATEGORIES.expense.filter((c) => !taken.has(c.name));
+  const cats = categoriesFor(region, 'expense');
+  const options = cats.filter((c) => !taken.has(c.name));
   const [category, setCategory] = useState(budget?.category || preset.category || options[0]?.name || '');
   const [currency, setCurrency] = useState(budget?.currency || target);
   const [limit, setLimit] = useState(budget ? String(budget.monthly_limit).replace('.', ',') : preset.suggest ? String(preset.suggest) : '');
@@ -117,7 +118,7 @@ function BudgetForm({ budget, preset, avg, onClose }) {
       <button class="btn primary grow" onClick=${() => submit(close)}>${editing ? 'Guardar' : 'Crear presupuesto'}</button></div>`}>
     <div class="stack">
       <${Field} label="Categoría">
-        <div class="cat-grid">${(editing ? CATEGORIES.expense.filter((c) => c.name === category) : options).map((c) => html`<button key=${c.name} type="button"
+        <div class="cat-grid">${(editing ? [categoryMeta(category)] : options).map((c) => html`<button key=${c.name} type="button"
           class=${'cat' + (category === c.name ? ' on' : '')} style=${{ '--cat': c.color }} onClick=${() => { setCategory(c.name); setErr(''); }}>
           <span class="cat-emoji">${c.emoji}</span><span class="cat-name">${c.name}</span></button>`)}</div>
       <//>

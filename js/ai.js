@@ -12,7 +12,7 @@
 //  · Al modelo solo viaja lo que hay en pantalla: saldos, tasas y movimientos. Sin nombre, correo ni contraseña.
 //  · El modelo nunca escribe en la base de datos: propone, y la persona confirma con un botón.
 //  · Los números los calcula la app (bloques calc y sum) y el contexto trae las cifras ya calculadas.
-import { CATEGORIES, CURRENCIES, RATE_LABELS, convert, consolidate, todayISO, monthKey, addMonths, daysInMonth } from './money.js';
+import { categoriesFor, CURRENCIES, RATE_LABELS, convert, consolidate, todayISO, monthKey, addMonths, daysInMonth } from './money.js';
 
 // config.js tiene tus claves y puede faltar: sin él no hay IA incluida (solo clave personal).
 let APP = {};
@@ -282,8 +282,8 @@ export function buildContext(d) {
   for (const t of cur.slice(0, 60)) L.push(line(t));
   if (prev.length) { L.push('', `MOVIMIENTOS MÁS RECIENTES DEL MES ANTERIOR (${Math.min(prev.length, 20)} de ${prev.length}):`); for (const t of prev.slice(0, 20)) L.push(line(t)); }
 
-  L.push('', `CATEGORÍAS VÁLIDAS DE GASTO: ${CATEGORIES.expense.map((c) => c.name).join(', ')}`);
-  L.push(`CATEGORÍAS VÁLIDAS DE INGRESO: ${CATEGORIES.income.map((c) => c.name).join(', ')}`);
+  L.push('', `CATEGORÍAS VÁLIDAS DE GASTO: ${categoriesFor(region, 'expense').map((c) => c.name).join(', ')}`);
+  L.push(`CATEGORÍAS VÁLIDAS DE INGRESO: ${categoriesFor(region, 'income').map((c) => c.name).join(', ')}`);
   L.push(`NOMBRES DE CUENTAS: ${active.map((a) => a.name).join(', ') || '(ninguna)'}`);
   return L.join('\n');
 }
@@ -304,6 +304,15 @@ export function withGuard(history) {
   }
   return out;
 }
+
+// Cómo se manejan las finanzas en el país de la persona: Fructosa habla de lo que existe allí.
+// Impuestos: solo orientación práctica; nunca cálculos fiscales.
+const LOCAL_CONTEXT = {
+  VE: 'Venezuela: se vive con dólares en efectivo, bolívares y USDT. Pago Móvil y transferencias de bancos venezolanos van en Bs.; Zelle y cuentas en EE. UU. en USD; Binance P2P se usa para cambiar entre bolívares, USDT y Zelle. Los comercios cobran en Bs. a tasa BCV; el Paralelo y el USDT reflejan el costo real del dólar.',
+  US: 'Estados Unidos: todo en dólares. Cuentas típicas: checking (para el día a día) y savings (ahorro), tarjetas de crédito y débito, y apps como Zelle, Venmo, Cash App, Apple Pay y PayPal. Gastos típicos: renta (Alquiler), seguros (salud, carro, vivienda), servicios (utilities), teléfono y suscripciones. Consejos prácticos: pagar el total de la tarjeta de crédito cada mes evita intereses y cuida el credit score; el sales tax se suma en la caja, así que el precio de la etiqueta no es el final; la declaración anual de impuestos (IRS) se presenta normalmente hasta el 15 de abril; si trabaja por su cuenta (1099), conviene apartar una parte de cada pago para impuestos. Para su caso fiscal concreto, recomienda un contador (CPA).',
+  ES: 'España: todo en euros. Cuentas típicas: cuenta corriente con IBAN en un banco español, tarjeta de débito o crédito, efectivo en euros y Bizum (envíos instantáneos de euros entre cuentas españolas con el número de teléfono). Gastos típicos: alquiler, comunidad, suministros (luz, agua, gas, internet), seguros y transporte (abono). Consejos prácticos: el IVA ya va incluido en los precios; la declaración de la renta (IRPF) se presenta en primavera, normalmente de abril a finales de junio, desde la web o la app de la Agencia Tributaria; si tiene vivienda en propiedad, el IBI llega una vez al año, así que conviene apartar cada mes. Para su caso fiscal concreto, recomienda un gestor o asesor fiscal.',
+  INT: 'Otro país: la persona vive fuera de Venezuela, EE. UU. y España. Usa sus monedas (USD, EUR o USDT) y las cuentas que tenga; no asumas reglas de un país concreto. Para impuestos, recomienda consultar con un asesor local.',
+};
 
 // first: ¿es la primera respuesta de la conversación? (la app ya puso el saludo delante).
 export function systemPrompt(d, { first = true } = {}) {
@@ -353,6 +362,7 @@ PRECISIÓN NUMÉRICA (obligatoria)
 REGLAS
 1. Usa únicamente los DATOS ACTUALES de abajo. Si te falta un dato, dilo; nunca inventes saldos, movimientos ni tasas.
 2. ${rule2}
+   Contexto local: ${LOCAL_CONTEXT[region.code] || LOCAL_CONTEXT.INT} Habla con naturalidad de los bancos, apps y gastos de su país. Sobre impuestos da solo orientación práctica y sencilla (fechas, qué guardar, cuánto apartar); nunca calcules impuestos ni des asesoría fiscal.
 3. Escribe montos en formato latino (1.234,56) con su moneda (USD, VES, EUR, USDT).
 4. Bloque calc (conversiones). "rate" puede ser "BCV" o "PARALELO"; si el usuario no dice cuál, omítelo:
 \`\`\`fructosa
@@ -451,7 +461,7 @@ export function runSum(spec, d) {
 
 // Valida lo que propone el modelo y lo convierte en una fila lista para guardar.
 export function resolveTx(spec, d) {
-  const { active, rates, val } = d;
+  const { active, rates, val, region } = d;
   const kind = spec.kind === 'income' ? 'income' : spec.kind === 'expense' ? 'expense' : null;
   if (!kind) return { error: 'No quedó claro si es gasto o ingreso.' };
   const amount = Number(spec.amount);
@@ -475,7 +485,7 @@ export function resolveTx(spec, d) {
     if (v == null) return { error: `No hay tasa para convertir ${currency} a ${acc.currency} (cuenta ${acc.name}).` };
     inAcc = v; converted = true;
   }
-  const list = CATEGORIES[kind];
+  const list = categoriesFor(region, kind);
   const category = (list.find((c) => norm(c.name) === norm(spec.category)) || list.find((c) => c.name === 'Otros')).name;
   const description = String(spec.description || '').trim().slice(0, 120) || null;
   // Fecha opcional (p. ej. leída de una captura): solo si es válida, no futura y de los últimos 90 días.

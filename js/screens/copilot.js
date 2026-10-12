@@ -56,9 +56,18 @@ function AiNotice({ onAccept, onDecline }) {
   <//>`;
 }
 
+// Ejemplos de capturas que Fructosa lee, según el país.
+const PAY_EXAMPLES = {
+  VE: 'Pago Móvil, Zelle, Binance, PayPal…',
+  US: 'Zelle, Venmo, Cash App, Chase, Bank of America…',
+  ES: 'Bizum, BBVA, Santander, CaixaBank, Revolut…',
+  INT: 'tu banco, Wise, PayPal, Binance…',
+};
+
 // ---------------------------------------------------------------------
 // Configuración (se usa en Ajustes y dentro del chat)
 // ---------------------------------------------------------------------
+
 export function AiSettings({ onSaved }) {
   const [cfg, setCfg] = useState(loadAiConfig);
   const [show, setShow] = useState(false);
@@ -283,7 +292,10 @@ export function Copilot() {
     '¿Cómo van mis finanzas hoy?',
     region.rates ? 'Calcúlame 400 EUR a la tasa BCV' : '¿En qué gasto más este mes?',
     `Crea un gasto de ${sym} en comida`,
-    region.rates ? '¿Cuánto es mi patrimonio en bolívares?' : 'Dame un consejo para ahorrar más',
+    region.rates ? '¿Cuánto es mi patrimonio en bolívares?'
+      : region.code === 'ES' ? '¿Qué debo saber de la declaración de la renta?'
+      : region.code === 'US' ? '¿Qué debo saber de mis impuestos (taxes)?'
+      : 'Dame un consejo para ahorrar más',
   ];
 
   async function send(payload) {
@@ -526,7 +538,7 @@ export function Copilot() {
       ${!msgs.length && html`<div class="chat-empty">
         <div class="chat-spark"><${Icon} name="sparkle" size=${30} /></div>
         <h2>Hola${profile.display_name ? ', ' + profile.display_name : ''} 👋</h2>
-        <p>Soy Fructosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento. Con 📷 leo tus capturas de pagos de cualquier banco o app (Pago Móvil, Zelle, Binance, PayPal…) y tus recibos.</p>
+        <p>Soy Fructosa. Puedes escribirme o hablarme por el micrófono. Pídeme conversiones, tus saldos o registrar un movimiento. Con 📷 leo tus capturas de pagos de cualquier banco o app (${PAY_EXAMPLES[region.code] || PAY_EXAMPLES.INT}) y tus recibos.</p>
         ${!ready && html`<button class="btn primary" onClick=${() => setSetup(true)}><${Icon} name="lock" size=${16} /> Conectar mi IA</button>`}
         <p class="chat-note">🔒 Para responderte se analiza un resumen de tus cuentas, tasas y últimos movimientos. Tu conversación se guarda en tu cuenta y solo tú la ves.</p>
         <div class="chat-sugg">${suggestions.map((s) => html`<button key=${s} class="chip" onClick=${() => send(s)}>${s}</button>`)}</div>

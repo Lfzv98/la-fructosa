@@ -5,7 +5,7 @@ import { api, isDemo } from './api.js';
 import { fetchLiveRates } from './rates.js';
 import { snapshot, queue, isNetworkError, uuid } from './offline.js';
 import { toast } from './ui.js';
-import { regionFor, ACCOUNT_TEMPLATES, ACCOUNT_COLORS, KINDS, convert, consolidate, todayISO, monthKey } from './money.js';
+import { regionFor, setTimeZoneFor, ACCOUNT_TEMPLATES, ACCOUNT_COLORS, KINDS, convert, consolidate, todayISO, monthKey } from './money.js';
 
 const Ctx = createContext(null);
 export const useData = () => useContext(Ctx);
@@ -165,6 +165,7 @@ export function DataProvider({ uid, children }) {
   const derived = useMemo(() => {
     if (!data) return null;
     const profile = { region: 'VE', preferred_currency: 'USD', valuation_rate: 'BCV_USD', ...data.profile };
+    setTimeZoneFor(profile.region); // "hoy" en la hora del país de la persona
     const region = regionFor(profile.region, data.accounts);
     const accountTemplates = ACCOUNT_TEMPLATES[profile.region] || ACCOUNT_TEMPLATES.VE;
 

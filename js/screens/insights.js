@@ -5,11 +5,12 @@ import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { Donut, Bars } from '../charts.js';
 import { PageHeader, TxRow, go } from './common.js';
-import { exportCSV } from '../export.js';
+import { exportMovementsXlsx } from '../backup.js';
 import { categoryMeta, fmt, fmtPct, todayISO, monthKey, monthLabel, addMonths, daysInMonth } from '../money.js';
 
 export function Insights() {
-  const { txs, monthStats, target, accById, region } = useData();
+  const d = useData();
+  const { txs, monthStats, target, accById, region } = d;
   const current = monthKey(todayISO());
   const [ym, setYm] = useState(current);
   const stats = useMemo(() => monthStats(ym), [txs, ym]);
@@ -44,7 +45,7 @@ export function Insights() {
   if (savings != null) findings.push({ e: savings >= 20 ? '🏆' : savings >= 10 ? '🌱' : '⚠️', t: `Ahorraste ${fmtPct(savings, 0)} de tus ingresos.`, term: 'ahorro' });
 
   return html`<div class="page">
-    <${PageHeader} title="Análisis" actions=${html`<button class="icon-btn" onClick=${() => exportCSV(monthTx, accById, ym)} disabled=${!monthTx.length} aria-label="Exportar mes"><${Icon} name="download" /></button>`} />
+    <${PageHeader} title="Análisis" actions=${html`<button class="icon-btn" onClick=${() => exportMovementsXlsx(monthTx, d, ym)} disabled=${!monthTx.length} aria-label="Exportar mes a Excel"><${Icon} name="download" /></button>`} />
     <div class="month-nav">
       <button class="icon-btn" onClick=${() => setYm(addMonths(ym, -1))} aria-label="Mes anterior"><${Icon} name="left" /></button>
       <span class="month-label">${monthLabel(ym)}</span>

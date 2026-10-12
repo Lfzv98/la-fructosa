@@ -11,7 +11,7 @@ import {
 const ICONS = ['💵', '🏦', '📱', '📲', '🪙', '💳', '🐷', '💼', '🏠', '✈️', '🎓', '💰'];
 
 export function Accounts({ query }) {
-  const { accounts, active, target, rates, val, total } = useData();
+  const { accounts, active, target, rates, val, total, region } = useData();
   const [form, setForm] = useState(query.get('nueva') ? {} : null);
   const [showArchived, setShowArchived] = useState(false);
   const archived = accounts.filter((a) => a.archived);
@@ -40,7 +40,7 @@ export function Accounts({ query }) {
     </section>`}
 
     ${active.length === 0
-      ? html`<${Empty} art="bank" title="Sin cuentas todavía" text="Crea una cuenta por cada lugar donde guardas dinero: efectivo, banco, Zelle, Binance…"
+      ? html`<${Empty} art="bank" title="Sin cuentas todavía" text=${`Crea una cuenta por cada lugar donde guardas dinero: ${region.examples}`}
           action=${html`<button class="btn primary" onClick=${() => setForm({})}>Crear cuenta</button>`} />`
       : html`<div class="card list">${active.map((a) => html`<${AccountRow} key=${a.id} a=${a} target=${target}
           converted=${convert(a.balance, a.currency, target, rates, val)} onClick=${() => go('#/cuenta/' + a.id)} />`)}</div>`}
@@ -116,8 +116,9 @@ export function AccountForm({ account, onClose }) {
       </div>`}
       <${Field} label="Nombre" error=${err.name}>
         <input class="input" maxlength="60" placeholder=${namePlaceholder} value=${f.name} onInput=${(e) => set('name', e.target.value)}
-          list=${f.kind === 'bank' ? 'banks-regional-form' : undefined} />
+          list=${f.kind !== 'cash' ? 'banks-regional-form' : undefined} />
         <datalist id="banks-regional-form">${bankList.map((b) => html`<option key=${b} value=${b}></option>`)}</datalist>
+        ${f.kind !== 'cash' && html`<span class="field-hint">Elige uno de la lista o escribe el tuyo: puedes agregar cualquier banco o app.</span>`}
       <//>
       <${Field} label="Moneda" hint=${editing && used ? 'Cambiar la moneda no convierte los movimientos ya registrados.' : ''}>
         <${Segmented} value=${f.currency} onChange=${(v) => set('currency', v)} options=${[...new Set([...region.currencies, ...(editing ? [account.currency] : [])])].map((c) => [c, c])} />

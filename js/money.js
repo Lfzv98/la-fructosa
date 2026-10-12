@@ -22,14 +22,19 @@ export const RATE_HELP = {
   USDT:     'Precio del USDT en el mercado P2P (Binance). Útil si tu respaldo está en cripto.',
 };
 
-// Cada región cambia qué monedas se ofrecen primero y si se muestran tasas y brecha.
-// Las cuatro monedas (USD, VES, USDT, EUR) están disponibles en todos los países: quien vive fuera
-// y conserva una cuenta en bolívares la crea igual, y las tasas se activan solas (ver regionFor).
+// Cada región cambia qué monedas se ofrecen primero, si se muestran tasas y brecha, la zona horaria
+// para "hoy" y los textos de ejemplo. Las cuatro monedas (USD, VES, USDT, EUR) están disponibles en
+// todos los países: quien vive fuera y conserva una cuenta en bolívares la crea igual, y las tasas
+// se activan solas (ver regionFor).
 export const REGIONS = {
-  VE:  { label: 'Venezuela',      short: 'VE',   flag: '🇻🇪', currencies: ['USD', 'VES', 'USDT', 'EUR'], base: 'USD', rates: true },
-  US:  { label: 'Estados Unidos', short: 'US',   flag: '🇺🇸', currencies: ['USD', 'USDT', 'EUR', 'VES'], base: 'USD', rates: false },
-  ES:  { label: 'España',         short: 'ES',   flag: '🇪🇸', currencies: ['EUR', 'USD', 'USDT', 'VES'], base: 'EUR', rates: false },
-  INT: { label: 'Otro país',      short: 'Otro', flag: '🌎', currencies: ['USD', 'EUR', 'USDT', 'VES'], base: 'USD', rates: false },
+  VE:  { code: 'VE',  label: 'Venezuela',      short: 'VE',   flag: '🇻🇪', currencies: ['USD', 'VES', 'USDT', 'EUR'], base: 'USD', rates: true,
+         tz: 'America/Caracas', examples: 'efectivo, Pago Móvil, Zelle, Binance…' },
+  US:  { code: 'US',  label: 'Estados Unidos', short: 'US',   flag: '🇺🇸', currencies: ['USD', 'USDT', 'EUR', 'VES'], base: 'USD', rates: false,
+         tz: 'America/New_York', examples: 'Chase, Bank of America, Zelle, Venmo, Apple Pay…' },
+  ES:  { code: 'ES',  label: 'España',         short: 'ES',   flag: '🇪🇸', currencies: ['EUR', 'USD', 'USDT', 'VES'], base: 'EUR', rates: false,
+         tz: 'Europe/Madrid', examples: 'efectivo en euros, tu banco, Bizum, tarjeta…' },
+  INT: { code: 'INT', label: 'Otro país',      short: 'Otro', flag: '🌎', currencies: ['USD', 'EUR', 'USDT', 'VES'], base: 'USD', rates: false,
+         tz: '', examples: 'efectivo, tu banco local, Wise, PayPal, Binance…' },
 };
 
 // Región efectiva de una persona: fuera de Venezuela, tener una cuenta activa en bolívares
@@ -67,6 +72,8 @@ export const ACCOUNT_TEMPLATES = {
     { name: 'Apple Pay', currency: 'USD', kind: 'digital', icon: '📱' },
     { name: 'Tarjeta de Crédito', currency: 'USD', kind: 'bank', icon: '💳' },
     { name: 'Cuenta de Cheques (Checking Account)', currency: 'USD', kind: 'bank', icon: '🏦' },
+    { name: 'Cuenta de Ahorros (Savings)', currency: 'USD', kind: 'bank', icon: '🐷' },
+    { name: 'PayPal', currency: 'USD', kind: 'digital', icon: '📱' },
     { name: 'Cash', currency: 'USD', kind: 'cash', icon: '💵' },
     { name: 'Binance (USDT)', currency: 'USDT', kind: 'crypto', icon: '🪙' },
   ],
@@ -74,8 +81,11 @@ export const ACCOUNT_TEMPLATES = {
     { name: 'Bizum', currency: 'EUR', kind: 'digital', icon: '📱' },
     { name: 'Cuenta IBAN / Transferencia', currency: 'EUR', kind: 'bank', icon: '🏦' },
     { name: 'Tarjeta de Débito', currency: 'EUR', kind: 'bank', icon: '💳' },
+    { name: 'Tarjeta de Crédito', currency: 'EUR', kind: 'bank', icon: '💳' },
     { name: 'Efectivo EUR', currency: 'EUR', kind: 'cash', icon: '💶' },
-    { name: 'Binance', currency: 'USDT', kind: 'crypto', icon: '🪙' },
+    { name: 'Revolut', currency: 'EUR', kind: 'digital', icon: '📱' },
+    { name: 'PayPal', currency: 'EUR', kind: 'digital', icon: '📱' },
+    { name: 'Binance (USDT)', currency: 'USDT', kind: 'crypto', icon: '🪙' },
   ],
   INT: [
     { name: 'Efectivo USD', currency: 'USD', kind: 'cash', icon: '💵' },
@@ -126,21 +136,31 @@ const PAY_APPS = { title: 'Apps de pago y billeteras', banks: [
 const CRYPTO = { title: 'Cripto (USDT)', banks: [
   'Binance', 'Bybit', 'OKX', 'Coinbase', 'Kraken', 'KuCoin', 'Bitget', 'El Dorado', 'Trust Wallet', 'MetaMask',
 ] };
+// Apps de pago propias de cada país (van antes que la lista general).
+const US_APPS = { title: 'Apps de pago en Estados Unidos', banks: [
+  'Zelle', 'Venmo', 'Cash App', 'Apple Pay', 'Google Pay', 'PayPal', 'Chime', 'Apple Card', 'Amex (American Express)', 'Discover',
+] };
+const ES_APPS = { title: 'Apps de pago en España', banks: [
+  'Bizum', 'Apple Pay', 'Google Pay', 'PayPal', 'Revolut', 'N26', 'Wise', 'Openbank', 'Imagin', 'Bnext', 'MyInvestor',
+] };
+const others = (exclude) => ({ title: 'Otras apps y billeteras', banks: PAY_APPS.banks.filter((b) => !exclude.banks.includes(b)) });
 export const BANK_GROUPS = {
   VE: [VE_GROUP, INTL_BANKS, PAY_APPS, CRYPTO],
   US: [
     { title: 'Bancos de Estados Unidos', banks: [
       'Chase', 'Bank of America (BOFA)', 'Wells Fargo', 'Citibank', 'Capital One', 'PNC Bank', 'TD Bank', 'US Bank',
-      'Truist', 'Navy Federal', 'Ally Bank', 'Discover', 'Banesco USA', 'Amerant Bank', 'Chime', 'SoFi',
+      'Truist', 'Navy Federal', 'Ally Bank', 'Discover', 'Charles Schwab', 'Regions Bank', 'Fifth Third Bank', 'Citizens Bank',
+      'BMO', 'Santander Bank', 'Banesco USA', 'Amerant Bank', 'Chime', 'SoFi',
     ] },
-    PAY_APPS, CRYPTO, VE_GROUP,
+    US_APPS, CRYPTO, others(US_APPS), VE_GROUP,
   ],
   ES: [
     { title: 'Bancos de España', banks: [
       'BBVA', 'Banco Santander', 'CaixaBank', 'Banco Sabadell', 'ING', 'Openbank', 'Bankinter', 'Unicaja', 'Abanca', 'Ibercaja',
-      'Kutxabank', 'Cajamar', 'EVO Banco',
+      'Kutxabank', 'Cajamar', 'EVO Banco', 'Caja Rural', 'Banca March', 'Deutsche Bank España', 'Banco Mediolanum',
+      'Self Bank', 'Triodos Bank', 'Pibank', 'Banco Caminos',
     ] },
-    PAY_APPS, CRYPTO, VE_GROUP,
+    ES_APPS, CRYPTO, others(ES_APPS), VE_GROUP,
   ],
   INT: [INTL_BANKS, PAY_APPS, CRYPTO, VE_GROUP],
 };
@@ -197,10 +217,61 @@ export const CATEGORIES = {
   ],
 };
 
+// Categorías propias de cada país, además de las comunes (se insertan antes de "Otros").
+// Impuestos: solo como categoría para anotar lo que pagas; la app no calcula impuestos.
+export const REGION_CATEGORIES = {
+  VE: { expense: [{ name: 'Condominio', emoji: '🏢', color: '#D0F4DE' }], income: [] },
+  US: {
+    expense: [
+      { name: 'Alquiler', emoji: '🔑', color: '#FFD6A5' },
+      { name: 'Seguros', emoji: '🛡️', color: '#A0C4FF' },
+      { name: 'Impuestos', emoji: '🧾', color: '#E4C1F9' },
+    ],
+    income: [
+      { name: 'Propinas', emoji: '🪙', color: '#FDFFB6' },
+      { name: 'Reembolso de impuestos', emoji: '🧾', color: '#E4C1F9' },
+    ],
+  },
+  ES: {
+    expense: [
+      { name: 'Alquiler', emoji: '🔑', color: '#FFD6A5' },
+      { name: 'Comunidad', emoji: '🏢', color: '#D0F4DE' },
+      { name: 'Seguros', emoji: '🛡️', color: '#A0C4FF' },
+      { name: 'Impuestos', emoji: '🧾', color: '#E4C1F9' },
+    ],
+    income: [
+      { name: 'Devolución de Hacienda', emoji: '🧾', color: '#E4C1F9' },
+      { name: 'Ayudas y prestaciones', emoji: '🤝', color: '#D0F4DE' },
+    ],
+  },
+  INT: {
+    expense: [
+      { name: 'Alquiler', emoji: '🔑', color: '#FFD6A5' },
+      { name: 'Seguros', emoji: '🛡️', color: '#A0C4FF' },
+      { name: 'Impuestos', emoji: '🧾', color: '#E4C1F9' },
+    ],
+    income: [],
+  },
+};
+
+// Categorías que ve una persona según su país: las comunes + las de su país (antes de "Otros").
+// `region` puede ser el código ('ES') o el objeto de región (con .code).
+export function categoriesFor(region, type = 'expense') {
+  const base = CATEGORIES[type] || [];
+  const code = typeof region === 'string' ? region : region?.code;
+  const extra = (REGION_CATEGORIES[code] || {})[type] || [];
+  if (!extra.length) return base;
+  const names = new Set(base.map((c) => c.name));
+  const add = extra.filter((c) => !names.has(c.name));
+  const i = base.findIndex((c) => c.name === 'Otros');
+  return i < 0 ? [...base, ...add] : [...base.slice(0, i), ...add, ...base.slice(i)];
+}
+
 export const ADJUST_CATEGORY = 'Ajuste de saldo';
+const ALL_REGION_CATS = Object.values(REGION_CATEGORIES).flatMap((r) => [...r.expense, ...r.income]);
 
 export function categoryMeta(name, type = 'expense') {
-  const all = [...(CATEGORIES[type] || []), ...CATEGORIES.expense, ...CATEGORIES.income, ...CATEGORIES.transfer];
+  const all = [...(CATEGORIES[type] || []), ...CATEGORIES.expense, ...CATEGORIES.income, ...CATEGORIES.transfer, ...ALL_REGION_CATS];
   if (name === ADJUST_CATEGORY) return { name, emoji: '⚖️', color: '#CFD8E8' };
   return all.find((c) => c.name === name) || { name: name || 'Sin categoría', emoji: '🏷️', color: '#CFD8E8' };
 }
@@ -313,9 +384,18 @@ export function parseAmount(v) {
 }
 
 // ---------------------------------------------------------------------
-// Fechas (hora de Caracas para que "hoy" no cambie a las 8 p. m.)
+// Fechas: "hoy" se calcula en la hora del país (Caracas en Venezuela; fuera, la del teléfono,
+// o la del país si el teléfono no la da) para que el día no cambie a destiempo.
 // ---------------------------------------------------------------------
-export const TZ = 'America/Caracas';
+export let TZ = 'America/Caracas';
+export function setTimeZoneFor(code) {
+  const r = REGIONS[code] || REGIONS.VE;
+  let device = '';
+  try { device = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch { /* nada */ }
+  const next = code === 'VE' || !REGIONS[code] ? r.tz : device || r.tz || 'America/Caracas';
+  try { new Date().toLocaleDateString('en-CA', { timeZone: next }); TZ = next; } catch { TZ = 'America/Caracas'; }
+  return TZ;
+}
 export const todayISO = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ });
 export const monthKey = (iso) => iso.slice(0, 7);
 export function addMonths(ym, n) {

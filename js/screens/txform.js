@@ -5,7 +5,7 @@ import { html, Icon, Art, Sheet, Segmented, Field, Money, toast, confirmDialog, 
 import { useData, usePref } from '../store.js';
 import { Learn } from '../learn.js';
 import {
-  CATEGORIES, CURRENCIES, RATE_LABELS, convert, fmt, fmtRate, fmtPct, marketRateFor, parseAmount,
+  CATEGORIES, categoriesFor, CURRENCIES, RATE_LABELS, convert, fmt, fmtRate, fmtPct, marketRateFor, parseAmount,
   spreadCalc, todayISO, monthKey,
 } from '../money.js';
 
@@ -74,7 +74,7 @@ export function TxForm({ tx, preset = {}, onClose }) {
     ? (acc.currency === 'VES' ? finalAmount / toFinal : toAcc.currency === 'VES' ? toFinal / finalAmount : toFinal / finalAmount)
     : null;
 
-  const cats = CATEGORIES[type];
+  const cats = categoriesFor(region, type);
   const effectiveCategory = type === 'transfer' ? (category && cats.some((c) => c.name === category) ? category : crossCurrency ? 'Cambio de divisa' : 'Transferencia interna') : category;
 
   // Presupuesto de la categoría elegida (contexto didáctico mientras registras).

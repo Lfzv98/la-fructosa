@@ -4,7 +4,7 @@ import { html, Icon, Money, Sheet, Field, Segmented, Empty, SectionTitle, Switch
 import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { PageHeader, openTx, recurringStatus, dueLabel } from './common.js';
-import { CATEGORIES, CURRENCIES, KINDS, categoryMeta, convert, parseAmount } from '../money.js';
+import { categoriesFor, CURRENCIES, KINDS, categoryMeta, convert, parseAmount } from '../money.js';
 
 // Prepara el formulario de pago según la moneda del fijo y la de la cuenta.
 export function payRecurring(r, accById, rates) {
@@ -112,7 +112,7 @@ function RecurringForm({ item, onClose }) {
         </select>
       <//>
       <${Field} label="Categoría">
-        <div class="chips">${CATEGORIES.expense.map((c) => html`<button key=${c.name} type="button" class=${'chip' + (f.category === c.name ? ' on' : '')} onClick=${() => set('category', c.name)}>${c.emoji} ${c.name}</button>`)}</div>
+        <div class="chips">${categoriesFor(region, 'expense').map((c) => html`<button key=${c.name} type="button" class=${'chip' + (f.category === c.name ? ' on' : '')} onClick=${() => set('category', c.name)}>${c.emoji} ${c.name}</button>`)}</div>
       <//>
       ${editing && html`<${Switch} checked=${f.is_active} onChange=${(v) => set('is_active', v)} label="Activo" sub="Pausa los avisos sin borrar el pago" />`}
       ${err && html`<p class="form-error">${err}</p>`}
