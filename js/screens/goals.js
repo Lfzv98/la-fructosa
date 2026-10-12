@@ -158,7 +158,7 @@ export function Loans() {
   const { loans, missing, target, rates, val } = useData();
   const [form, setForm] = useState(null);
   const [pay, setPay] = useState(null);
-  if (missing.includes('loans')) return html`<${Missing} title="Préstamos" />`;
+  if (missing.includes('loans')) return html`<${Missing} title="Por cobrar y pagar" />`;
 
   const open = loans.filter((l) => !l.settled);
   const closed = loans.filter((l) => l.settled);
@@ -181,12 +181,12 @@ export function Loans() {
   };
 
   return html`<div class="page">
-    <${PageHeader} title="Préstamos" back="#/mas" actions=${html`
+    <${PageHeader} title="Por cobrar y pagar" sub="Préstamos y deudas con otras personas" back="#/mas" actions=${html`
       <button class="btn sm primary" onClick=${() => setForm({})}><${Icon} name="plus" size=${16} /> Nuevo</button>`} />
 
     ${open.length > 0 && html`<section class="loan-sum">
-      <div class="card pad"><small class="muted">Te deben</small><b class="num pos"><${Money} v=${sum('lent')} c=${target} /></b></div>
-      <div class="card pad"><small class="muted">Debes</small><b class="num neg"><${Money} v=${sum('borrowed')} c=${target} /></b></div>
+      <div class="card pad"><small class="muted">Por cobrar (te deben)</small><b class="num pos"><${Money} v=${sum('lent')} c=${target} /></b></div>
+      <div class="card pad"><small class="muted">Por pagar (debes)</small><b class="num neg"><${Money} v=${sum('borrowed')} c=${target} /></b></div>
     </section>`}
 
     ${loans.length === 0

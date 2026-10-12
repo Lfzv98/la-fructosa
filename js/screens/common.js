@@ -25,6 +25,7 @@ export function TxRow({ t, accById, showDate = false }) {
       <${Money} v=${sign ? sign * t.amount : t.amount} c=${acc?.currency || 'USD'} sign=${sign !== 0} />
       ${t.type === 'transfer' && to && to.currency !== acc?.currency && html`<small><${Money} v=${t.to_amount} c=${to.currency} /></small>`}
       ${t.recurring_id && html`<small class="tag">fijo</small>`}
+      ${t.receipt_path && html`<small class="tag" title="Tiene comprobante">📎</small>`}
     </span>
   </button>`;
 }

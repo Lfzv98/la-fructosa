@@ -20,6 +20,7 @@ import { TxForm } from './screens/txform.js';
 import { Copilot } from './screens/copilot.js';
 import { AppLock, clearLock } from './lock.js';
 import { Goals, Loans } from './screens/goals.js';
+import { Shopping } from './screens/shopping.js';
 import { TermsGate, TermsPage, useTerms } from './terms.js';
 import { BackupBanner } from './backup.js';
 
@@ -49,7 +50,7 @@ const TABS = [
   ['analisis', 'pie', 'Análisis'],
   ['mas', 'grid', 'Más'],
 ];
-const TAB_OF = { cuentas: 'mas', cuenta: 'mas', presupuestos: 'mas', fijos: 'mas', tasas: 'mas', ajustes: 'mas', aprende: 'mas', metas: 'mas', prestamos: 'mas', terminos: 'mas' };
+const TAB_OF = { cuentas: 'mas', cuenta: 'mas', presupuestos: 'mas', fijos: 'mas', tasas: 'mas', ajustes: 'mas', aprende: 'mas', metas: 'mas', prestamos: 'mas', compras: 'mas', terminos: 'mas' };
 
 function TabBar({ current, onNew }) {
   return html`<nav class="tabbar" aria-label="Navegación principal"><ul>
@@ -63,6 +64,7 @@ function TabBar({ current, onNew }) {
 }
 
 function Screen({ route }) {
+  const { region } = useData();
   switch (route.name) {
     case 'movimientos': return html`<${Movements} query=${route.query} />`;
     case 'cuentas': return html`<${Accounts} query=${route.query} />`;
@@ -71,12 +73,13 @@ function Screen({ route }) {
     case 'fijos': return html`<${Recurring} />`;
     case 'metas': return html`<${Goals} />`;
     case 'prestamos': return html`<${Loans} />`;
-    case 'tasas': return html`<${Rates} />`;
+    case 'compras': return html`<${Shopping} />`;
+    case 'tasas': return region.rates ? html`<${Rates} />` : html`<${Home} />`; // fuera de Venezuela no hay tasas
     case 'analisis': return html`<${Insights} />`;
     case 'mas': return html`<${More} />`;
     case 'ajustes': return html`<${Settings} />`;
     case 'aprende': return html`<${LearnPage} />`;
-    case 'copiloto': return html`<${Copilot} />`;
+    case 'copiloto': return html`<${Copilot} query=${route.query} />`;
     case 'terminos': return html`<${TermsPage} />`;
     default: return html`<${Home} />`;
   }
@@ -95,6 +98,10 @@ function Shell({ uid, recovery, clearRecovery }) {
     window.addEventListener('fructosa-open-tx', on);
     return () => window.removeEventListener('fructosa-open-tx', on);
   }, []);
+  // Acceso directo "Registrar movimiento" (#/nuevo): abre el formulario sobre Inicio.
+  useEffect(() => {
+    if (route.name === 'nuevo' && d.ready) { history.replaceState(null, '', '#/'); setTx({}); window.dispatchEvent(new HashChangeEvent('hashchange')); }
+  }, [route.name, d.ready]);
 
   if (d.error) {
     return html`<main class="center-screen"><div class="empty">

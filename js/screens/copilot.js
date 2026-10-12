@@ -207,7 +207,7 @@ function Bubble({ m, d, onBlock, speaking, onToggleSpeak }) {
 // ---------------------------------------------------------------------
 // Pantalla del chat
 // ---------------------------------------------------------------------
-export function Copilot() {
+export function Copilot({ query } = {}) {
   const d = useData();
   const { profile, region, actions } = d;
   const [msgs, setMsgsRaw] = useState(() => {
@@ -233,6 +233,11 @@ export function Copilot() {
   const [listening, setListening] = useState(false);
   const recognizerRef = useRef(null);
   const initialVoiceTextRef = useRef('');
+  // "Dictar un gasto" (acceso directo o botón 🎙️ de Inicio): escucha y, al callar, envía solo.
+  const [dictate, setDictate] = useState(() => query?.get('dictar') === '1');
+  const dictateRef = useRef(dictate);
+  dictateRef.current = dictate;
+  const voiceTextRef = useRef('');
   const voiceSessionRef = useRef(null);
   const recordTimerRef = useRef(null);
   const ctl = useRef(null);
@@ -394,6 +399,8 @@ export function Copilot() {
       recog.interimResults = true;
 
       initialVoiceTextRef.current = input ? input.trim() + ' ' : '';
+      voiceTextRef.current = '';
+      if (dictateRef.current) recog.continuous = false; // al dictar, termina solo cuando dejas de hablar
 
       recog.onstart = () => {
         setListening(true);
@@ -405,6 +412,7 @@ export function Copilot() {
           transcript += ev.results[i][0].transcript;
         }
         const full = (initialVoiceTextRef.current + transcript).trimStart();
+        voiceTextRef.current = full;
         setInput(full);
         if (box.current) {
           box.current.style.height = 'auto';
@@ -424,6 +432,8 @@ export function Copilot() {
       recog.onend = () => {
         setListening(false);
         recognizerRef.current = null;
+        const said = voiceTextRef.current.trim();
+        if (dictateRef.current && said) { setDictate(false); setInput(''); sendRef.current(said); }
       };
 
       recognizerRef.current = recog;
@@ -528,6 +538,16 @@ export function Copilot() {
     api.chat.clear().catch((e) => console.warn('[chat] no se pudo borrar la conversación guardada', e));
   }
   const back = () => (history.length > 1 ? history.back() : go('#/'));
+  const sendRef = useRef(send);
+  sendRef.current = send;
+
+  // Al abrir en modo dictar: se quita ?dictar=1 de la dirección y se intenta encender el micrófono.
+  // Algunos teléfonos (iPhone) piden tocar el botón: para eso queda el aviso grande.
+  useEffect(() => {
+    if (!dictate) return;
+    history.replaceState(null, '', '#/copiloto');
+    if (noticeSeen(profile.id) && getSpeechRecognition()) { const t = setTimeout(() => { if (!recognizerRef.current) toggleVoice(); }, 350); return () => clearTimeout(t); }
+  }, []);
 
   return html`<div class="chat" role="region" aria-label="Copiloto IA">
     <header class="chat-head">
@@ -538,6 +558,13 @@ export function Copilot() {
       <button class="icon-btn" onClick=${() => setSetup(true)} aria-label="Configurar IA"><${Icon} name="sliders" size=${18} /></button>
     </header>
 
+    ${dictate && html`<div class="dictate-card" role="status">
+      <button type="button" class=${'dictate-mic' + (listening ? ' listening' : '')} onClick=${() => { if (!noticeSeen(profile.id)) { setNotice(true); return; } toggleVoice(); }}
+        aria-label=${listening ? 'Escuchando' : 'Tocar para dictar'}><${Icon} name="mic" size=${28} /></button>
+      <div class="grow"><b>${listening ? 'Te escucho…' : 'Toca y dicta tu gasto'}</b>
+        <small class="muted">Por ejemplo: "${region.code === 'ES' ? 'Gasté 12 euros en el súper con la tarjeta' : region.code === 'US' ? 'Gasté 8 dólares en gasolina' : 'Gasté 5 dólares en un café en efectivo'}". Fructosa lo prepara y tú confirmas.</small></div>
+      <button type="button" class="icon-btn sm" onClick=${() => setDictate(false)} aria-label="Cerrar"><${Icon} name="x" size=${16} /></button>
+    </div>`}
     <div class="chat-log" ref=${log} aria-live="polite">
       ${synced === false && msgs.length > 0 && html`<p class="chat-note chat-saved-local">💾 Esta conversación se guarda solo en este dispositivo. Si cambias de equipo o borras los datos del navegador, se perderá.</p>`}
       ${!msgs.length && html`<div class="chat-empty">

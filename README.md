@@ -1,4 +1,4 @@
-# La Fructosa 3.1
+# La Fructosa 3.3
 
 PWA de finanzas personales para la familia: cuentas en USD, Bs., USDT y EUR,
 tasas BCV / Paralelo / USDT, calculadora de brecha cambiaria, presupuestos,
@@ -42,6 +42,12 @@ Novedades 3.0: **metas de ahorro** y **préstamos** (Más → Metas / Préstamos
 de pagos fijos por vencer, préstamos y tasas (Ajustes → Avisos; función `send-reminders` + migración 008),
 **modo claro** (Ajustes → Apariencia), aviso cuando las tasas llevan días sin actualizarse y **pruebas automáticas**
 de los cálculos de dinero (`node --test tests/*.test.mjs`, también en GitHub Actions).
+
+Novedades 3.3 (v30, plan a $0): **comprobantes** (foto del recibo o captura en cada movimiento, bucket privado
+`comprobantes` de Supabase Storage), **historial de tasas** de hasta un año con mínimo, máximo y cambio, **calendario de gastos**
+en Movimientos, **lista de compras** con total estimado y "Registrar gasto" (Más → Lista de compras), Préstamos pasa a
+**Por cobrar y pagar**, y **dictar un gasto** con el micrófono de Inicio o el acceso directo "Dictar un gasto".
+Requiere la migración `013_comprobantes_compras.sql`.
 
 Además: navegación por pestañas con botón "atrás" que cierra hojas, modo sin conexión,
 aviso de "versión nueva", configuración rápida de cuentas al registrarse y región que oculta

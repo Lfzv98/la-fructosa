@@ -84,6 +84,8 @@ Ves el dólar oficial (BCV), el del mercado (Paralelo), el USDT y el Euro BCV. S
 
 La brecha es cuánto más cuesta el dólar del mercado que el oficial. En Tasas tienes una calculadora para convertir entre dólares, euros y bolívares.
 
+En Tasas › Historial eliges una tasa y ves cómo se movió en el último mes, 3 meses, 6 meses o el año, con su mínimo, su máximo y cuánto subió. Toca la línea para leer el valor de cada día.
+
 ### 🎯 Presupuestos y pagos fijos
 
 Un presupuesto es el tope mensual de una categoría (por ejemplo, mercado: 200 $). La barra se pone amarilla al 80% y roja al pasarte.
@@ -94,7 +96,31 @@ Los pagos fijos son los que se repiten (alquiler, internet, colegio). La app te 
 
 En Más › Metas de ahorro creas una meta con su monto y fecha y vas abonando; la app te dice cuánto apartar cada mes.
 
-En Más › Préstamos anotas quién te debe y a quién le debes. Con "Me pagó" o "Pagué" registras abonos.
+En Más › Por cobrar y pagar anotas quién te debe y a quién le debes. Con "Me pagó" o "Pagué" registras abonos.
+
+### 📎 Comprobantes
+
+Al registrar o editar un movimiento, toca "Adjuntar foto del recibo o captura" y elige una foto o tómala en el momento. Queda guardada con ese movimiento y solo tú puedes verla.
+
+Los movimientos con comprobante muestran un 📎. Abre el movimiento y toca la foto para verla en grande. Necesitas conexión para subirla.
+
+### 📅 Calendario de gastos
+
+En Movimientos, el botón del calendario muestra el mes por días. Cada día dice cuánto gastaste y se pinta más fuerte cuanto más gastaste; el punto verde indica que ese día entró dinero.
+
+Toca un día para ver solo sus movimientos y sus totales. Tócalo otra vez para volver a todo el mes.
+
+### 🛒 Lista de compras
+
+En Más › Lista de compras anotas lo que necesitas, con cantidad y precio si lo sabes. La app te dice el total estimado antes de llegar a la caja.
+
+Marca cada producto al meterlo en el carrito. Al pagar, "Registrar gasto" abre el formulario con el total de lo marcado. Puedes tener varias listas (mercado, farmacia…).
+
+### 🎙️ Dictar un gasto
+
+Toca el micrófono de arriba en Inicio y di el gasto, por ejemplo "gasté 10 en el almuerzo". Fructosa lo prepara y tú solo confirmas.
+
+En Android, mantén presionado el ícono de La Fructosa y elige "Dictar un gasto" para ir directo.
 
 ### 📊 Análisis del mes
 

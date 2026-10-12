@@ -823,3 +823,65 @@ b.big { font-size: 20px; }
 .manual-motto { font-size: 17px !important; font-weight: 700; color: var(--text) !important; }
 .manual-guide { border-color: var(--salmon); }
 :root[data-theme="light"] .manual-steps li { color: var(--text); }
+
+/* ---------- v30: comprobantes, historial de tasas, calendario, compras y dictado ---------- */
+.receipt-field { display: flex; flex-direction: column; gap: 6px; }
+.receipt-add { justify-content: center; }
+.receipt-thumb { display: flex; gap: 12px; align-items: center; background: var(--bg-2); border: 1px solid var(--line); border-radius: var(--r); padding: 10px; }
+.receipt-img { width: 72px; height: 72px; flex-shrink: 0; border-radius: 12px; overflow: hidden; background: var(--surface-2); display: grid; place-items: center; font-size: 11px; }
+.receipt-img img { width: 100%; height: 100%; object-fit: cover; }
+.receipt-actions { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.receipt-actions small { font-size: 12px; }
+.receipt-actions .row-btns { margin-top: 6px; }
+.receipt-viewer { position: fixed; inset: 0; z-index: 200; background: rgba(5, 8, 15, .92); display: grid; place-items: center; padding: calc(var(--safe-t) + 16px) 16px calc(var(--safe-b) + 16px); }
+.receipt-viewer img { max-width: 100%; max-height: 100%; border-radius: 12px; object-fit: contain; }
+.receipt-viewer .icon-btn { position: absolute; top: calc(var(--safe-t) + 12px); right: 12px; }
+
+.linechart svg { display: block; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.linechart-read { font-size: 13px; min-height: 20px; margin-bottom: 4px; }
+.linechart-read b { font-size: 15px; margin-left: 4px; }
+.lc-grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 3 4; }
+.lc-cursor { stroke: var(--muted); stroke-width: 1; }
+.lc-label { fill: var(--faint); font-size: 10px; font-variant-numeric: tabular-nums; }
+.hist-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.hist-stats > div { background: var(--bg-2); border-radius: var(--r-sm); padding: 8px 10px; display: flex; flex-direction: column; min-width: 0; }
+.hist-stats small { font-size: 11px; color: var(--muted); font-weight: 600; }
+.hist-stats b { font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; }
+.hist-stats b.up { color: var(--exp); } .hist-stats b.down { color: var(--inc); }
+
+.cal { padding: 10px; }
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.cal-wd { text-align: center; font-size: 11px; font-weight: 700; color: var(--faint); padding: 2px 0 4px; }
+.cal-day { position: relative; aspect-ratio: 1 / 1.05; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
+  padding-top: 5px; gap: 1px; background: color-mix(in srgb, var(--exp) calc(var(--heat, 0) * 100%), var(--bg-2)); border: 1px solid transparent; min-width: 0; }
+.cal-day:disabled { opacity: .35; }
+.cal-day.today { border-color: var(--blue); }
+.cal-day.on { outline: 2px solid var(--blue); outline-offset: 1px; }
+.cal-n { font-size: 12.5px; font-weight: 700; line-height: 1.1; }
+.cal-exp { font-size: 9.5px; font-weight: 700; line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; }
+.cal-inc { position: absolute; bottom: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--inc); display: inline-block; }
+.cal-legend { display: flex; gap: 14px; justify-content: center; font-size: 11.5px; color: var(--muted); margin: 8px 0 0; }
+.cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-legend .cal-inc { position: static; }
+.cal-swatch { width: 12px; height: 12px; border-radius: 4px; display: inline-block; background: linear-gradient(90deg, var(--bg-2), var(--exp)); }
+.cal-picked { display: flex; justify-content: space-between; align-items: center; font-weight: 700; padding: 0 4px; }
+
+.shop-lists { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.shop-lists .chips { display: contents; }
+.chip.add { color: var(--muted); }
+.shop-add-row { display: grid; grid-template-columns: 76px minmax(0, 1fr) 48px; gap: 8px; }
+.shop-add-row .btn { padding: 0; min-width: 0; justify-content: center; }
+.shop-row { display: flex; align-items: center; gap: 10px; padding: 10px 8px 10px 14px; }
+.shop-row .tx-main { cursor: pointer; }
+.shop-check { width: 26px; height: 26px; flex-shrink: 0; border-radius: 8px; border: 2px solid var(--line-2); display: grid; place-items: center; color: var(--ink); }
+.shop-row.done .shop-check { background: var(--inc); border-color: var(--inc); }
+.shop-row.done .tx-main b { text-decoration: line-through; color: var(--muted); }
+.shop-sub { font-weight: 700; font-size: 14px; white-space: nowrap; }
+.shop-row.done .shop-sub { color: var(--muted); }
+.shop-label { font-size: 12.5px; font-weight: 700; color: var(--muted); margin: 4px 4px -4px; }
+
+.dictate-card { display: flex; align-items: center; gap: 12px; margin: 10px 14px 0; padding: 12px; border-radius: var(--r); background: var(--surface); border: 1px solid var(--line-2);
+  max-width: 692px; align-self: center; width: calc(100% - 28px); box-sizing: border-box; }
+.dictate-card small { display: block; font-size: 12.5px; margin-top: 2px; }
+.dictate-mic { width: 58px; height: 58px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--salmon); color: var(--ink); }
+.dictate-mic.listening { animation: pulse-mic 1.2s infinite ease-in-out; }

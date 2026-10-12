@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { html, Icon, Art, Sheet, Segmented, Field, Money, toast, confirmDialog, errorText, vibrate } from '../ui.js';
 import { useData, usePref } from '../store.js';
 import { Learn } from '../learn.js';
+import { ReceiptField } from '../receipts.js';
+import { isDemo } from '../api.js';
 import {
   CATEGORIES, categoriesFor, CURRENCIES, RATE_LABELS, convert, fmt, fmtRate, fmtPct, marketRateFor, parseAmount,
   spreadCalc, todayISO, monthKey,
@@ -34,6 +36,10 @@ export function TxForm({ tx, preset = {}, onClose }) {
   const [manualRate, setManualRate] = useState(src.rate_applied ? String(src.rate_applied).replace('.', ',') : '');
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState({});
+  // Comprobante: { path } guardado · { blob, preview } nuevo · null sin foto.
+  const [receipt, setReceipt] = useState(src.receipt_path ? { path: src.receipt_path } : null);
+  const receiptOff = tx?.pending ? 'Este movimiento aún no se sube: agrega la foto cuando vuelva la conexión.'
+    : !navigator.onLine && !isDemo ? 'Sin conexión: puedes agregar la foto cuando vuelva la señal.' : null;
 
   const acc = accById[accountId];
   const toAcc = accById[toAccountId];
@@ -121,6 +127,15 @@ export function TxForm({ tx, preset = {}, onClose }) {
     if (src.recurring_id) row.recurring_id = src.recurring_id;
     try {
       const saved = await actions.save('transactions', row, editing ? tx.id : null);
+      // El comprobante va después del movimiento (necesita su id). Si falla, el movimiento ya quedó guardado.
+      let receiptMsg = null;
+      if (!saved.pending) {
+        try {
+          if (receipt?.blob) await actions.attachReceipt(saved.id, receipt.blob);
+          else if (!receipt && editing && tx.receipt_path) await actions.removeReceipt({ ...saved, receipt_path: tx.receipt_path });
+        } catch (e) { receiptMsg = errorText(e); }
+      } else if (receipt?.blob) receiptMsg = 'El comprobante no se guardó porque no hay conexión. Agrégalo cuando vuelva la señal.';
+      if (receiptMsg) setTimeout(() => toast(receiptMsg, { tone: 'bad' }), 400);
       setLastAcc(accountId);
       vibrate();
       close();
@@ -253,6 +268,9 @@ export function TxForm({ tx, preset = {}, onClose }) {
           <input class="input" type="date" max=${todayISO()} value=${date} onInput=${(e) => setDate(e.target.value || todayISO())} />
         <//>
       </div>
+      <${Field} label="Comprobante (opcional)">
+        <${ReceiptField} value=${receipt} onChange=${setReceipt} disabled=${Boolean(receiptOff)} disabledText=${receiptOff} />
+      <//>
       ${errors.form && html`<p class="form-error">${errors.form}</p>`}
       <button type="submit" hidden></button>
     </form>`}

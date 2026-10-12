@@ -13,18 +13,19 @@ import { LockSettings, clearLock } from '../lock.js';
 import { applyTheme } from '../theme.js';
 import { pushSupport, publicKey, currentSubscription, enablePush, disablePush, updatePushPrefs, DEFAULT_PREFS } from '../push.js';
 
-export const APP_VERSION = '3.1.0';
+export const APP_VERSION = '3.3.0';
 
 export function More() {
   const d = useData();
-  const { region, txs, accById, recurring, budgets, goals, loans } = d;
+  const { region, txs, accById, recurring, budgets, goals, loans, shopping } = d;
   const owed = loans.filter((l) => !l.settled).length;
   const tiles = [
     ['#/cuentas', 'wallet', 'Cuentas', 'Saldos y billeteras', '#A0C4FF'],
     ['#/presupuestos', 'target', 'Presupuestos', `${budgets.length} activos`, '#FFADAD'],
     ['#/fijos', 'repeat', 'Pagos fijos', `${recurring.filter((r) => r.is_active !== false).length} programados`, '#FDFFB6'],
     ['#/metas', 'flag', 'Metas de ahorro', goals.length ? `${goals.filter((g) => !g.done).length} en curso` : 'Ahorra para algo', '#FFD6A5'],
-    ['#/prestamos', 'hand', 'Préstamos', owed ? `${owed} pendientes` : 'Quién te debe', '#CAFFBF'],
+    ['#/prestamos', 'hand', 'Por cobrar y pagar', owed ? `${owed} pendientes` : 'Quién te debe y a quién debes', '#CAFFBF'],
+    ['#/compras', 'list', 'Lista de compras', shopping.filter((i) => !i.done).length ? `${shopping.filter((i) => !i.done).length} por comprar` : 'Con total estimado', '#FFADAD'],
     region.rates && ['#/tasas', 'trend', 'Tasas y calculadora', 'BCV, Paralelo, USDT', '#CAFFBF'],
     ['#/copiloto', 'sparkle', 'Copiloto IA', 'Pregunta por tus finanzas', '#FFC6FF'],
     ['#/aprende', 'book', 'Manual de uso', 'Guía fácil y tour', '#BDB2FF'],

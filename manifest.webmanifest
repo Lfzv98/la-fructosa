@@ -20,7 +20,8 @@
     { "src": "./icons/icon-maskable-512.png?v=22", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Registrar movimiento", "short_name": "Nuevo", "url": "./#/movimientos", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Tasas del día", "short_name": "Tasas", "url": "./#/tasas", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }] }
+    { "name": "Dictar un gasto", "short_name": "Dictar", "url": "./#/copiloto?dictar=1", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Registrar movimiento", "short_name": "Nuevo", "url": "./#/nuevo", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Lista de compras", "short_name": "Compras", "url": "./#/compras", "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }] }
   ]
 }

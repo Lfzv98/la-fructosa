@@ -94,3 +94,11 @@ test('España y Estados Unidos no ven nada de Venezuela (v29)', async () => {
   assert.ok(!/\bEUR\b|euro|Bizum|España|Revolut|N26/i.test(us), us.match(/.{40}(\bEUR\b|euro|Bizum|España|Revolut|N26).{20}/i)?.[0]);
   assert.equal(localize({ __v: true, VE: 'a', ES: null, US: 'c', INT: 'a' }, { code: 'ES' }), null);
 });
+
+test('el manual explica lo nuevo de la v30', () => {
+  const titles = MORE.map((m) => m.title);
+  for (const t of ['Comprobantes', 'Calendario de gastos', 'Lista de compras', 'Dictar un gasto']) assert.ok(titles.includes(t), t);
+  // El historial de tasas vive en la sección que solo ve quien tiene tasas.
+  const rates = MORE.find((m) => m.only === 'rates');
+  assert.ok(rates.body.some((b) => /Historial/.test(b)));
+});

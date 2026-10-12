@@ -37,7 +37,7 @@ export function usePref(key, initial) {
   return [v, set];
 }
 
-const TABLE_KEY = { accounts: 'accounts', transactions: 'transactions', budgets: 'budgets', recurring_expenses: 'recurring', savings_goals: 'goals', loans: 'loans' };
+const TABLE_KEY = { accounts: 'accounts', transactions: 'transactions', budgets: 'budgets', recurring_expenses: 'recurring', savings_goals: 'goals', loans: 'loans', shopping_items: 'shopping' };
 
 export function DataProvider({ uid, children }) {
   const [data, setData] = useState(null);
@@ -236,7 +236,7 @@ export function DataProvider({ uid, children }) {
     };
 
     return { profile, region, accountTemplates, rates, rateMeta, ratesOn, accounts, active, accById, txs, total, target, val, monthStats,
-      budgets: data.budgets, recurring: data.recurring, goals: data.goals || [], loans: data.loans || [],
+      budgets: data.budgets, recurring: data.recurring, goals: data.goals || [], loans: data.loans || [], shopping: data.shopping || [],
       rateHistory: data.rateHistory, missing: data.missing || [], savedAt: data.savedAt };
   }, [data, live]);
 
@@ -309,8 +309,29 @@ export function DataProvider({ uid, children }) {
           return;
         }
       }
+      const receipt = table === 'transactions' && dataRef.current?.transactions.find((t) => t.id === id)?.receipt_path;
       await api.remove(table, id);
       dropLocal(table, id);
+      if (receipt) api.receipts.remove(receipt).catch(() => {}); // la foto ya no sirve sin su movimiento
+    },
+    // Comprobante: sube la foto y la enlaza al movimiento. Necesita conexión.
+    async attachReceipt(txId, blob) {
+      if (!navigator.onLine && !isDemo) throw new Error('Sin conexión: el comprobante se puede agregar cuando vuelva la señal.');
+      const path = await api.receipts.upload(txId, blob);
+      let saved;
+      try { saved = await api.update('transactions', txId, { receipt_path: path }); } catch (e) {
+        api.receipts.remove(path).catch(() => {}); // no dejamos la foto suelta
+        // Sin la columna receipt_path (migración 013 pendiente) la base de datos la rechaza.
+        throw /receipt_path/.test(e?.message || '') ? new Error('Falta activar los comprobantes: ejecuta la migración 013 en Supabase.') : e;
+      }
+      upsertLocal('transactions', saved);
+      return saved;
+    },
+    async removeReceipt(tx) {
+      const saved = await api.update('transactions', tx.id, { receipt_path: null });
+      upsertLocal('transactions', saved);
+      if (tx.receipt_path) api.receipts.remove(tx.receipt_path).catch(() => {});
+      return saved;
     },
     async createDefaultAccounts(customRegion) {
       const reg = customRegion || dataRef.current?.profile?.region || 'VE';

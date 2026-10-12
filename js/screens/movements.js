@@ -1,10 +1,10 @@
 // Movimientos: por mes, con búsqueda, filtros, totales por día y exportación.
 import { useMemo, useState } from 'react';
 import { html, Icon, Money, Empty, Segmented } from '../ui.js';
-import { useData } from '../store.js';
+import { useData, usePref } from '../store.js';
 import { TxRow, PageHeader } from './common.js';
 import { exportMovementsXlsx } from '../backup.js';
-import { categoriesFor, todayISO, monthKey, monthLabel, addMonths, dayLabel } from '../money.js';
+import { categoriesFor, todayISO, monthKey, monthLabel, addMonths, dayLabel, daysInMonth, CURRENCIES } from '../money.js';
 
 export function Movements({ query }) {
   const d = useData();
@@ -15,7 +15,10 @@ export function Movements({ query }) {
   const [category, setCategory] = useState(query.get('cat') || '');
   const [q, setQ] = useState('');
   const [searching, setSearching] = useState(false);
+  const [view, setView] = usePref('mov-view', 'list'); // 'list' | 'cal'
+  const [day, setDay] = useState(null); // día elegido en el calendario
   const allMonths = ym === 'all';
+  const calendar = view === 'cal' && !allMonths && !q.trim();
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -26,13 +29,14 @@ export function Movements({ query }) {
       && (!needle || [t.description, t.category, accById[t.account_id]?.name, String(t.amount)].some((s) => s && String(s).toLowerCase().includes(needle))));
   }, [txs, ym, type, account, category, q]);
 
-  const sum = filtered.reduce((s, t) => {
+  const shown = calendar && day ? filtered.filter((t) => t.date === day) : filtered;
+  const sum = shown.reduce((s, t) => {
     if (t.type === 'income') s.inc += t.value; else if (t.type === 'expense') s.exp += t.value;
     return s;
   }, { inc: 0, exp: 0 });
 
   const groups = [];
-  for (const t of filtered) {
+  for (const t of shown) {
     const g = groups[groups.length - 1];
     if (g && g.date === t.date) g.items.push(t); else groups.push({ date: t.date, items: [t] });
   }
@@ -43,6 +47,8 @@ export function Movements({ query }) {
 
   return html`<div class="page">
     <${PageHeader} title="Movimientos" actions=${html`
+      <button class=${'icon-btn' + (view === 'cal' ? ' on' : '')} onClick=${() => { setView(view === 'cal' ? 'list' : 'cal'); setDay(null); }}
+        aria-label=${view === 'cal' ? 'Ver como lista' : 'Ver calendario'} aria-pressed=${view === 'cal'}><${Icon} name=${view === 'cal' ? 'list' : 'calendar'} /></button>
       <button class=${'icon-btn' + (searching ? ' on' : '')} onClick=${() => { setSearching(!searching); setQ(''); }} aria-label="Buscar"><${Icon} name="search" /></button>
       <button class="icon-btn" onClick=${() => exportMovementsXlsx(filtered, d)} aria-label="Exportar a Excel" disabled=${!filtered.length}><${Icon} name="download" /></button>`} />
 
@@ -52,9 +58,9 @@ export function Movements({ query }) {
     </div>`}
 
     ${!q && html`<div class="month-nav">
-      <button class="icon-btn" onClick=${() => setYm(allMonths ? monthKey(todayISO()) : addMonths(ym, -1))} aria-label="Mes anterior"><${Icon} name="left" /></button>
-      <button class="month-label" onClick=${() => setYm(allMonths ? monthKey(todayISO()) : 'all')}>${allMonths ? 'Todos los meses' : monthLabel(ym)}</button>
-      <button class="icon-btn" disabled=${isCurrent || allMonths} onClick=${() => setYm(addMonths(ym, 1))} aria-label="Mes siguiente"><${Icon} name="right" /></button>
+      <button class="icon-btn" onClick=${() => { setDay(null); setYm(allMonths ? monthKey(todayISO()) : addMonths(ym, -1)); }} aria-label="Mes anterior"><${Icon} name="left" /></button>
+      <button class="month-label" onClick=${() => { setDay(null); setYm(allMonths ? monthKey(todayISO()) : 'all'); }}>${allMonths ? 'Todos los meses' : monthLabel(ym)}</button>
+      <button class="icon-btn" disabled=${isCurrent || allMonths} onClick=${() => { setDay(null); setYm(addMonths(ym, 1)); }} aria-label="Mes siguiente"><${Icon} name="right" /></button>
     </div>`}
 
     <div class="sum-row">
@@ -62,6 +68,9 @@ export function Movements({ query }) {
       <div><small>Gastos</small><b class="exp"><${Money} v=${sum.exp} c=${target} /></b></div>
       <div><small>Neto</small><b class=${sum.inc - sum.exp >= 0 ? 'inc' : 'exp'}><${Money} v=${sum.inc - sum.exp} c=${target} sign /></b></div>
     </div>
+
+    ${calendar && html`<${MonthCalendar} ym=${ym} txs=${filtered} target=${target} day=${day} onPick=${(dd) => setDay(day === dd ? null : dd)} />`}
+    ${calendar && day && html`<div class="cal-picked"><span>${dayLabel(day)}</span><button class="link" onClick=${() => setDay(null)}>Ver todo el mes</button></div>`}
 
     <${Segmented} value=${type} onChange=${setType} options=${[['all', 'Todos'], ['expense', 'Gastos'], ['income', 'Ingresos'], ['transfer', 'Transf.']]} />
     <div class="filters">
@@ -78,11 +87,53 @@ export function Movements({ query }) {
 
     ${groups.length === 0
       ? html`<${Empty} art=${q ? 'search' : 'receipt'} title=${q ? 'Sin resultados' : 'Sin movimientos'}
-          text=${q ? `No hay movimientos que coincidan con "${q}".` : 'No hay movimientos con estos filtros en este mes.'} />`
+          text=${q ? `No hay movimientos que coincidan con "${q}".` : calendar && day ? 'Ese día no tiene movimientos con estos filtros.' : 'No hay movimientos con estos filtros en este mes.'} />`
       : groups.map((g) => html`<section key=${g.date} class="day-group">
           <div class="day-head"><span>${dayLabel(g.date)}</span><span class="num"><${Money} v=${dayNet(g.items)} c=${target} sign /></span></div>
           <div class="card list">${g.items.map((t) => html`<${TxRow} key=${t.id} t=${t} accById=${accById} />`)}</div>
         </section>`)}
-    ${filtered.length > 0 && html`<p class="hint center">${filtered.length} movimiento${filtered.length === 1 ? '' : 's'} · totales convertidos a ${target} con la tasa de cada día</p>`}
+    ${shown.length > 0 && html`<p class="hint center">${shown.length} movimiento${shown.length === 1 ? '' : 's'} · totales convertidos a ${target} con la tasa de cada día</p>`}
   </div>`;
+}
+
+// Calendario del mes: cuánto gastaste cada día. Más color = más gasto. Toca un día para ver sus movimientos.
+const WEEK = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+function short(v, c) {
+  const a = Math.abs(v);
+  const n = a >= 1e6 ? (a / 1e6).toFixed(1).replace('.', ',') + 'M' : a >= 1e4 ? Math.round(a / 1e3) + 'k' : a >= 1e3 ? (a / 1e3).toFixed(1).replace('.', ',') + 'k' : String(Math.round(a));
+  const sym = CURRENCIES[c]?.symbol || '';
+  return c === 'EUR' ? `${n} ${sym}` : `${sym}${n}`;
+}
+function MonthCalendar({ ym, txs, target, day, onPick }) {
+  const per = {};
+  for (const t of txs) {
+    if (t.type === 'transfer') continue;
+    const p = (per[t.date] ??= { exp: 0, inc: 0 });
+    if (t.type === 'expense') p.exp += t.value; else p.inc += t.value;
+  }
+  const max = Math.max(1, ...Object.values(per).map((p) => p.exp));
+  const n = daysInMonth(ym);
+  const lead = (new Date(ym + '-01T12:00:00Z').getUTCDay() + 6) % 7; // lunes primero
+  const today = todayISO();
+  const cells = [...Array(lead).fill(null), ...Array.from({ length: n }, (_, i) => `${ym}-${String(i + 1).padStart(2, '0')}`)];
+  return html`<section class="card cal" aria-label="Calendario de gastos">
+    <div class="cal-grid">
+      ${WEEK.map((w, i) => html`<span key=${'w' + i} class="cal-wd">${w}</span>`)}
+      ${cells.map((dd, i) => {
+        if (!dd) return html`<span key=${'e' + i}></span>`;
+        const p = per[dd];
+        const heat = p?.exp ? 0.15 + 0.6 * (p.exp / max) : 0;
+        const future = dd > today;
+        return html`<button key=${dd} type="button" disabled=${future}
+          class=${'cal-day' + (dd === day ? ' on' : '') + (dd === today ? ' today' : '') + (p ? ' has' : '')}
+          style=${{ '--heat': heat }} onClick=${() => onPick(dd)}
+          aria-label=${`${Number(dd.slice(8))}${p?.exp ? ', gastos ' + short(p.exp, target) : ''}${p?.inc ? ', ingresos ' + short(p.inc, target) : ''}`}>
+          <span class="cal-n">${Number(dd.slice(8))}</span>
+          ${p?.exp ? html`<small class="cal-exp num">${short(p.exp, target)}</small>` : ''}
+          ${p?.inc ? html`<i class="cal-inc" title="Hubo ingresos"></i>` : ''}
+        </button>`;
+      })}
+    </div>
+    <p class="cal-legend"><span><i class="cal-swatch"></i> Gastos del día</span><span><i class="cal-inc"></i> Ingresos</span></p>
+  </section>`;
 }

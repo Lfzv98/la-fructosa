@@ -76,6 +76,7 @@ export function Home() {
         <h1>${name || 'La Fructosa'}</h1>
       </div>
       <div class="page-actions">
+        <button class="icon-btn" onClick=${() => go('#/copiloto?dictar=1')} aria-label="Dictar un gasto" title="Dictar un gasto"><${Icon} name="mic" /></button>
         <button class="icon-btn" onClick=${() => setHide(!hide)} aria-label=${hide ? 'Mostrar saldos' : 'Ocultar saldos'}>
           <${Icon} name=${hide ? 'eyeOff' : 'eye'} />
         </button>

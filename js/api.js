@@ -77,6 +77,9 @@ async function fetchAll(query) {
   }
 }
 
+// Días de historial de tasas que se cargan (gráfico de Tasas y conversión de cada movimiento a la tasa de su día).
+export const RATE_DAYS = 366;
+
 const daysAgo = (n) => { const d = new Date(todayISO() + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - n); return d.toISOString().slice(0, 10); };
 
 function ratesFromRows(rows) {
@@ -112,6 +115,15 @@ async function loginWithUsername(username, password) {
   throw new Error(body?.error?.message || 'Invalid login credentials');
 }
 
+const RECEIPTS = 'comprobantes';
+// Sin el bucket (migración 013 pendiente) Supabase responde "Bucket not found": lo decimos claro.
+function receiptError(e) {
+  const msg = e?.message || String(e);
+  return /bucket not found/i.test(msg)
+    ? new Error('Falta activar los comprobantes: ejecuta la migración 013 en Supabase.')
+    : new Error('No se pudo guardar el comprobante: ' + msg);
+}
+
 // ---------------------------------------------------------------------
 // Supabase real
 // ---------------------------------------------------------------------
@@ -145,6 +157,8 @@ const real = {
     async deleteAccount() {
       const c = await sb();
       const uid = (await c.auth.getSession()).data.session?.user?.id;
+      // Las fotos de comprobantes no se borran solas con la cuenta: se borran antes.
+      if (uid) await real.receipts.removeAll(uid).catch(() => {});
       const { error } = await c.rpc('delete_my_account');
       if (error) throw error;
       await import('./push.js').then((m) => m.disablePush()).catch(() => {});
@@ -225,17 +239,20 @@ const real = {
       return res.data;
     };
 
-    const [profileRes, accounts, transactions, budgets, recurring, rateRows, goals, loans] = await Promise.all([
+    const [profileRes, accounts, transactions, budgets, recurring, rateRows, goals, loans, shopping] = await Promise.all([
       c.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       c.from('accounts').select('*').order('created_at').then(unwrap),
       fetchAll(() => c.from('transactions').select('*').order('created_at', { ascending: false }).order('id')),
       optional('budgets', c.from('budgets').select('*')),
       optional('recurring_expenses', c.from('recurring_expenses').select('*').order('due_day')),
-      c.from('exchange_rates').select('rate_type, rate, rate_date, source, fetched_at')
-        .gte('rate_date', daysAgo(120)).order('rate_date').then((r) => (r.error ? [] : r.data)),
+      // Un año de tasas (para el gráfico de historial); por páginas, porque pasan de 1.000 filas.
+      fetchAll(() => c.from('exchange_rates').select('rate_type, rate, rate_date, source, fetched_at')
+        .gte('rate_date', daysAgo(RATE_DAYS)).order('rate_date').order('rate_type')).catch(() => []),
       // Metas y préstamos (migración 007): si aún no existen, la app sigue igual.
       optional('savings_goals', c.from('savings_goals').select('*').order('created_at')),
       optional('loans', c.from('loans').select('*').order('occurred_on', { ascending: false })),
+      // Lista de compras (migración 013).
+      optional('shopping_items', c.from('shopping_items').select('*').order('created_at')),
     ]);
 
     const meta = user.user_metadata || {};
@@ -271,7 +288,7 @@ const real = {
       profile.region = reg;
     }
     const { rates, meta: rateMeta } = ratesFromRows(rateRows);
-    return { profile, accounts, transactions, budgets, recurring, goals, loans, rates, rateMeta, rateHistory: rateRows, missing };
+    return { profile, accounts, transactions, budgets, recurring, goals, loans, shopping, rates, rateMeta, rateHistory: rateRows, missing };
   },
 
   async updateProfile(patch) {
@@ -365,6 +382,41 @@ const real = {
     },
   },
 
+  // Comprobantes (migración 013): fotos en el bucket privado "comprobantes", en la carpeta <user_id>/.
+  // Las políticas de Storage solo dejan tocar la carpeta propia.
+  receipts: {
+    async upload(txId, blob) {
+      const c = await sb();
+      const { data: { session } } = await c.auth.getSession();
+      if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
+      const path = `${session.user.id}/${txId}.jpg`;
+      const { error } = await c.storage.from(RECEIPTS).upload(path, blob, { upsert: true, contentType: blob.type || 'image/jpeg', cacheControl: '3600' });
+      if (error) throw receiptError(error);
+      return path;
+    },
+    // Enlace temporal (10 minutos) para ver la foto: el bucket es privado.
+    async url(path) {
+      const c = await sb();
+      const { data, error } = await c.storage.from(RECEIPTS).createSignedUrl(path, 600);
+      if (error) throw receiptError(error);
+      return data.signedUrl;
+    },
+    async remove(path) {
+      const c = await sb();
+      const { error } = await c.storage.from(RECEIPTS).remove([path]);
+      if (error) throw receiptError(error);
+    },
+    async removeAll(uid) {
+      const c = await sb();
+      for (;;) {
+        const { data, error } = await c.storage.from(RECEIPTS).list(uid, { limit: 100 });
+        if (error || !data?.length) return;
+        const { error: e2 } = await c.storage.from(RECEIPTS).remove(data.map((f) => `${uid}/${f.name}`));
+        if (e2) return;
+      }
+    },
+  },
+
   // Conversación con Fructosa: una fila por usuario en ai_chats (migración 005). RLS: solo la propia.
   chat: {
     async load() {
@@ -391,7 +443,7 @@ const real = {
 // ---------------------------------------------------------------------
 // Demo: datos de ejemplo realistas, guardados en localStorage
 // ---------------------------------------------------------------------
-const DEMO_KEY = 'fructosa-demo-v3';
+const DEMO_KEY = 'fructosa-demo-v4';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
 
 function seedDemo() {
@@ -399,10 +451,10 @@ function seedDemo() {
   const now = Date.now();
   const iso = (n) => new Date(now - n * 864e5).toISOString();
   const rateHistory = [];
-  for (let n = 189; n >= 0; n--) {
+  for (let n = 365; n >= 0; n--) {
     const d = daysAgo(n);
-    const t = 189 - n;
-    const bcv = +(134 + t * 0.25 + Math.sin(t / 6) * 0.6).toFixed(2);
+    const t = 365 - n;
+    const bcv = +(90 + t * 0.25 + Math.sin(t / 6) * 0.6).toFixed(2);
     const par = +(bcv * (1.36 + Math.sin(t / 11) * 0.03 + t * 0.0004)).toFixed(2);
     rateHistory.push(
       { rate_type: 'BCV_USD', rate: bcv, rate_date: d, source: 'demo' },
@@ -485,6 +537,12 @@ function seedDemo() {
       { id: uid(), name: 'Fondo de emergencia', emoji: '🛟', target_amount: 1500, saved_amount: 620, currency: 'USD', target_date: daysAgo(-150), done: false, created_at: iso(60) },
       { id: uid(), name: 'Viaje a Mérida', emoji: '🏔️', target_amount: 400, saved_amount: 95, currency: 'USD', target_date: daysAgo(-75), done: false, created_at: iso(20) },
     ],
+    shopping_items: [
+      { id: uid(), list_name: 'Mercado', name: 'Harina de maíz', qty: 2, price: 1.2, currency: 'USD', done: false, created_at: iso(1) },
+      { id: uid(), list_name: 'Mercado', name: 'Huevos (cartón)', qty: 1, price: 4.5, currency: 'USD', done: true, created_at: iso(1) },
+      { id: uid(), list_name: 'Mercado', name: 'Queso blanco (kg)', qty: 1, price: 6, currency: 'USD', done: false, created_at: iso(1) },
+      { id: uid(), list_name: 'Mercado', name: 'Café', qty: 1, price: null, currency: 'USD', done: false, created_at: iso(1) },
+    ],
     loans: [
       { id: uid(), person: 'Primo Andrés', direction: 'lent', amount: 50, paid_amount: 20, currency: 'USD', occurred_on: daysAgo(12), due_on: daysAgo(-10), settled: false, note: 'Para el repuesto del carro', created_at: iso(12) },
       { id: uid(), person: 'Tía Carmen', direction: 'borrowed', amount: 30, paid_amount: 0, currency: 'USD', occurred_on: daysAgo(5), due_on: null, settled: false, note: null, created_at: iso(5) },
@@ -523,7 +581,8 @@ const demo = {
     const s = state();
     const { rates, meta } = ratesFromRows(s.rateHistory);
     return wait(clone({ profile: s.profile, accounts: s.accounts, transactions: s.transactions, budgets: s.budgets,
-      recurring: s.recurring_expenses, goals: s.savings_goals || [], loans: s.loans || [], rates, rateMeta: meta, rateHistory: s.rateHistory, missing: [] }));
+      recurring: s.recurring_expenses, goals: s.savings_goals || [], loans: s.loans || [], shopping: s.shopping_items || [],
+      rates, rateMeta: meta, rateHistory: s.rateHistory, missing: [] }));
   },
   async updateProfile(patch) { Object.assign(state().profile, patch); demoSave(); return wait(clone(state().profile)); },
   async insert(table, row) {
@@ -542,6 +601,25 @@ const demo = {
     demoSave(); return wait();
   },
   reset() { localStorage.removeItem(DEMO_KEY); demoState = null; },
+};
+
+// En demo los comprobantes se guardan en este navegador, como imagen dentro de los datos de ejemplo.
+demo.receipts = {
+  async upload(txId, blob) {
+    const s = state();
+    s.receipts ??= {};
+    s.receipts[txId] = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(blob); });
+    demoSave();
+    return `demo/${txId}.jpg`;
+  },
+  async url(path) {
+    const id = path.split('/').pop().replace(/\.jpg$/, '');
+    const u = state().receipts?.[id];
+    if (!u) throw new Error('No se encontró el comprobante');
+    return u;
+  },
+  async remove(path) { const id = path.split('/').pop().replace(/\.jpg$/, ''); delete state().receipts?.[id]; demoSave(); },
+  async removeAll() { state().receipts = {}; demoSave(); },
 };
 
 // En demo la conversación vive solo en este navegador (la guarda la pantalla del chat).
