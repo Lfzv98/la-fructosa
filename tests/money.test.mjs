@@ -2,7 +2,7 @@
 // (GitHub las corre solas en cada push: .github/workflows/pruebas.yml)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { convert, consolidate, spreadCalc, payCompare, parseAmount, vesPerUnit, addMonths, daysInMonth } from '../js/money.js';
+import { convert, consolidate, spreadCalc, parseAmount, vesPerUnit, addMonths, daysInMonth } from '../js/money.js';
 import { buildXlsx } from '../js/xlsx.js';
 
 const R = { BCV_USD: 200, PARALELO: 280, USDT: 275, BCV_EUR: 230 };
@@ -49,13 +49,6 @@ test('brecha al pagar en bolívares desde dólares', () => {
   close(s.diff, 4);
   close(s.gapPct, 40);
   assert.equal(spreadCalc(0, R), null);
-});
-
-test('¿pago en $ o en Bs.?', () => {
-  const p = payCompare(10, R, 'USD'); // $10 a BCV = 2.000 Bs. → con dólares a 280 cuesta 7,14
-  close(p.ves, 2000);
-  close(p.costIfVes, 2000 / 280);
-  close(p.saving, 10 - 2000 / 280);
 });
 
 test('leer montos escritos como en Venezuela o EE. UU.', () => {

@@ -1,11 +1,11 @@
-// Tasas del día, su evolución, calculadora y comparador "¿pago en $ o en Bs.?".
+// Tasas del día, su evolución, y calculadora.
 import { useMemo, useState } from 'react';
-import { html, Icon, Segmented, Field, toast } from '../ui.js';
+import { html, Icon, Segmented, toast } from '../ui.js';
 import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { Sparkline } from '../charts.js';
 import { PageHeader, RatesStale } from './common.js';
-import { RATE_LABELS, RATE_HELP, fmt, fmtRate, fmtPct, parseAmount, payCompare, todayISO } from '../money.js';
+import { RATE_LABELS, RATE_HELP, fmt, fmtRate, fmtPct, parseAmount, todayISO } from '../money.js';
 
 const KEYS = ['BCV_USD', 'PARALELO', 'USDT', 'BCV_EUR'];
 const COLORS = { BCV_USD: '#A0C4FF', PARALELO: '#FFADAD', USDT: '#FDFFB6', BCV_EUR: '#CAFFBF' };
@@ -69,7 +69,6 @@ export function Rates() {
     <${Segmented} value=${range} onChange=${setRange} options=${[[7, '7 días'], [30, '30 días'], [90, '90 días']]} />
 
     <${Converter} rates=${rates} />
-    <${Compare} rates=${rates} />
   </div>`;
 }
 
@@ -87,28 +86,5 @@ function Converter({ rates }) {
       <${Segmented} value=${from} onChange=${setFrom} options=${[['USD', '$'], ['VES', 'Bs.'], ['EUR', '€']]} />
     </div>
     <div class="list-plain">${rows.map(([l, v]) => html`<div key=${l} class="row-between"><span class="muted">${l}</span><b class="num">${v}</b></div>`)}</div>
-  </section>`;
-}
-
-function Compare({ rates }) {
-  const [price, setPrice] = useState('20');
-  const [src, setSrc] = useState('USD');
-  const c = payCompare(parseAmount(price), rates, src);
-  return html`<section class="card pad stack sm">
-    <h2 class="card-title"><${Icon} name="scale" size=${18} /> ¿Pago en divisas o en bolívares?</h2>
-    <p class="hint">El comercio marca el precio en $ y acepta Bs. a la tasa BCV. Compara cuánto te cuesta realmente cada opción.</p>
-    <div class="grid2">
-      <${Field} label="Precio en $"><input class="input num" inputmode="decimal" value=${price} onInput=${(e) => setPrice(e.target.value.replace(/[^\d.,]/g, ''))} /><//>
-      <${Field} label="Divisa que usas"><${Segmented} value=${src} onChange=${setSrc} options=${[['USD', 'USD'], ['USDT', 'USDT']]} /><//>
-    </div>
-    ${c && html`<div class="spread">
-      <div class="spread-row"><span>Pagando en ${src}</span><b class="num">${fmt(c.costIfUsd, src)}</b></div>
-      <div class="spread-row"><span>Pagando Bs. ${fmtRate(c.ves)} (cambiados a ${fmtRate(c.market)})</span><b class="num">${fmt(c.costIfVes, src)}</b></div>
-      <div class=${'spread-row verdict ' + (c.saving >= 0 ? 'good' : 'bad')}>
-        <span>${c.saving >= 0 ? 'Conviene pagar en bolívares' : 'Conviene pagar en divisas'}</span>
-        <b class="num">Ahorras ${fmt(Math.abs(c.saving), src)}</b>
-      </div>
-      <p class="spread-note">Supone que consigues los bolívares a la tasa ${src === 'USDT' ? 'USDT' : 'paralela'}. Si tu banco te los vende a BCV, el costo es el mismo.</p>
-    </div>`}
   </section>`;
 }

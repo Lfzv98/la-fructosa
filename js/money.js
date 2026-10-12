@@ -271,17 +271,6 @@ export function spreadCalc(vesAmount, rates, rateApplied) {
   };
 }
 
-// Comparador: el comercio fija un precio en $ y acepta Bs. a tasa BCV.
-// ¿Conviene pagar en divisas o cambiar el dinero y pagar en bolívares?
-export function payCompare(priceUsd, rates, sourceCurrency = 'USD') {
-  const bcv = rates.BCV_USD;
-  const market = marketRateFor(sourceCurrency, rates);
-  if (!priceUsd || !bcv || !market) return null;
-  const ves = priceUsd * bcv;
-  const costIfVes = ves / market;
-  return { ves, costIfUsd: priceUsd, costIfVes, saving: priceUsd - costIfVes, market };
-}
-
 // ---------------------------------------------------------------------
 // Formato
 // ---------------------------------------------------------------------

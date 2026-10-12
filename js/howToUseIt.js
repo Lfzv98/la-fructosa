@@ -116,7 +116,7 @@ export const MORE = [
     only: 'rates',
     body: [
       'Ves el dólar oficial (BCV), el del mercado (Paralelo), el USDT y el Euro BCV. Se actualizan solos varias veces al día; en Tasas también puedes tocar actualizar.',
-      'La brecha es cuánto más cuesta el dólar del mercado que el oficial. En Tasas tienes una calculadora para convertir y comparar si te conviene pagar en divisas o en bolívares.',
+      'La brecha es cuánto más cuesta el dólar del mercado que el oficial. En Tasas tienes una calculadora para convertir entre dólares, euros y bolívares.',
     ],
   },
   {
@@ -211,7 +211,7 @@ export const FINANCE_GUIDE = {
     {
       emoji: '💱',
       title: 'Cuida la brecha',
-      body: 'Si pagas en bolívares con respaldo en divisas, compara antes en Tasas si te conviene pagar en dólares o cambiar. La app te muestra cada mes cuánto te ahorró o te costó.',
+      body: 'Si pagas en bolívares con respaldo en divisas, registra la tasa que usaste. La app te muestra cada mes cuánto te ahorró o te costó.',
       only: 'rates',
     },
     {
