@@ -172,16 +172,20 @@ const real = {
     // sin revelar el correo. Si aún no está desplegada, se usa el método anterior (email_for_login).
     async signIn(login, password) {
       const c = await sb();
-      let email = login.trim();
+      // "@luis.zea" (como lo muestra la app) también vale: se quita la @ inicial.
+      // Un correo lleva @ en medio; un usuario nunca.
+      let email = login.trim().replace(/^@/, '').toLowerCase();
       if (!email.includes('@')) {
-        const viaFn = await loginWithUsername(email.toLowerCase(), password);
+        const viaFn = await loginWithUsername(email, password);
         if (viaFn) {
           const { data, error } = await c.auth.setSession(viaFn);
           if (error) throw error;
           return { session: data.session };
         }
-        const { data, error } = await c.rpc('email_for_login', { p_username: email.toLowerCase() });
-        if (error) throw error;
+        // Con la migración 006 este método antiguo queda cerrado; si llegamos aquí es que la
+        // función "login" no respondió: se pide entrar con el correo en vez de mostrar un error técnico.
+        const { data, error } = await c.rpc('email_for_login', { p_username: email });
+        if (error) throw new Error('No pudimos entrar con tu usuario en este momento. Prueba con tu correo.');
         if (!data) throw new Error('Invalid login credentials');
         email = data;
       }

@@ -51,7 +51,7 @@ export function UsernameField({ value, onChange, error, onStatus }) {
   return html`<${Field} label="Usuario" error=${msg}
     hint=${status === 'ok' ? '✓ Disponible' : status === 'checking' ? 'Comprobando…' : 'Con él entrarás a la app.'}>
     <div class="input-affix"><span>@</span>
-      <input class="input" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="luis.zea"
+      <input class="input" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="20" placeholder="tu.usuario"
         value=${value} onInput=${(e) => onChange(e.target.value.toLowerCase().replace(/\s/g, ''))} /></div>
   <//>`;
 }
@@ -117,7 +117,9 @@ export function AuthScreen({ onSession }) {
     <div class="auth-brand">
       <img src="icons/icon-192.png" alt="" width="76" height="76" class="logo" />
       <h1>La Fructosa</h1>
-      <p>${mode === 'signup' ? 'Crea tu cuenta personal. Nadie más verá tu dinero.' : 'Las finanzas de la familia, cada quien con lo suyo.'}</p>
+      ${mode === 'signup'
+        ? html`<p>Crea tu cuenta personal. Nadie más verá tu dinero.</p>`
+        : html`<p class="auth-quote">“Lo que no está definido, no se puede medir. Lo que no se mide, no se puede mejorar. Lo que no se mejora, siempre se degrada.”</p>`}
     </div>
     <form class="auth-card stack" onSubmit=${submit} novalidate>
       ${mode !== 'reset' && html`<div class="seg" role="tablist" style=${{ gridTemplateColumns: '1fr 1fr' }}>
@@ -127,7 +129,7 @@ export function AuthScreen({ onSession }) {
 
       ${mode === 'login' && html`
         <${Field} label="Usuario o correo">
-          <input class="input" autocomplete="username" autocapitalize="none" spellcheck="false" required value=${f.login} onInput=${set('login')} placeholder="luis.zea" />
+          <input class="input" autocomplete="username" autocapitalize="none" spellcheck="false" required value=${f.login} onInput=${set('login')} placeholder="Agrega tu usuario o correo aquí" />
         <//>
         <${Field} label="Contraseña" action=${html`<button type="button" class="link" onClick=${() => go('reset')}>¿La olvidaste?</button>`}>
           <${PasswordInput} value=${f.password} onInput=${set('password')} autocomplete="current-password" show=${show} setShow=${setShow} />

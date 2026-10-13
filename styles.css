@@ -466,6 +466,7 @@ b.big { font-size: 20px; }
 .auth-brand .logo { border-radius: 22px; box-shadow: 0 10px 30px rgba(160, 196, 255, .25); }
 .auth-brand h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.03em; margin-top: 14px; }
 .auth-brand p { color: var(--muted); margin-top: 4px; }
+.auth-brand .auth-quote { font-style: italic; font-size: 14px; line-height: 1.5; max-width: 340px; margin: 8px auto 0; text-wrap: balance; }
 .auth-card { background: var(--surface); border: 1px solid var(--line); border-radius: 24px; padding: 18px; box-shadow: var(--shadow); }
 .auth-foot { text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.8; }
 .auth-foot svg { vertical-align: -2px; }
