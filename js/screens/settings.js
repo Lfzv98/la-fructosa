@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { html, Icon, Segmented, Switch, Sheet, Field, SectionTitle, toast, confirmDialog, errorText } from '../ui.js';
 import { useData, usePref } from '../store.js';
 import { Learn } from '../learn.js';
-import { PageHeader, go } from './common.js';
+import { PageHeader, go, libroHref } from './common.js';
 import { exportCSV } from '../export.js';
 import { api, isDemo } from '../api.js';
 import { REGIONS, RATE_LABELS } from '../money.js';
@@ -31,6 +31,7 @@ export function More() {
     ['#/copiloto', 'sparkle', 'Copiloto IA', 'Pregunta por tus finanzas', '#FFC6FF'],
     ['#/aprende', 'book', 'Manual de uso', 'Guía fácil y tour', '#BDB2FF'],
     ['#/preguntas', 'help', 'Preguntas frecuentes', 'Dudas comunes, respondidas', '#FFD6A5'],
+    [libroHref(d), 'bookopen', 'El libro', 'Manual, preguntas y 30 tips', '#FDFFB6'],
     ['#/ajustes', 'sliders', 'Ajustes', 'Perfil, moneda, privacidad', '#9BF6FF'],
   ].filter(Boolean);
   return html`<div class="page more">
@@ -137,6 +138,7 @@ export function Settings() {
       ${install.state !== 'installed' && html`<button class="menu-row" onClick=${install.run}><${Icon} name="phone" /><span>Instalar en este teléfono<small>${install.state === 'ios' ? 'Safari → Compartir → Agregar a inicio' : 'Abre como app, a pantalla completa'}</small></span><${Icon} name="right" class="muted" /></button>`}
       <a class="menu-row" href="#/aprende"><${Icon} name="book" /><span>Manual de uso y tour</span><${Icon} name="right" class="muted" /></a>
       <a class="menu-row" href="#/preguntas"><${Icon} name="help" /><span>Preguntas frecuentes</span><${Icon} name="right" class="muted" /></a>
+      <a class="menu-row" href=${libroHref(d)}><${Icon} name="bookopen" /><span>El libro de La Fructosa<small>Manual, preguntas frecuentes y 30 tips, página a página</small></span><${Icon} name="right" class="muted" /></a>
       ${isDemo && html`<button class="menu-row" onClick=${resetDemo}><${Icon} name="refresh" /><span>Reiniciar datos de ejemplo</span></button>`}
       ${!isDemo && html`<button class="menu-row danger-text" onClick=${() => setDel(true)}><${Icon} name="trash" /><span>Borrar mi cuenta<small>Elimina tu cuenta y todos tus datos para siempre</small></span></button>`}
       <button class="menu-row danger-text" onClick=${signOut}><${Icon} name="logout" /><span>${isDemo ? 'Salir del demo' : 'Cerrar sesión'}</span></button>

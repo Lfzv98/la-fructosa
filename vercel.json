@@ -79,6 +79,25 @@
           "value": "no-cache"
         }
       ]
+    },
+    {
+      "source": "/manual.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/manual",
+      "destination": "/manual.html"
+    },
+    {
+      "source": "/libro",
+      "destination": "/manual.html"
     }
   ]
 }

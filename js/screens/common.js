@@ -6,6 +6,9 @@ import { AccountIcon, BrandIcon } from '../logos.js';
 // Abrir el formulario de movimiento desde cualquier parte.
 export const openTx = (detail = {}) => window.dispatchEvent(new CustomEvent('fructosa-open-tx', { detail }));
 export const go = (hash) => { location.hash = hash; };
+// Enlace al libro digital (manual.html) con el país y los permisos de la persona.
+export const libroHref = ({ region, investmentsOn } = {}) => `./manual.html?desde=app&pais=${region?.code || 'VE'}`
+  + `${region?.code === 'INT' && region?.rates ? '&tasas=1' : ''}${investmentsOn ? '&inv=1' : ''}`;
 
 export function TxRow({ t, accById, showDate = false }) {
   const meta = categoryMeta(t.category, t.type);

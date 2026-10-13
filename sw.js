@@ -1,12 +1,20 @@
 // La Fructosa · Service Worker
 // Sube CACHE_VERSION en cada despliegue: la app avisará "Hay una versión nueva".
-const CACHE_VERSION = 'fructosa-v38';
+const CACHE_VERSION = 'fructosa-v39';
 
 const APP_SHELL = [
   './',
   './index.html',
   './styles.css',
   './manifest.webmanifest',
+  './manual.html',
+  './libro.css',
+  './js/manual.js',
+  './js/flipbook.js',
+  './js/book.js',
+  './js/tips.js',
+  './js/glossary.js',
+  './icons/logo.svg',
   './js/app.js',
   './js/api.js',
   './js/store.js',
@@ -126,6 +134,12 @@ self.addEventListener('fetch', (event) => {
       if (res.ok) caches.open(CACHE_VERSION).then((c) => c.put(request, res.clone()));
       return res;
     }).catch(() => caches.match(request)));
+    return;
+  }
+
+  // El libro se abre en /manual (sin .html): se sirve la página guardada, también sin internet.
+  if (sameOrigin && request.mode === 'navigate' && /\/(manual|libro)\/?$/.test(url.pathname)) {
+    event.respondWith(caches.match('./manual.html').then((cached) => cached || fetch(request)));
     return;
   }
 

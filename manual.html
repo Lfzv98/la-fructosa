@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>El libro de La Fructosa</title>
+  <meta name="description" content="Manual de uso, preguntas frecuentes y los 30 mejores tips financieros de La Fructosa. Gratis y 100% privada." />
+
+  <!-- Vista previa al compartir el enlace (WhatsApp, iMessage, Telegram…) -->
+  <meta property="og:type" content="book" />
+  <meta property="og:site_name" content="La Fructosa" />
+  <meta property="og:title" content="El libro de La Fructosa" />
+  <meta property="og:description" content="Manual de uso, preguntas frecuentes y los 30 mejores tips financieros. Pasa las páginas como en un libro de verdad." />
+  <meta property="og:url" content="https://la-fructosa.vercel.app/manual" />
+  <meta property="og:image" content="https://la-fructosa.vercel.app/icons/libro-portada.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="theme-color" content="#0E1422" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="icon" href="./icons/favicon.ico" sizes="any" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png?v=23" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="La Fructosa" />
+
+  <link rel="stylesheet" href="./libro.css" />
+  <script>
+    (function () {
+      try {
+        var t = JSON.parse(localStorage.getItem('fructosa-pref-theme') || '"dark"');
+        var light = t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+        if (light) {
+          document.documentElement.dataset.theme = 'light';
+          document.querySelector('meta[name="theme-color"]').content = '#E9EEF6';
+          document.querySelector('meta[name="color-scheme"]').content = 'light';
+        }
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <header class="lb-top" data-noflip>
+    <a class="lb-btn lb-home" id="lb-home" href="./" aria-label="Ir a la app">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+      <img src="./icons/icon-192.png" alt="" width="26" height="26" />
+      <span>La Fructosa</span>
+    </a>
+    <p class="lb-where" id="lb-where" aria-live="polite"></p>
+    <div class="lb-tools">
+      <button class="lb-btn" id="lb-toc" aria-label="Índice" title="Índice">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      </button>
+      <button class="lb-btn" id="lb-text" aria-label="Tamaño de letra" title="Tamaño de letra"><b>Aa</b></button>
+      <button class="lb-btn" id="lb-sound" aria-label="Sonido de las páginas" title="Sonido de las páginas">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path class="on" d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/><path class="off" d="m16 9 6 6M22 9l-6 6"/></svg>
+      </button>
+      <button class="lb-btn" id="lb-share" aria-label="Compartir" title="Compartir">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7M16 6l-4-4-4 4M12 2v13"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="lb-stage" id="lb-stage">
+    <div id="lb-book" aria-roledescription="libro" aria-label="El libro de La Fructosa"></div>
+    <div class="lb-loading" id="lb-loading"><img src="./icons/icon-192.png" alt="" width="72" height="72" /><p>Abriendo el libro…</p></div>
+  </main>
+
+  <footer class="lb-bottom" data-noflip>
+    <button class="lb-btn lb-arrow" id="lb-prev" aria-label="Página anterior"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+    <input type="range" id="lb-range" min="0" max="1" value="0" step="1" aria-label="Ir a la página" />
+    <span class="lb-count" id="lb-count"></span>
+    <button class="lb-btn lb-arrow" id="lb-next" aria-label="Página siguiente"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+  </footer>
+
+  <div class="lb-sheet" id="lb-sheet" hidden data-noflip>
+    <div class="lb-sheet-card" role="dialog" aria-modal="true" aria-labelledby="lb-sheet-title">
+      <div class="lb-sheet-head"><h2 id="lb-sheet-title">Índice</h2><button class="lb-btn" id="lb-sheet-x" aria-label="Cerrar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+      <div class="lb-sheet-body" id="lb-sheet-body"></div>
+    </div>
+  </div>
+  <div class="lb-pop" id="lb-pop" hidden data-noflip>
+    <button class="lb-btn" data-size="-1" aria-label="Letra más pequeña"><small>A</small></button>
+    <span id="lb-size">100%</span>
+    <button class="lb-btn" data-size="1" aria-label="Letra más grande"><b>A</b></button>
+  </div>
+  <div class="lb-toast" id="lb-toast" role="status" hidden></div>
+  <div id="lb-measure" class="lb-measure" aria-hidden="true"></div>
+
+  <noscript><p style="padding:24px;text-align:center">Para leer el libro necesitas activar JavaScript.</p></noscript>
+  <script type="module" src="./js/manual.js"></script>
+</body>
+</html>

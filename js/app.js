@@ -24,6 +24,7 @@ import { Goals, Loans } from './screens/goals.js';
 import { Shopping } from './screens/shopping.js';
 import { Investments } from './screens/investments.js';
 import { TermsGate, TermsPage, useTerms } from './terms.js';
+import { libroHref } from './screens/common.js';
 import { BackupBanner, DataPreview } from './backup.js';
 
 // ---------------------------------------------------------------------
@@ -89,6 +90,7 @@ function Sidebar({ current, onNew }) {
       ['copiloto', 'sparkle', 'Copiloto IA'],
       ['aprende', 'book', 'Manual de uso'],
       ['preguntas', 'help', 'Preguntas frecuentes'],
+      ['libro', 'bookopen', 'El libro', libroHref({ region, investmentsOn })],
       ['ajustes', 'sliders', 'Ajustes'],
     ].filter(Boolean)],
   ];
@@ -100,7 +102,7 @@ function Sidebar({ current, onNew }) {
     <nav class="side-nav" aria-label="Navegación principal">
       ${groups.map(([title, items]) => html`<div key=${title || 'main'} class="side-group">
         ${title && html`<p class="side-title">${title}</p>`}
-        ${items.map(([r, icon, label]) => html`<a key=${r} href=${'#/' + (r === 'inicio' ? '' : r)} class=${on === r ? 'on' : ''} data-tour=${r === 'copiloto' ? 'copilot' : undefined} title=${label} aria-current=${on === r ? 'page' : undefined}>
+        ${items.map(([r, icon, label, href]) => html`<a key=${r} href=${href || '#/' + (r === 'inicio' ? '' : r)} class=${on === r ? 'on' : ''} data-tour=${r === 'copiloto' ? 'copilot' : undefined} title=${label} aria-current=${on === r ? 'page' : undefined}>
           <${Icon} name=${icon} size=${19} /><span>${label}</span></a>`)}
       </div>`)}
     </nav>
