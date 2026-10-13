@@ -9,7 +9,7 @@
 //             el historial público de DolarApi (BCV, paralelo y euro) sin pisar lo que ya está guardado.
 // La app también la llama si al abrirla no hay tasas de hoy (con la sesión del usuario), para que el
 // historial se complete solo aunque el cron haya fallado. Si ya se actualizó hace poco, no vuelve a consultar.
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.4';
 
 type Rate = { rate_type: 'BCV_USD' | 'BCV_EUR' | 'PARALELO' | 'USDT'; rate: number; source: string };
 

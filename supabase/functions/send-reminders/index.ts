@@ -17,7 +17,7 @@
 //
 // GET  → devuelve la clave pública VAPID (es pública por diseño; la app la usa para suscribirse).
 // POST → envía los avisos del día. Exige el encabezado x-cron-secret = CRON_SECRET.
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.4';
 import webpush from 'npm:web-push@3.6.7';
 
 const PUBLIC = Deno.env.get('VAPID_PUBLIC_KEY') ?? '';

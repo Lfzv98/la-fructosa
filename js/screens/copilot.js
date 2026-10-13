@@ -2,13 +2,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { html, Icon, Sheet, Field, toast, confirmDialog, errorText, vibrate } from '../ui.js';
 import { api } from '../api.js';
-import { useData, usePref } from '../store.js';
+import { useData } from '../store.js';
 import { go } from './common.js';
 import { categoryMeta, fmt, fmtRate, todayISO } from '../money.js';
 import {
   PROVIDERS, SHARED_AI, loadAiConfig, saveAiConfig, clearAiConfig, aiReady, resolveAi, systemPrompt, withGuard, parseReply,
   runCalc, resolveTx, streamChat, testConnection, AI_INTRO, userFirstName, normalizeKey, keyLooksOdd,
-  getSpeechRecognition, VoiceSession, speakReply, speechLangFor, stopSpeech, cleanSpeechText, prepareImage, proxySupportsImages,
+  getSpeechRecognition, VoiceSession, speechLangFor, stopSpeech, prepareImage, proxySupportsImages,
 } from '../ai.js';
 
 // La conversación se guarda en la cuenta (tabla ai_chats, migración 005) y en este dispositivo,
@@ -176,7 +176,7 @@ function TxCard({ spec, d, state, onConfirm, onDismiss }) {
   </div>`;
 }
 
-function Bubble({ m, d, onBlock, speaking, onToggleSpeak }) {
+function Bubble({ m, d, onBlock }) {
   if (m.role === 'user') {
     return html`<div class="msg user">
       ${m.audio && html`<div class="msg-voice-tag"><${Icon} name="mic" size=${13} /> <span>Voz</span></div>`}
@@ -188,10 +188,6 @@ function Bubble({ m, d, onBlock, speaking, onToggleSpeak }) {
   return html`<div class="msg ai">
     <div class="msg-ai-header">
       <small class="muted msg-name">Fructosa</small>
-      ${m.text && html`<button type="button" class=${'icon-btn sm speech-btn' + (speaking ? ' speaking' : '')}
-        onClick=${() => onToggleSpeak(m)} aria-label=${speaking ? 'Detener voz' : 'Escuchar en voz alta'} title=${speaking ? 'Detener voz' : 'Escuchar respuesta'}>
-        <${Icon} name=${speaking ? 'volumeX' : 'volume'} size=${15} />
-      </button>`}
     </div>
     ${!parts.length && !m.error && html`<span class="typing" aria-label="Escribiendo"><i></i><i></i><i></i></span>`}
     ${parts.map((p, i) => (p.kind === 'text'
@@ -228,8 +224,6 @@ export function Copilot({ query } = {}) {
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [liveTranscript, setLiveTranscript] = useState('');
   const [audioVolume, setAudioVolume] = useState(0);
-  const [voiceMode, setVoiceMode] = usePref('voice-mode', true);
-  const [speakingId, setSpeakingId] = useState(null);
   const [listening, setListening] = useState(false);
   const recognizerRef = useRef(null);
   const initialVoiceTextRef = useRef('');
@@ -291,8 +285,6 @@ export function Copilot({ query } = {}) {
     if (recordTimerRef.current) clearInterval(recordTimerRef.current);
   }, []);
 
-  // Voz de Fructosa: acento del país y voz natural de Gemini cuando está disponible.
-  const voiceOpts = { region: region.code, getConfig: () => resolveAi(() => api.auth.accessToken()) };
   const base = region.base;
   const sym = base === 'EUR' ? '20 €' : '$20';
   const suggestions = [
@@ -329,7 +321,6 @@ export function Copilot({ query } = {}) {
     }
 
     stopSpeech();
-    setSpeakingId(null);
 
     // Primera respuesta de la conversación: la app pone el saludo con el nombre de la persona.
     const first = !msgs.some((m) => m.role === 'assistant' && m.text && !m.error);
@@ -359,14 +350,6 @@ export function Copilot({ query } = {}) {
         },
       });
 
-      // Si la interacción fue por voz o el modo voz está activo, Fructosa lee su respuesta en voz alta
-      if ((isVoice || voiceMode) && fullReply) {
-        setSpeakingId(bot.id);
-        speakReply(fullReply, {
-          ...voiceOpts,
-          onEnd: () => setSpeakingId((cur) => (cur === bot.id ? null : cur)),
-        });
-      }
     } catch (e) {
       if (e?.name !== 'AbortError') setMsgs((cur) => cur.map((m) => (m.id === bot.id ? { ...m, error: errorText(e) } : m)));
     } finally { setBusy(false); ctl.current = null; box.current?.focus(); }
@@ -390,7 +373,6 @@ export function Copilot({ query } = {}) {
     }
 
     stopSpeech();
-    setSpeakingId(null);
 
     try {
       const recog = new Speech();
@@ -449,7 +431,6 @@ export function Copilot({ query } = {}) {
   const startVoice = async () => {
     if (recording) return;
     stopSpeech();
-    setSpeakingId(null);
     try {
       const session = new VoiceSession({
         onTranscript: (t) => setLiveTranscript(t),
@@ -498,20 +479,6 @@ export function Copilot({ query } = {}) {
     setLiveTranscript('');
   };
 
-  const onToggleSpeak = (msg) => {
-    if (speakingId === msg.id) {
-      stopSpeech();
-      setSpeakingId(null);
-    } else {
-      stopSpeech();
-      setSpeakingId(msg.id);
-      speakReply(msg.text, {
-        ...voiceOpts,
-        onEnd: () => setSpeakingId((cur) => (cur === msg.id ? null : cur)),
-      });
-    }
-  };
-
   async function onBlock(msgId, idx, what, row, prev) {
     const mark = (s) => setMsgs((cur) => cur.map((m) => (m.id === msgId ? { ...m, blocks: { ...m.blocks, [idx]: s } } : m)));
     if (what === 'dismiss') return mark('dismissed');
@@ -532,7 +499,7 @@ export function Copilot({ query } = {}) {
       confirm: 'Borrar y empezar', tone: 'danger',
     });
     if (!ok) return;
-    ctl.current?.abort(); stopSpeech(); setSpeakingId(null); clearTimeout(saveTimer.current);
+    ctl.current?.abort(); stopSpeech(); clearTimeout(saveTimer.current);
     setMsgs([]); setBusy(false);
     clearLocalChat(profile.id);
     api.chat.clear().catch((e) => console.warn('[chat] no se pudo borrar la conversación guardada', e));
@@ -553,7 +520,6 @@ export function Copilot({ query } = {}) {
     <header class="chat-head">
       <button class="icon-btn" onClick=${back} aria-label="Volver"><${Icon} name="left" /></button>
       <div class="grow"><b>Fructosa</b><small class="muted">Tu asistente personal de finanzas</small></div>
-      <button class=${'icon-btn' + (voiceMode ? ' on' : '')} onClick=${() => { setVoiceMode(!voiceMode); if (speakingId) { stopSpeech(); setSpeakingId(null); } }} title=${voiceMode ? 'Voz de Fructosa activada' : 'Voz de Fructosa silenciada'} aria-label="Modo de voz"><${Icon} name=${voiceMode ? 'volume' : 'volumeX'} size=${18} /></button>
       ${msgs.length > 0 && html`<button class="icon-btn" onClick=${reset} aria-label="Nueva conversación"><${Icon} name="refresh" size=${18} /></button>`}
       <button class="icon-btn" onClick=${() => setSetup(true)} aria-label="Configurar IA"><${Icon} name="sliders" size=${18} /></button>
     </header>
@@ -575,7 +541,7 @@ export function Copilot({ query } = {}) {
         <p class="chat-note">🔒 Para responderte se analiza un resumen de tus cuentas, tasas y últimos movimientos. Tu conversación se guarda en tu cuenta y solo tú la ves.</p>
         <div class="chat-sugg">${suggestions.map((s) => html`<button key=${s} class="chip" onClick=${() => send(s)}>${s}</button>`)}</div>
       </div>`}
-      ${msgs.map((m) => html`<${Bubble} key=${m.id} m=${m} d=${d} onBlock=${onBlock} speaking=${speakingId === m.id} onToggleSpeak=${onToggleSpeak} />`)}
+      ${msgs.map((m) => html`<${Bubble} key=${m.id} m=${m} d=${d} onBlock=${onBlock} />`)}
     </div>
 
     ${image && html`<div class="chat-attach">

@@ -15,7 +15,7 @@
 //   supabase functions deploy ai-proxy
 // AI_UPSTREAM: groq | gemini | xai.  Opcional: AI_ALLOWED_ORIGINS="https://lfzv98.github.io,https://la-fructosa.vercel.app"
 // Luego pon en js/config.js:  export const AI_PROXY_URL = 'https://<proyecto>.supabase.co/functions/v1/ai-proxy';
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.4';
 
 const UPSTREAMS: Record<string, { url: string; model: string }> = {
   groq: { url: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.3-70b-versatile' },

@@ -7,7 +7,7 @@
 //
 // Desplegar (una vez):  supabase functions deploy login --no-verify-jwt
 // (--no-verify-jwt porque quien entra todavía no tiene sesión.)
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'npm:@supabase/supabase-js@2.49.4';
 
 // Orígenes permitidos (CORS), separados por coma. Acepta * como comodín, p. ej.
 // https://la-fructosa-*.vercel.app para las vistas previas de Vercel.
