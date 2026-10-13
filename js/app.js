@@ -140,9 +140,9 @@ function Shell({ uid, recovery, clearRecovery }) {
   const route = useRoute();
   const [tx, setTx] = useState(null);
   const [onboarded] = usePref('onboarded', false);
-  const [tourDone, setTourDone] = useTour();
+  const tour = useTour(uid);
   const [outro, setOutro] = useState(false); // mensaje "Empieza hoy" al cerrar el tour
-  const [dataSeen, setDataSeen] = usePref('data-preview-seen', false); // "Así queda registrada tu información" (una vez)
+  // Al cerrar el tour: "Empieza hoy" y después "Así queda registrada tu información".
   const [dataPop, setDataPop] = useState(false);
   const [terms, acceptTerms] = useTerms(uid);
 
@@ -183,9 +183,10 @@ function Shell({ uid, recovery, clearRecovery }) {
     ${tx && html`<${TxForm} key=${tx.tx?.id || 'new'} tx=${tx.tx} preset=${tx.preset} onClose=${() => setTx(null)} />`}
     ${showOnboard && html`<${Onboarding} />`}
     ${showTerms && html`<${TermsGate} onAccept=${acceptTerms} />`}
-    ${termsOk && (onboarded || hasUserData) && !tourDone && !showOnboard && !recovery && !tx && route.name === 'inicio' && html`<${Tour} region=${d.region} onClose=${() => { setTourDone(true); setOutro(true); }} />`}
-    ${outro && html`<${TourOutro} onClose=${() => { setOutro(false); if (!dataSeen) setDataPop(true); }} />`}
-    ${dataPop && html`<${DataPreview} d=${d} onClose=${() => { setDataPop(false); setDataSeen(true); }} />`}
+    ${termsOk && (onboarded || hasUserData) && tour.show && !showOnboard && !recovery && !tx && route.name === 'inicio' && html`<${Tour} region=${d.region}
+      left=${tour.left} onNever=${tour.replay ? null : tour.never} onClose=${() => { tour.done(); setOutro(true); }} />`}
+    ${outro && html`<${TourOutro} onClose=${() => { setOutro(false); setDataPop(true); }} />`}
+    ${dataPop && html`<${DataPreview} d=${d} onClose=${() => setDataPop(false)} />`}
     ${recovery && html`<${PasswordSheet} title="Crea tu nueva contraseña" onClose=${clearRecovery} />`}
   </div>`;
 }

@@ -10,7 +10,7 @@ const Steps = ({ items }) => html`<ol class="manual-steps">${items.map((t, i) =>
 
 export function LearnPage() {
   const { profile, region } = useData();
-  const [, setTourDone] = usePref('tour-done', false);
+  const [, setReplay] = usePref('tour-replay', false);
   const mine = REGIONS[profile?.region] ? profile.region : 'VE';
   // Manual del país de la persona: solo sus monedas, bancos y ejemplos.
   const { CORE, MORE: more, FINANCE_GUIDE } = manualFor(region);
@@ -19,7 +19,7 @@ export function LearnPage() {
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 
-  const replayTour = () => { setTourDone(false); go('#/'); window.scrollTo(0, 0); };
+  const replayTour = () => { setReplay(true); go('#/'); window.scrollTo(0, 0); };
 
   return html`<div class="page">
     <${PageHeader} title="Manual de uso" sub=${`Todo lo que puedes hacer en La Fructosa · ${MANUAL_VERSION}`} back="#/mas" />

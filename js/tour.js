@@ -1,5 +1,5 @@
 // Tour guiado de bienvenida: resalta partes reales de la pantalla de inicio y explica
-// cada una en pocas palabras. Se muestra una sola vez (y se puede repetir desde "Aprende").
+// cada una en pocas palabras. Sale en los 3 primeros ingresos de cada persona (y se puede repetir desde "Aprende").
 import { useEffect, useState } from 'react';
 import { html, Icon } from './ui.js';
 import { usePref } from './store.js';
@@ -65,7 +65,7 @@ function rectOf(selector) {
   return { top: r.top, left: r.left, width: r.width, height: r.height };
 }
 
-export function Tour({ region, onClose }) {
+export function Tour({ region, onClose, onNever, left = 0 }) {
   const steps = stepsFor(region);
   const [i, setI] = useState(0);
   const [rect, setRect] = useState(null);
@@ -121,6 +121,8 @@ export function Tour({ region, onClose }) {
           <button type="button" class="btn primary sm" onClick=${() => (last ? onClose() : setI(i + 1))}>${last ? '¡Listo!' : 'Siguiente'}</button>
         </div>
       </div>
+      ${onNever && i === 0 && html`<button type="button" class="tour-never" onClick=${onNever}>
+        No volver a mostrar${left > 1 ? ` · se mostrará ${left - 1} ${left - 1 === 1 ? 'vez' : 'veces'} más` : ''}</button>`}
     </div>
   </div>`;
 }
@@ -141,8 +143,17 @@ export function TourOutro({ onClose }) {
   </div>`;
 }
 
-// Decide cuándo mostrar el tour: después del onboarding, una sola vez, en el inicio.
-export function useTour() {
-  const [done, setDone] = usePref('tour-done', false);
-  return [done, setDone];
+// Decide cuándo mostrar el tour: en los primeros TOUR_TIMES ingresos de cada persona (uno por
+// vez que abre la app), o cuando la pide desde "Aprende". Cuenta por usuario, no por teléfono.
+export const TOUR_TIMES = 3;
+const sessionKey = (uid) => 'fructosa-tour-session-' + uid;
+export function useTour(uid) {
+  const [views, setViews] = usePref('tour-views-' + uid, 0);
+  const [replay, setReplay] = usePref('tour-replay', false);
+  const [seenNow, setSeenNow] = useState(() => { try { return sessionStorage.getItem(sessionKey(uid)) === '1'; } catch { return false; } });
+  const markSession = () => { try { sessionStorage.setItem(sessionKey(uid), '1'); } catch { /* nada */ } setSeenNow(true); };
+  const show = replay || (views < TOUR_TIMES && !seenNow);
+  const done = () => { if (!replay) setViews((v) => Math.min(TOUR_TIMES, v + 1)); setReplay(false); markSession(); };
+  const never = () => { setViews(TOUR_TIMES); setReplay(false); markSession(); };
+  return { show, done, never, replay, left: Math.max(0, TOUR_TIMES - views) };
 }
