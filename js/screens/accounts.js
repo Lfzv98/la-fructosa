@@ -4,11 +4,16 @@ import { html, Icon, Money, Sheet, Field, Segmented, Empty, SectionTitle, toast,
 import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { AccountRow, TxRow, PageHeader, openTx, go } from './common.js';
+import { AccountIcon, Logo, accountLogo, brandId } from '../logos.js';
 import {
   ACCOUNT_COLORS, ACCOUNT_TEMPLATES, ADJUST_CATEGORY, bankGroupsFor, CURRENCIES, KINDS, VE_BANKS, convert, fmt, parseAmount, todayISO, monthKey,
 } from '../money.js';
 
 const ICONS = ['💵', '🏦', '📱', '📲', '🪙', '💳', '🐷', '💼', '🏠', '✈️', '🎓', '💰'];
+// Si el nombre es un banco, app o cripto conocido, su logo reemplaza al ícono.
+const brandOf = (f) => brandId(f.name) || (/pago ?m[oó]vil/i.test(f.name) ? 'pagomovil' : null);
+// Dibujo de cada ícono del selector (sin nombre de marca), por ejemplo 💵 → billete de la moneda elegida.
+const iconArt = (i, f) => accountLogo({ name: '', kind: 'bank', currency: f.currency, icon: i });
 
 export function Accounts({ query }) {
   const { accounts, active, target, rates, val, total, region } = useData();
@@ -112,7 +117,7 @@ export function AccountForm({ account, onClose }) {
       ${!editing && html`<div>
         <p class="field-label">Plantillas rápidas según tu país</p>
         <div class="chips">${templates.map((t) => html`<button key=${t.name + t.currency} type="button" class=${'chip' + (f.name === t.name && f.currency === t.currency ? ' on' : '')}
-          onClick=${() => setF((x) => ({ ...x, name: t.name, currency: t.currency, kind: t.kind, icon: t.icon || KINDS[t.kind].emoji }))}>${t.icon || KINDS[t.kind].emoji} ${t.name} · ${t.currency}</button>`)}</div>
+          onClick=${() => setF((x) => ({ ...x, name: t.name, currency: t.currency, kind: t.kind, icon: t.icon || KINDS[t.kind].emoji }))}><${AccountIcon} a=${t} emoji=${t.icon || KINDS[t.kind].emoji} class="chip-ico" /> ${t.name} · ${t.currency}</button>`)}</div>
       </div>`}
       <${Field} label="Nombre" error=${err.name}>
         <input class="input" maxlength="60" placeholder=${namePlaceholder} value=${f.name} onInput=${(e) => set('name', e.target.value)}
@@ -132,7 +137,9 @@ export function AccountForm({ account, onClose }) {
           <input class="input num" inputmode="decimal" placeholder="0,00" value=${f.initial_balance} onInput=${(e) => set('initial_balance', e.target.value.replace(/[^\d.,-]/g, ''))} /></div>
       <//>
       <${Field} label="Ícono y color">
-        <div class="icon-pick">${ICONS.map((i) => html`<button key=${i} type="button" class=${(f.icon || KINDS[f.kind].emoji) === i ? 'on' : ''} onClick=${() => set('icon', i)}>${i}</button>`)}</div>
+        ${brandOf(f) && html`<div class="logo-preview"><${AccountIcon} a=${f} class="acc-ico" /><span>Se mostrará el logo de <b>${f.name.trim()}</b>.</span></div>`}
+        ${!brandOf(f) && html`<div class="icon-pick">${ICONS.map((i) => html`<button key=${i} type="button" aria-label=${'Ícono ' + i} class=${(f.icon || KINDS[f.kind].emoji) === i ? 'on' : ''} onClick=${() => set('icon', i)}>
+          <${Logo} id=${iconArt(i, f)} fallback=${i} /></button>`)}</div>`}
         <div class="color-pick">${ACCOUNT_COLORS.map((c) => html`<button key=${c} type="button" aria-label=${'Color ' + c} class=${f.color === c ? 'on' : ''} style=${{ background: c }} onClick=${() => set('color', c)}></button>`)}</div>
       <//>
       ${err.form && html`<p class="form-error">${err.form}</p>`}
@@ -165,7 +172,7 @@ export function AccountDetail({ id }) {
     <${PageHeader} title=${a.name} sub=${`${KINDS[a.kind]?.label} · ${a.currency}${a.archived ? ' · archivada' : ''}`} back="#/cuentas"
       actions=${html`<button class="icon-btn" onClick=${() => setEdit(true)} aria-label="Editar cuenta"><${Icon} name="edit" /></button>`} />
     <section class="hero acc-hero" style=${{ '--acc': a.color || 'var(--blue)' }}>
-      <span class="hero-label">${a.icon || KINDS[a.kind]?.emoji} Saldo actual</span>
+      <span class="hero-label"><${AccountIcon} a=${a} emoji=${a.icon || KINDS[a.kind]?.emoji} class="hero-logo" /> Saldo actual</span>
       <p class="hero-amount"><${Money} v=${a.balance} c=${a.currency} /></p>
       ${conv != null && html`<p class="hero-val">≈ <${Money} v=${conv} c=${target} /></p>`}
       <div class="hero-month">

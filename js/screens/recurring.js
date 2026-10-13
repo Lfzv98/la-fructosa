@@ -4,6 +4,7 @@ import { html, Icon, Money, Sheet, Field, Segmented, Empty, SectionTitle, Switch
 import { useData } from '../store.js';
 import { Learn } from '../learn.js';
 import { PageHeader, openTx, recurringStatus, dueLabel } from './common.js';
+import { BrandIcon } from '../logos.js';
 import { categoriesFor, CURRENCIES, KINDS, categoryMeta, convert, parseAmount } from '../money.js';
 
 // Prepara el formulario de pago según la moneda del fijo y la de la cuenta.
@@ -36,7 +37,7 @@ export function Recurring() {
     const meta = categoryMeta(r.category);
     return html`<div class="due-row">
       <button class="due-main" onClick=${() => setForm(r)}>
-        <span class="tx-ico" style=${{ '--cat': meta.color }}>${meta.emoji}</span>
+        <${BrandIcon} text=${r.name} emoji=${meta.emoji} color=${meta.color} />
         <span class="tx-main"><b>${r.name}</b><small class=${s.overdue ? 'bad-text' : ''}>${r.is_active === false ? `Pausado · día ${r.due_day}` : dueLabel(s)} · ${accById[r.account_id]?.name || 'sin cuenta'}</small></span>
         <${Money} v=${r.amount} c=${r.currency} />
       </button>

@@ -1,6 +1,7 @@
 // Piezas compartidas entre pantallas.
 import { html, Icon, Money } from '../ui.js';
 import { categoryMeta, fmt, KINDS, todayISO, monthKey, daysInMonth } from '../money.js';
+import { AccountIcon, BrandIcon } from '../logos.js';
 
 // Abrir el formulario de movimiento desde cualquier parte.
 export const openTx = (detail = {}) => window.dispatchEvent(new CustomEvent('fructosa-open-tx', { detail }));
@@ -16,7 +17,9 @@ export function TxRow({ t, accById, showDate = false }) {
     : [t.description ? meta.name : null, acc?.name].filter(Boolean).join(' · ');
   const sign = t.type === 'income' ? 1 : t.type === 'expense' ? -1 : 0;
   return html`<button class="tx-row" onClick=${() => openTx({ tx: t })}>
-    <span class="tx-ico" style=${{ '--cat': meta.color }}>${meta.emoji}</span>
+    ${t.type === 'transfer'
+      ? html`<span class="tx-ico" style=${{ '--cat': meta.color }}>${meta.emoji}</span>`
+      : html`<${BrandIcon} text=${t.description} emoji=${meta.emoji} color=${meta.color} />`}
     <span class="tx-main">
       <b>${title}</b>
       <small>${sub}${t.original_currency === 'VES' ? html` · <span class="num">${fmt(t.original_amount, 'VES', { decimals: 0 })}</span>` : ''}${showDate ? ' · ' + t.date.slice(8) + '/' + t.date.slice(5, 7) : ''}${t.pending ? html`<span class="tx-pending" title="Guardado en el teléfono; se subirá cuando vuelva la conexión"> ⏳ por subir</span>` : ''}</small>
@@ -32,7 +35,7 @@ export function TxRow({ t, accById, showDate = false }) {
 
 export function AccountRow({ a, target, converted, onClick }) {
   return html`<button class="acc-row" onClick=${onClick} style=${{ '--acc': a.color || 'var(--blue)' }}>
-    <span class="acc-ico">${a.icon || KINDS[a.kind]?.emoji || '💼'}</span>
+    <${AccountIcon} a=${a} emoji=${a.icon || KINDS[a.kind]?.emoji || '💼'} />
     <span class="acc-main"><b>${a.name}</b><small>${KINDS[a.kind]?.label || ''} · ${a.currency}${a.archived ? ' · archivada' : ''}</small></span>
     <span class="acc-bal">
       <${Money} v=${a.balance} c=${a.currency} class=${a.balance < 0 ? 'neg' : ''} />

@@ -1,10 +1,11 @@
 // Respaldo completo en Excel: todas tus cuentas, movimientos, presupuestos, pagos fijos y tasas.
 // Se genera en el teléfono con los datos ya cargados; no pasa por ningún servidor adicional.
 import { useEffect, useState } from 'react';
-import { html, Icon, toast } from './ui.js';
+import { html, Icon, Sheet, toast } from './ui.js';
 import { buildXlsx, HEADER_STYLE } from './xlsx.js';
 import { saveFile } from './export.js';
-import { todayISO, monthKey, monthLabel, convert, REGIONS, RATE_LABELS, ADJUST_CATEGORY, INVESTMENT_KINDS, investmentGain } from './money.js';
+import { buildPdfReport } from './pdf.js';
+import { fmt, categoriesFor, todayISO, monthKey, monthLabel, convert, REGIONS, RATE_LABELS, ADJUST_CATEGORY, INVESTMENT_KINDS, investmentGain } from './money.js';
 import { api } from './api.js';
 
 const TYPE = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
@@ -232,8 +233,27 @@ export async function downloadBackup(d) {
   const ok = await saveFile(file);
   if (!ok) return false;
   markBackup(d.profile.id);
-  toast('Respaldo listo. Guárdalo en una carpeta segura.');
+  toast('Respaldo listo. Guárdalo en tu carpeta "Mis Finanzas" de Archivos.');
   return true;
+}
+
+// Registro financiero en PDF (fácil de leer e imprimir). También cuenta como respaldo semanal.
+export async function downloadPdf(d) {
+  const file = new File([buildPdfReport(d)], `la-fructosa-registro-${todayISO()}.pdf`, { type: 'application/pdf' });
+  const ok = await saveFile(file);
+  if (!ok) return false;
+  markBackup(d.profile.id);
+  toast('PDF listo. Guárdalo en tu carpeta "Mis Finanzas" de Archivos.');
+  return true;
+}
+const runPdf = (d) => downloadPdf(d).catch((e) => toast('No se pudo crear el PDF: ' + (e?.message || e), { tone: 'bad' }));
+
+// Botón del PDF para Ajustes.
+export function PdfButton({ d }) {
+  const [busy, setBusy] = useState(false);
+  return html`<button class="menu-row" disabled=${busy} onClick=${async () => { setBusy(true); await runPdf(d); setBusy(false); }}>
+    <${Icon} name="download" /><span>Descargar mi registro financiero (PDF)<small>Resumen, cuentas y todos tus movimientos, listo para guardar o imprimir</small></span><${Icon} name="right" class="muted" />
+  </button>`;
 }
 
 export function useLastBackup(uid) {
@@ -261,6 +281,51 @@ export function BackupButton({ d }) {
   </button>`;
 }
 
+// Ventana que enseña cómo queda guardada tu información en el Excel (sale una vez, después del tour).
+// Usa tus últimos movimientos; si aún no tienes, muestra un ejemplo.
+export function DataPreview({ d, onClose }) {
+  const [busy, setBusy] = useState(false);
+  const cur = d.target || d.region?.base || 'USD';
+  const cats = categoriesFor(d.region, 'expense');
+  const real = [...d.txs].sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 6);
+  const sample = !real.length;
+  const rows = sample
+    ? [['income', 'Sueldo', 850], ['expense', cats[1]?.name || 'Mercado', 64.5], ['expense', cats[0]?.name || 'Comida', 12], ['transfer', 'Transferencia interna', 100], ['expense', cats[3]?.name || 'Transporte', 8.4]]
+        .map(([type, category, amount], i) => ({ id: i, type, category, amount, date: todayISO(), cur }))
+    : real.map((t) => ({ ...t, cur: d.accById[t.account_id]?.currency || cur, amount: Number(t.amount) }));
+  const tone = (t) => (t.category === ADJUST_CATEGORY ? 'adjust' : t.type);
+  const tabs = ['Resumen', 'Cuentas', 'Movimientos', 'Presupuestos', 'Pagos fijos', 'Guía de colores'];
+  return html`<${Sheet} title="Así queda registrada tu información" onClose=${onClose}
+    footer=${(close) => html`<div class="foot-row">
+      <button type="button" class="btn ghost" onClick=${close}>Luego</button>
+      <button type="button" class="btn primary grow" disabled=${busy} onClick=${async () => {
+        setBusy(true);
+        try { if (await downloadBackup(d)) close(); } catch (e) { toast('No se pudo crear el Excel: ' + (e?.message || e), { tone: 'bad' }); }
+        setBusy(false);
+      }}><${Icon} name="download" size=${18} /> ${busy ? 'Preparando…' : 'Descargar mi Excel'}</button></div>`}>
+    <div class="stack">
+      <p class="hint">Cada movimiento que anotas queda ordenado en un Excel con una hoja para cada cosa y colores que se entienden de un vistazo. Lo abres en Excel, Numbers o Google Sheets.</p>
+      <div class="xl-preview" aria-hidden="true">
+        <div class="xl-bar"><span class="xl-dot"></span><b>la-fructosa-respaldo-${todayISO()}.xlsx</b></div>
+        <div class="xl-grid">
+          <div class="xl-row xl-head"><span>Fecha</span><span>Tipo</span><span>Categoría</span><span class="r">Monto</span></div>
+          ${rows.map((t, i) => { const k = tone(t); const c = XL[k] || {}; const sign = t.type === 'income' ? '+' : t.type === 'expense' ? '−' : '';
+            return html`<div key=${t.id} class="xl-row" style=${{ background: '#' + (c.fill || (i % 2 ? XL.zebra : 'FFFFFF')) }}>
+              <span>${String(t.date).slice(8, 10)}/${String(t.date).slice(5, 7)}</span><span style=${{ color: '#' + c.ink, fontWeight: 700 }}>${t.type === 'transfer' ? 'Transf.' : TYPE[t.type]}</span>
+              <span>${t.category || ''}</span><span class="r" style=${{ color: '#' + c.ink, fontWeight: 700 }}>${sign}${fmt(t.amount, t.cur).replace('−', '')}</span></div>`; })}
+        </div>
+        <div class="xl-tabs">${tabs.map((n) => html`<span key=${n} class=${n === 'Movimientos' ? 'on' : ''}>${n}</span>`)}</div>
+      </div>
+      ${sample && html`<p class="hint center">Ejemplo: cuando anotes tus movimientos, aquí verás los tuyos.</p>`}
+      <div class="xl-legend">
+        <span><i style=${{ background: '#' + XL.income.ink }}></i>Ingresos</span><span><i style=${{ background: '#' + XL.expense.ink }}></i>Gastos</span>
+        <span><i style=${{ background: '#' + XL.transfer.ink }}></i>Entre tus cuentas</span><span><i style=${{ background: '#' + XL.total.fill }}></i>Totales</span>
+      </div>
+      <p class="hint">Guárdalo en tu carpeta <b>Mis Finanzas</b> de Archivos. También lo descargas cuando quieras en Ajustes › Respaldo.</p>
+    </div>
+  <//>`;
+}
+
 // Recordatorio semanal en Inicio. "Luego" lo pospone un día en este dispositivo.
 export function BackupReminder({ d }) {
   const last = useLastBackup(d.profile.id);
@@ -271,10 +336,13 @@ export function BackupReminder({ d }) {
   return html`<section class="card pad backup-nudge">
     <div class="backup-top"><span class="backup-ico"><${Icon} name="download" size=${20} /></span>
       <div class="grow"><b>${last ? 'Es hora de tu respaldo semanal' : 'Haz tu primer respaldo'}</b>
-        <small class="muted">Descarga un Excel con todos tus datos y guárdalo en una carpeta segura.</small></div></div>
+        <small class="muted">Cada 7 días, con disciplina y responsabilidad, guarda una copia de tu registro financiero. Descarga el PDF y guárdalo en un lugar seguro.</small>
+        <small class="muted backup-tip">💡 Consejo: crea en Archivos (Files) una carpeta llamada <b>Mis Finanzas</b> y guarda ahí cada respaldo. Así los tendrás ordenados por fecha.</small>
+        <details class="backup-why"><summary>¿Por qué lo guardo yo?</summary><p>La Fructosa está hecha para que no pagues nada: sin suscripciones, sin anuncios y sin vender tus datos. Tu información ya se guarda protegida en la nube, y tu copia semanal es el seguro que tú controlas. Un minuto a la semana y tu historial financiero queda a salvo, pase lo que pase.</p></details></div></div>
     <div class="row-btns backup-btns">
       <button class="btn ghost sm" onClick=${later}>Luego</button>
-      <button class="btn primary sm" onClick=${() => downloadBackup(d).catch((e) => toast(String(e?.message || e), { tone: 'bad' }))}>Descargar</button>
+      <button class="btn soft sm" onClick=${() => downloadBackup(d).catch((e) => toast(String(e?.message || e), { tone: 'bad' }))}>Excel</button>
+      <button class="btn primary sm" onClick=${() => runPdf(d)}>Descargar PDF</button>
     </div>
   </section>`;
 }
@@ -294,8 +362,8 @@ export function BackupBanner({ d }) {
   const later = () => { try { localStorage.setItem(snoozeKey, todayISO()); } catch { /* nada */ } setSnoozed(true); window.dispatchEvent(new Event('fructosa-backup')); };
   return html`<div class="backup-banner" role="status">
     <${Icon} name="download" size=${18} />
-    <span class="grow">${last ? `${ago} días sin respaldo` : 'Aún no tienes respaldo'}</span>
-    <button class="btn primary sm" onClick=${() => downloadBackup(d).catch((e) => toast(String(e?.message || e), { tone: 'bad' }))}>Descargar</button>
+    <span class="grow">${last ? `${ago} días sin tu respaldo semanal` : 'Aún no tienes respaldo'}</span>
+    <button class="btn primary sm" onClick=${() => runPdf(d)}>PDF</button>
     <button class="icon-btn" aria-label="Recordar mañana" onClick=${later}><${Icon} name="x" size=${16} /></button>
   </div>`;
 }

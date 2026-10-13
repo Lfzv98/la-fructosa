@@ -8,7 +8,7 @@ import { exportCSV } from '../export.js';
 import { api, isDemo } from '../api.js';
 import { REGIONS, RATE_LABELS } from '../money.js';
 import { AiSettings } from './copilot.js';
-import { BackupButton, downloadBackup, exportMovementsXlsx } from '../backup.js';
+import { BackupButton, PdfButton, downloadBackup, exportMovementsXlsx } from '../backup.js';
 import { LockSettings, clearLock } from '../lock.js';
 import { applyTheme } from '../theme.js';
 import { pushSupport, publicKey, currentSubscription, enablePush, disablePush, updatePushPrefs, DEFAULT_PREFS } from '../push.js';
@@ -127,8 +127,9 @@ export function Settings() {
 
     <${SectionTitle}>Respaldo<//>
     <section class="card list">
+      <${PdfButton} d=${d} />
       <${BackupButton} d=${d} />
-      <div class="menu-row static"><${Icon} name="info" /><span><b>Guárdalo en una carpeta segura.</b><small>El Excel trae todas tus cuentas, movimientos, presupuestos y pagos fijos. Cada 7 días la app te recuerda descargar uno nuevo.</small></span></div>
+      <div class="menu-row static"><${Icon} name="info" /><span><b>Guárdalo en tu carpeta "Mis Finanzas".</b><small>La Fructosa está hecha para que no pagues nada: sin suscripciones, sin anuncios y sin vender tus datos. Tu información ya se guarda protegida en la nube, y tu copia semanal es el seguro que tú controlas. Un minuto a la semana y tu historial financiero queda a salvo, pase lo que pase. Crea en Archivos (Files) una carpeta con ese nombre y guarda ahí cada respaldo: cada archivo lleva la fecha, así quedan ordenados. El PDF es tu registro para leer o imprimir; el Excel trae todos tus datos en tablas. Cada 7 días la app te recuerda guardar uno nuevo, con disciplina y responsabilidad.</small></span></div>
     </section>
 
     <${SectionTitle}>App<//>

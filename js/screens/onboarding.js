@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { html, Icon, Art, toast, errorText } from '../ui.js';
 import { useData, usePref } from '../store.js';
+import { AccountIcon, Logo, brandId } from '../logos.js';
 import { ACCOUNT_TEMPLATES, BANK_PICK_TEMPLATES, bankGroupsFor, BANK_SUGGESTIONS, CURRENCIES, KINDS, ACCOUNT_COLORS, parseAmount } from '../money.js';
 
 // Las diapositivas cambian según el país: lo de bolívares, tasas y brecha solo aparece donde aplica.
@@ -55,7 +56,7 @@ function BankPicker({ groups, value, onChange }) {
     ${groups.map((g) => html`<details key=${g.title} class="bank-group" open=${g.banks.includes(chosen)}>
       <summary><span>${g.title}</span><${Icon} name="down" size=${18} /></summary>
       <div class="bank-chips">${g.banks.map((b) => html`<button key=${b} type="button" class=${'bank-chip' + (b === chosen ? ' on' : '')}
-        aria-pressed=${b === chosen} onClick=${() => onChange(b === chosen ? '' : b)}>${b}</button>`)}</div>
+        aria-pressed=${b === chosen} onClick=${() => onChange(b === chosen ? '' : b)}><${Logo} id=${brandId(b)} />${b}</button>`)}</div>
     </details>`)}
     <input class="input" maxlength="60" autocomplete="off" aria-label="Otro banco" placeholder="¿No aparece tu banco? Escríbelo aquí"
       value=${value} onInput=${(e) => onChange(e.target.value)} />
@@ -110,7 +111,7 @@ function QuickSetup({ region, onDone, save }) {
       return html`<div key=${k} class=${'setup-row' + (on ? ' on' : '')}>
         <button type="button" class="setup-pick" onClick=${() => toggle(String(k))} aria-pressed=${on}>
           <span class="check">${on && html`<${Icon} name="check" size=${14} stroke=${3} />`}</span>
-          <span>${t.icon || KINDS[t.kind].emoji} <b>${t.bank && picked[k]?.bank.trim() ? picked[k].bank.trim() : t.name}</b> <small>${t.currency}</small></span>
+          <span><${AccountIcon} a=${t.bank && picked[k]?.bank.trim() ? { ...t, name: picked[k].bank.trim() } : t} emoji=${t.icon || KINDS[t.kind].emoji} class="chip-ico" /> <b>${t.bank && picked[k]?.bank.trim() ? picked[k].bank.trim() : t.name}</b> <small>${t.currency}</small></span>
         </button>
         ${on && t.bank && html`<${BankPicker} groups=${bankGroupsFor(reg, t.currency)} value=${picked[k].bank} onChange=${(v) => patch(k, { bank: v })} />`}
         ${on && html`<div class="input-affix"><span>${CURRENCIES[t.currency].symbol}</span>

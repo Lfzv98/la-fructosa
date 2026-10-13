@@ -1,6 +1,6 @@
 // La Fructosa · Service Worker
 // Sube CACHE_VERSION en cada despliegue: la app avisará "Hay una versión nueva".
-const CACHE_VERSION = 'fructosa-v36';
+const CACHE_VERSION = 'fructosa-v37';
 
 const APP_SHELL = [
   './',
@@ -22,6 +22,7 @@ const APP_SHELL = [
   './js/export.js',
   './js/xlsx.js',
   './js/backup.js',
+  './js/pdf.js',
   './js/offline.js',
   './js/lock.js',
   './js/terms.js',
@@ -39,6 +40,9 @@ const APP_SHELL = [
   './js/screens/movements.js',
   './js/screens/txform.js',
   './js/screens/accounts.js',
+  './js/brands.js',
+  './js/brands.data.js',
+  './js/logos.js',
   './js/screens/budgets.js',
   './js/screens/recurring.js',
   './js/screens/rates.js',
@@ -54,12 +58,38 @@ const APP_SHELL = [
   './icons/apple-touch-icon.png',
 ];
 
+// Logos de bancos, apps y comercios (icons/brands/). Se guardan al instalar para que se vean sin conexión;
+// si alguno falla, la instalación sigue (se bajará la primera vez que aparezca).
+const LOGOS = [
+  '100banco', 'abanca', 'activo', 'agricola', 'airbnb', 'airtm', 'aliexpress', 'ally', 'amazon', 'amerant', 'amex',
+  'anthropic', 'applecard', 'applemusic', 'applepay', 'banavih', 'bancamarch', 'bancamiga', 'bancaribe',
+  'bancochile', 'bancoestado', 'bancoex', 'bancogeneral', 'bancolombia', 'bancrecer', 'banesco', 'banfanb',
+  'bangente', 'bank', 'bankinter', 'bankofamerica', 'banorte', 'banplus', 'bbva', 'bcp', 'bdv', 'bfc',
+  'bicentenario', 'bid', 'binance', 'bitcoin', 'bitget', 'bizum', 'bmo', 'bnc', 'bnext', 'bogota', 'burgerking',
+  'bvc', 'bybit', 'caixabank', 'cajamar', 'cajarural', 'caminos', 'cantv', 'capitalone', 'card', 'cardano',
+  'caroni', 'cash-eur', 'cash-usd', 'cash-ves', 'cashapp', 'chase', 'chatgpt', 'chime', 'citi', 'citizens',
+  'claude', 'coinbase', 'corpoelec', 'crunchyroll', 'crypto', 'davivienda', 'delsur', 'deutschebank', 'digital',
+  'digitel', 'discover', 'disney', 'doordash', 'dropbox', 'duolingo', 'ebay', 'eldorado', 'ethereum', 'etsy', 'evo',
+  'expedia', 'exterior', 'fifththird', 'folionet', 'galicia', 'github', 'googlepay', 'hbo', 'hsbc', 'ibercaja',
+  'icloud', 'imagin', 'ing', 'interbank', 'itau', 'kfc', 'kontigo', 'kraken', 'kucoin', 'kutxabank', 'litecoin',
+  'lyft', 'mastercard', 'mcdonalds', 'mcp', 'mediolanum', 'mercadolibre', 'mercadopago', 'mercantil', 'meru',
+  'metamask', 'millennium', 'movistar', 'myinvestor', 'n26', 'n58', 'navyfederal', 'nequi', 'netflix', 'notion',
+  'okx', 'openbank', 'orange', 'pagomovil', 'paramount', 'payoneer', 'paypal', 'pibank', 'pichincha', 'playstation',
+  'plaza', 'pnc', 'popular', 'r4', 'regions', 'remitly', 'reserve', 'revolut', 'robinhood', 'sabadell', 'santander',
+  'savings', 'schwab', 'scotiabank', 'selfbank', 'shell', 'skrill', 'sofi', 'sofitasa', 'solana', 'spotify',
+  'starbucks', 'starlink', 'steam', 'td', 'tesoro', 'tether', 'tradingview', 'triodos', 'truist', 'trustwallet',
+  'twitch', 'uber', 'ubereats', 'unicaja', 'usbank', 'venmo', 'verizon', 'visa', 'vodafone', 'wallet', 'wally',
+  'wellsfargo', 'westernunion', 'whatsapp', 'wise', 'yape', 'youtube', 'zelle', 'zinli',
+].map((id) => `./icons/brands/${id}.svg`);
+
 // Librerías con versión fija: se guardan al primer uso y no cambian.
 const CDN_HOSTS = ['esm.sh'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    await (await caches.open(CACHE_VERSION)).addAll(APP_SHELL);
+    const cache = await caches.open(CACHE_VERSION);
+    await cache.addAll(APP_SHELL);
+    await Promise.allSettled(LOGOS.map((u) => cache.add(u)));
     // Viniendo de la versión 1.x (cachés fructosa-v1…v39) activamos de inmediato;
     // después, la app pregunta antes de actualizar.
     const keys = await caches.keys();

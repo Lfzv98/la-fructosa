@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { html, Icon, Money, Sheet, Field, Segmented, Empty, SectionTitle, toast, confirmDialog, errorText } from '../ui.js';
 import { useData } from '../store.js';
 import { PageHeader } from './common.js';
+import { BrandIcon } from '../logos.js';
 import { CURRENCIES, INVESTMENT_KINDS, investmentGain, consolidateInvestments, fmt, fmtPct, parseAmount, todayISO } from '../money.js';
 
 const dmy = (iso) => (iso ? `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}` : '');
@@ -50,7 +51,7 @@ export function Investments() {
           <div class="card list">${list.map((inv) => {
             const g = investmentGain(inv);
             return html`<button key=${inv.id} class="tx-row inv-row" onClick=${() => setForm(inv)}>
-              <span class="tx-ico">${INVESTMENT_KINDS[inv.kind]?.emoji || '💼'}</span>
+              <${BrandIcon} text=${[inv.name, inv.note].filter(Boolean).join(' ')} banks emoji=${INVESTMENT_KINDS[inv.kind]?.emoji || '💼'} />
               <span class="tx-main"><b>${inv.name}</b>
                 <small>Desde ${dmy(inv.invested_on)} · invertido ${fmt(g.invested, inv.currency)}${inv.note ? ' · ' + inv.note : ''}</small></span>
               <span class="inv-amt">

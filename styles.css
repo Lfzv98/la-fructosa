@@ -1033,3 +1033,58 @@ b.big { font-size: 20px; }
   .faq-topics { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
 }
 a.tour-cta { color: var(--text); text-decoration: none; }
+
+/* ---------- Logos de bancos, apps y comercios (js/brands.js · icons/brands/) ---------- */
+.logo-img { display: block; width: 100%; height: 100%; border-radius: inherit; object-fit: cover; user-select: none; -webkit-user-drag: none; }
+.tx-ico.has-logo, .acc-ico.has-logo { background: none; overflow: hidden; box-shadow: 0 1px 2px rgb(0 0 0 / .25); }
+.chip-ico { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 6px; overflow: hidden; vertical-align: -5px; flex-shrink: 0; font-size: 15px; }
+.setup-pick .chip-ico { width: 26px; height: 26px; border-radius: 8px; vertical-align: -8px; margin-right: 2px; font-size: 18px; }
+.hero-logo { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 7px; overflow: hidden; font-size: 15px; }
+.acc-pick-top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.acc-pick-ico { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 8px; overflow: hidden; font-size: 16px; flex-shrink: 0;
+  background: color-mix(in srgb, var(--acc) 25%, transparent); }
+.acc-pick-ico.has-logo { background: none; }
+.icon-pick button { display: grid; place-items: center; }
+.icon-pick button .logo-img { width: 30px; height: 30px; border-radius: 9px; }
+.logo-preview { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 14px; background: var(--bg-2); font-size: 13.5px; }
+.sheet-body .logo-preview { background: var(--surface); }
+.bank-chip { display: inline-flex; align-items: center; gap: 6px; }
+.bank-chip .logo-img { width: 18px; height: 18px; border-radius: 5px; flex-shrink: 0; }
+
+/* ---------- Mensaje al terminar el tour ---------- */
+.tour-outro { position: fixed; z-index: 85; left: 50%; bottom: calc(var(--tab-h) + var(--safe-b) + 18px); transform: translateX(-50%);
+  width: min(420px, calc(100% - 32px)); display: flex; align-items: flex-start; gap: 12px; padding: 14px 12px 14px 16px; border-radius: 20px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--green, #CAFFBF) 22%, var(--surface)), var(--surface));
+  border: 1px solid var(--line-2); box-shadow: 0 14px 40px rgb(0 0 0 / .35); animation: outro-in .45s cubic-bezier(.2, .9, .3, 1.2); cursor: pointer; }
+.tour-outro.leaving { animation: outro-out .26s ease forwards; }
+.tour-outro-emoji { font-size: 28px; line-height: 1; margin-top: 2px; }
+.tour-outro b { display: block; font-size: 15.5px; }
+.tour-outro p { margin: 3px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.4; }
+.tour-outro > div { flex: 1; }
+@media (min-width: 900px) { .tour-outro { bottom: 28px; } }
+@keyframes outro-in { from { opacity: 0; transform: translate(-50%, 24px) scale(.96); } }
+@keyframes outro-out { to { opacity: 0; transform: translate(-50%, 16px); } }
+.backup-tip { display: block; margin-top: 6px; }
+.backup-why { margin-top: 8px; font-size: 13px; }
+.backup-why summary { cursor: pointer; color: var(--blue); font-weight: 650; list-style: none; }
+.backup-why summary::-webkit-details-marker { display: none; }
+.backup-why summary::after { content: ' ›'; }
+.backup-why[open] summary::after { content: ' ⌄'; }
+.backup-why p { margin: 6px 0 0; color: var(--muted); line-height: 1.45; }
+
+/* ---------- Vista previa del Excel ("Así queda registrada tu información") ---------- */
+.xl-preview { border-radius: 14px; overflow: hidden; background: #FFFFFF; color: #1F2937; box-shadow: 0 8px 24px rgb(0 0 0 / .3); font-size: 12px; }
+.xl-bar { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: #1E7145; color: #FFFFFF; font-size: 11.5px; }
+.xl-bar b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xl-dot { width: 14px; height: 14px; border-radius: 3px; background: #FFFFFF; box-shadow: inset 0 0 0 3px #1E7145; flex-shrink: 0; }
+.xl-row { display: grid; grid-template-columns: 58px .9fr 1.1fr 1.3fr; border-bottom: 1px solid #E5E7EB; }
+.xl-row span { padding: 6px 8px; border-right: 1px solid #E5E7EB; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xl-row span:last-child { border-right: 0; }
+.xl-row .r { text-align: right; font-variant-numeric: tabular-nums; }
+.xl-head { background: #1F2A44; color: #FFFFFF; font-weight: 700; }
+.xl-head span { border-color: #2E3B5C; }
+.xl-tabs { display: flex; gap: 2px; padding: 4px 6px 0; background: #F3F4F6; overflow-x: auto; scrollbar-width: none; }
+.xl-tabs span { padding: 5px 9px; font-size: 10.5px; color: #6B7280; border-radius: 6px 6px 0 0; white-space: nowrap; }
+.xl-tabs span.on { background: #FFFFFF; color: #1E7145; font-weight: 700; box-shadow: inset 0 -2px #1E7145; }
+.xl-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; color: var(--muted); }
+.xl-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }

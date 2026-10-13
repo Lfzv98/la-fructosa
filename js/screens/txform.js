@@ -6,6 +6,7 @@ import { useData, usePref } from '../store.js';
 import { Learn } from '../learn.js';
 import { ReceiptField } from '../receipts.js';
 import { isDemo } from '../api.js';
+import { AccountIcon } from '../logos.js';
 import {
   CATEGORIES, categoriesFor, CURRENCIES, RATE_LABELS, convert, fmt, fmtRate, fmtPct, marketRateFor, parseAmount,
   spreadCalc, todayISO, monthKey,
@@ -167,8 +168,8 @@ export function TxForm({ tx, preset = {}, onClose }) {
     <div class="acc-picker" role="listbox">
       ${active.filter((a) => a.id !== exclude).map((a) => html`<button key=${a.id} type="button" role="option" aria-selected=${value === a.id}
         class=${'acc-pick' + (value === a.id ? ' on' : '')} onClick=${() => { onPick(a.id); setErrors({}); }} style=${{ '--acc': a.color || 'var(--blue)' }}>
+        <span class="acc-pick-top"><${AccountIcon} a=${a} class="acc-pick-ico" /><span class="acc-pick-cur">${a.currency}</span></span>
         <span class="acc-pick-name">${a.name}</span>
-        <span class="acc-pick-cur">${a.currency}</span>
         <${Money} v=${a.balance} c=${a.currency} class="acc-pick-bal" />
       </button>`)}
     </div>

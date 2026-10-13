@@ -125,6 +125,22 @@ export function Tour({ region, onClose }) {
   </div>`;
 }
 
+// Mensaje flotante al terminar el tour: un empujón para empezar. Se va solo o al tocarlo.
+export function TourOutro({ onClose }) {
+  const [leaving, setLeaving] = useState(false);
+  const close = () => setLeaving(true);
+  useEffect(() => { const t = setTimeout(close, 9000); return () => clearTimeout(t); }, []);
+  useEffect(() => { if (!leaving) return; const t = setTimeout(onClose, 260); return () => clearTimeout(t); }, [leaving]);
+  return html`<div class=${'tour-outro' + (leaving ? ' leaving' : '')} role="status" aria-live="polite" onClick=${close}>
+    <span class="tour-outro-emoji" aria-hidden="true">🌱</span>
+    <div>
+      <b>Empieza hoy, aunque sea de a poco.</b>
+      <p>Con el tiempo verás cómo cada paso pequeño se convierte en orden, ahorro y tranquilidad.</p>
+    </div>
+    <button type="button" class="icon-btn sm" onClick=${(e) => { e.stopPropagation(); close(); }} aria-label="Cerrar mensaje"><${Icon} name="x" size=${16} /></button>
+  </div>`;
+}
+
 // Decide cuándo mostrar el tour: después del onboarding, una sola vez, en el inicio.
 export function useTour() {
   const [done, setDone] = usePref('tour-done', false);
