@@ -38,8 +38,8 @@ export function Bars({ data, height = 150, onPick, picked }) {
   </div>`;
 }
 
-export function Sparkline({ points, width = 300, height = 64, color = 'var(--blue)' }) {
-  if (points.length < 2) return html`<div class="spark-empty">Sin historial suficiente</div>`;
+export function Sparkline({ points, width = 300, height = 64, color = 'var(--blue)', empty = 'Sin historial suficiente' }) {
+  if (points.length < 2) return empty ? html`<div class="spark-empty">${empty}</div>` : null;
   const min = Math.min(...points), max = Math.max(...points);
   const span = max - min || 1;
   const xy = points.map((p, i) => [(i / (points.length - 1)) * width, height - 4 - ((p - min) / span) * (height - 8)]);
@@ -56,9 +56,9 @@ export function Sparkline({ points, width = 300, height = 64, color = 'var(--blu
 
 // Línea con ejes: historial de una tasa. Toca o arrastra para leer el valor de cada día.
 // points: [{ date: 'AAAA-MM-DD', value }], ordenados por fecha.
-export function LineChart({ points, height = 180, color = 'var(--blue)', format = (v) => String(v) }) {
+export function LineChart({ points, height = 180, color = 'var(--blue)', format = (v) => String(v), empty = 'Sin historial suficiente' }) {
   const [pick, setPick] = useState(null);
-  if (points.length < 2) return html`<div class="spark-empty">Sin historial suficiente</div>`;
+  if (points.length < 2) return html`<div class="spark-empty lc-empty">${empty}</div>`;
   const W = 320, H = height, L = 4, R = 4, T = 10, B = 22;
   const vals = points.map((p) => p.value);
   const min = Math.min(...vals), max = Math.max(...vals);

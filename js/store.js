@@ -130,7 +130,22 @@ export function DataProvider({ uid, children }) {
   }, [flush, reload, offline]);
   useEffect(() => { if (data && pending) flush(); }, [Boolean(data)]);
 
+  // Filas que la función update-rates acaba de guardar: entran al historial sin recargar todo.
+  const addRateRows = useCallback((res) => {
+    const rows = Array.isArray(res?.rates) ? res.rates : [];
+    if (!rows.length) return;
+    setData((d) => {
+      if (!d) return d;
+      const key = (r) => r.rate_type + '|' + r.rate_date;
+      const fresh = new Map(rows.map((r) => [key(r), r]));
+      return { ...d, rateHistory: [...(d.rateHistory || []).filter((r) => !fresh.has(key(r))), ...fresh.values()]
+        .sort((a, b) => a.rate_date.localeCompare(b.rate_date)) };
+    });
+  }, []);
+
   const refreshRates = useCallback(async () => {
+    // "Actualizar" también le pide al servidor que guarde las de hoy (así crece el historial).
+    if (!isDemo && navigator.onLine) api.healRates(true).then(addRateRows).catch(() => {});
     try {
       const liveRes = await fetchLiveRates(true);
       if (liveRes) {
@@ -148,7 +163,7 @@ export function DataProvider({ uid, children }) {
     } catch (e) {
       console.warn('Error al actualizar tasas en segundo plano:', e);
     }
-  }, []);
+  }, [addRateRows]);
 
   // Tasas en vivo si la base de datos no tiene las de hoy (solo en modo real, en Venezuela
   // o fuera de ella si la persona tiene cuentas en bolívares).
@@ -158,7 +173,7 @@ export function DataProvider({ uid, children }) {
     const stale = ['BCV_USD', 'PARALELO', 'USDT'].some((k) => !data.rateMeta[k] || data.rateMeta[k].rate_date < today || !data.rates[k]);
     if (stale) {
       fetchLiveRates().then(setLive).catch(() => {});
-      if (navigator.onLine) api.healRates(); // para que el servidor guarde las de hoy en el historial
+      if (navigator.onLine) api.healRates().then(addRateRows).catch(() => {}); // para que el servidor guarde las de hoy en el historial
     }
   }, [data]);
 

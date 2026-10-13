@@ -984,3 +984,19 @@ b.big { font-size: 20px; }
   .main { max-width: 1360px; }
 }
 :root[data-theme="light"] .sidebar { background: #FFFFFF; }
+
+/* Tasas (v34): calculadora tocable, historial vacío legible y laptop en dos columnas. */
+.rates-split { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.calc-row { width: 100%; text-align: left; color: inherit; font: inherit; background: none; border: 0; border-radius: 8px; cursor: pointer; }
+.calc-row:hover b { color: var(--blue); }
+.calc-row > span { display: flex; flex-direction: column; min-width: 0; }
+.calc-row small { font-size: 11.5px; color: var(--faint); }
+.calc-row b { white-space: nowrap; }
+.spark-empty.lc-empty { height: auto; min-height: 96px; padding: 12px; justify-content: center; text-align: center; font-size: 13px; line-height: 1.45;
+  color: var(--muted); background: var(--bg-2); border: 1px dashed var(--line); border-radius: var(--r-sm); }
+.rate-history .seg button { padding: 0 2px; }
+@media (max-width: 380px) { .rate-history .seg button { font-size: 12px; } }
+@media (min-width: 1180px) {
+  .rate-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rates-split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
+}

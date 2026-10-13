@@ -349,10 +349,14 @@ const real = {
   },
 
   // Si al abrir la app no hay tasas de hoy en la base de datos, se le pide al servidor que las busque
-  // (función update-rates). Como mucho una vez cada 2 horas por teléfono; si falla, no pasa nada.
-  async healRates() {
+  // (función update-rates). Como mucho una vez cada 2 horas por teléfono, salvo que la persona toque
+  // "Actualizar" (force). Si falla, no pasa nada: la app sigue con las tasas en vivo.
+  async healRates(force = false) {
     const k = 'fructosa-rates-heal';
-    try { if (Date.now() - (Number(localStorage.getItem(k)) || 0) < 2 * 3600e3) return null; localStorage.setItem(k, String(Date.now())); } catch { return null; }
+    try {
+      if (!force && Date.now() - (Number(localStorage.getItem(k)) || 0) < 2 * 3600e3) return null;
+      localStorage.setItem(k, String(Date.now()));
+    } catch { if (!force) return null; }
     try {
       const c = await sb();
       const { data, error } = await c.functions.invoke('update-rates', { body: {} });

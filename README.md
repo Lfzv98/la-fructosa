@@ -150,9 +150,10 @@ service worker, así que funciona igual en un dominio raíz (`la-fructosa.vercel
 
 ## Tasas automáticas
 
-1. `supabase functions deploy update-rates` (CLI de Supabase).
-2. Edita y ejecuta `supabase/migrations/003_tasas_automaticas.sql`; la 009 lo pasa a 4 veces al día
-   (8 a. m., 11 a. m., 2 p. m. y 6 p. m. de Caracas).
+1. `npx supabase functions deploy update-rates --no-verify-jwt` (CLI de Supabase).
+2. Ejecuta `supabase/migrations/014_tasas_diarias.sql` en el SQL Editor (no hay nada que reemplazar): programa el
+   reloj 4 veces al día (8 a. m., 11 a. m., 2 p. m. y 6 p. m. de Caracas) y copia el historial público de
+   DolarApi (BCV, paralelo y euro) para que el gráfico tenga meses de datos desde el primer día.
 
 Si al abrir la app no hay tasas de hoy, se muestran en vivo (DolarApi) y además se le pide a
 `update-rates` que las guarde, como mucho una vez cada 2 horas por teléfono; así el historial se completa

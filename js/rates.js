@@ -82,3 +82,43 @@ export async function fetchLiveRates(force = false) {
   try { localStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data })); } catch { /* nada */ }
   return data;
 }
+
+// Historial público (DolarApi) para el gráfico mientras la base de datos acumula sus propios días.
+// Solo se usa para mostrar; la base de datos manda cuando tiene el dato de ese día.
+// Devuelve filas como las de exchange_rates: { rate_type, rate, rate_date, source }.
+const HIST_KEY = 'fructosa-rate-history';
+const HIST_SOURCES = [
+  ['BCV_USD', ['https://ve.dolarapi.com/v1/historicos/dolares/oficial'], 'oficial'],
+  ['PARALELO', ['https://ve.dolarapi.com/v1/historicos/dolares/paralelo'], 'paralelo'],
+  ['BCV_EUR', ['https://ve.dolarapi.com/v1/historicos/euros/oficial'], 'oficial'],
+];
+
+export function parseHistory(list, type, fuente) {
+  if (!Array.isArray(list)) return [];
+  const byDay = new Map();
+  for (const x of list) {
+    if (!x || (x.fuente && fuente && String(x.fuente).toLowerCase() !== fuente)) continue;
+    const v = Number(x.promedio ?? x.venta ?? x.compra);
+    const day = String(x.fecha || x.fechaActualizacion || '').slice(0, 10);
+    if (!(v > 0) || !/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    byDay.set(day, { rate_type: type, rate: Number(v.toFixed(4)), rate_date: day, source: 'DolarApi (historial)' });
+  }
+  return [...byDay.values()];
+}
+
+export async function fetchRateHistory() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(HIST_KEY) || 'null');
+    if (cached && Date.now() - cached.at < 12 * 3600e3 && Array.isArray(cached.rows)) return cached.rows;
+  } catch { /* sin almacenamiento */ }
+  const get = (u) => fetch(u, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : Promise.reject(r.status)));
+  const parts = await Promise.all(HIST_SOURCES.map(async ([type, urls, fuente]) => {
+    for (const u of urls) {
+      try { const rows = parseHistory(await get(u), type, fuente); if (rows.length) return rows; } catch { /* siguiente */ }
+    }
+    return [];
+  }));
+  const rows = parts.flat();
+  if (rows.length) try { localStorage.setItem(HIST_KEY, JSON.stringify({ at: Date.now(), rows })); } catch { /* nada */ }
+  return rows;
+}
