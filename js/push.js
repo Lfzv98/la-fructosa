@@ -1,4 +1,4 @@
-// Avisos al teléfono (push): pagos fijos por vencer, préstamos y tasas del día.
+// Avisos al teléfono (push): pagos fijos, préstamos, presupuestos, respaldo, constancia y tasas (Venezuela).
 // La clave pública VAPID la da la Edge Function "send-reminders"; si no está desplegada,
 // la opción simplemente no aparece. En iPhone hace falta tener la app instalada en la pantalla de inicio (iOS 16.4 o superior).
 import { api, isDemo } from './api.js';
@@ -7,7 +7,7 @@ let config = {};
 try { config = await import('./config.js'); } catch { /* sin config */ }
 const FN = () => String(config.SUPABASE_URL || '').replace(/\/$/, '') + '/functions/v1/send-reminders';
 
-export const DEFAULT_PREFS = { bills: true, loans: true, rates: false, backup: true };
+export const DEFAULT_PREFS = { bills: true, loans: true, rates: false, backup: true, budget: true, moves: true, activity: true };
 
 export function pushSupport() {
   if (isDemo || !config.SUPABASE_URL) return 'off';

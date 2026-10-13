@@ -16,6 +16,13 @@
    registro financiero." Botones **Descargar PDF**, **Excel** y **Luego**.
    - Consejo: crear en Archivos (Files) una carpeta **Mis Finanzas** y guardar ahí cada respaldo.
    - "¿Por qué lo guardo yo?": la app no te cuesta nada y tu copia semanal es el seguro que tú controlas.
+6. **Avisos automáticos al teléfono** (se eligen en Ajustes › Avisos; los nuevos vienen encendidos):
+   - Pagos fijos por vencer (el día antes y el mismo día) y préstamos que vencen (ya existían).
+   - **Presupuestos**: cuando una categoría llega al 80% y cuando se pasa del tope del mes (un aviso por vez).
+   - **Respaldo semanal**: a los 7 días sin descargar el PDF o el Excel, recordando la carpeta "Mis Finanzas".
+   - **Constancia**: un empujón amable a los 3 y a los 7 días sin anotar nada.
+   - **Dólar en movimiento** (solo Venezuela): si el BCV o el USDT cambian 3% o más de un día a otro.
+   - Llegan una vez al día, a las 8:30 a. m. (hora de Caracas). Costo: $0 (Supabase gratis).
 
 ## Pasos
 
@@ -29,12 +36,22 @@
 cd ~/Desktop/"La Fructosa"
 node --test tests/*.test.mjs
 git add -A
-git commit -m "v37: logos, Empieza hoy, vista del Excel y respaldo en PDF"
+git commit -m "v37: logos, Empieza hoy, Excel, PDF y avisos automáticos"
 git push origin main
 ```
 
-   Debe decir 0 fallas. No hay funciones nuevas que desplegar.
-4. **Actualizar**: espera 1 o 2 minutos, abre la app y toca **Actualizar**.
+   Debe decir 0 fallas.
+4. **Desplegar los avisos nuevos** (en la misma terminal):
+
+```
+npx supabase functions deploy send-reminders --no-verify-jwt
+```
+
+   Si nunca activaste los avisos, antes haz esto una sola vez: `npx web-push generate-vapid-keys`, luego
+   `npx supabase secrets set VAPID_PUBLIC_KEY=... VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:luiszeav@gmail.com CRON_SECRET=una-clave-larga`,
+   despliega, y en el SQL Editor corre `supabase/migrations/008_avisos.sql` cambiando TU-PROYECTO y TU-CRON-SECRET.
+5. **Actualizar**: espera 1 o 2 minutos, abre la app y toca **Actualizar**. En Ajustes › Avisos toca
+   **Activar** en cada teléfono (en iPhone, con la app instalada en la pantalla de inicio).
 
 ## Comprobar
 
@@ -43,6 +60,7 @@ git push origin main
   (la ventana sale una sola vez por teléfono).
 - Ajustes › Respaldo › Descargar mi registro financiero (PDF).
 - Más › Inversiones: tus ETFs con la insignia de Folionet.
+- Ajustes › Avisos: aparecen Presupuestos, Respaldo semanal, Constancia y (Venezuela) Dólar en movimiento.
 
 ## Para agregar un logo
 

@@ -184,7 +184,10 @@ function PushSettings({ region }) {
       : html`
         <${Switch} checked=${prefs.bills} onChange=${(v) => setPref('bills', v)} label="Pagos fijos por vencer" sub="El día antes y el mismo día, si aún no los pagaste" />
         <${Switch} checked=${prefs.loans} onChange=${(v) => setPref('loans', v)} label="Préstamos que vencen" sub="El día que vence lo que te deben o lo que debes" />
-        <${Switch} checked=${prefs.backup !== false} onChange=${(v) => setPref('backup', v)} label="Recordatorio de respaldo" sub="Si pasan 7 días sin descargar tu Excel, te aviso" />
+        <${Switch} checked=${prefs.budget !== false} onChange=${(v) => setPref('budget', v)} label="Presupuestos" sub="Cuando una categoría llega al 80% o se pasa del tope del mes" />
+        <${Switch} checked=${prefs.backup !== false} onChange=${(v) => setPref('backup', v)} label="Respaldo semanal" sub="Si pasan 7 días sin descargar tu PDF o tu Excel, te aviso" />
+        <${Switch} checked=${prefs.activity !== false} onChange=${(v) => setPref('activity', v)} label="Constancia" sub="Un empujón amable si llevas 3 o 7 días sin anotar nada" />
+        ${region.rates && html`<${Switch} checked=${prefs.moves !== false} onChange=${(v) => setPref('moves', v)} label="Dólar en movimiento" sub="Si el BCV o el USDT suben o bajan 3% o más de un día a otro" />`}
         ${region.rates && html`<${Switch} checked=${prefs.rates} onChange=${(v) => setPref('rates', v)} label="Tasas del día" sub="BCV, Paralelo, USDT y la brecha cada mañana" />`}
         <button class="menu-row danger-text" disabled=${busy} onClick=${turnOff}><${Icon} name="bell" /><span>Desactivar avisos en este teléfono</span></button>`}
     </section>`;
