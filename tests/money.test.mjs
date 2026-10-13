@@ -2,7 +2,7 @@
 // (GitHub las corre solas en cada push: .github/workflows/pruebas.yml)
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { convert, consolidate, spreadCalc, parseAmount, vesPerUnit, addMonths, daysInMonth } from '../js/money.js';
+import { convert, consolidate, spreadCalc, parseAmount, vesPerUnit, addMonths, daysInMonth, investmentGain, consolidateInvestments } from '../js/money.js';
 import { buildXlsx } from '../js/xlsx.js';
 
 const R = { BCV_USD: 200, PARALELO: 280, USDT: 275, BCV_EUR: 230 };
@@ -87,4 +87,22 @@ test('el Excel lleva estilos: colores, formatos, filtros y columnas ocultas', as
   assert.ok(text.includes('<autoFilter ref="A1:C2"/>'));
   assert.ok(text.includes('hidden="1"'));
   assert.ok(text.includes('<pageMargins'));
+});
+
+test('inversiones: ganancia y pérdida en monto y %', () => {
+  const up = investmentGain({ invested_amount: 1000, current_value: 1250 });
+  close(up.gain, 250); close(up.pct, 25);
+  const down = investmentGain({ invested_amount: '400', current_value: '300' });
+  close(down.gain, -100); close(down.pct, -25);
+});
+
+test('inversiones: total convertido a la moneda elegida', () => {
+  const list = [
+    { invested_amount: 100, current_value: 120, currency: 'USD' },
+    { invested_amount: 20000, current_value: 30000, currency: 'VES' },
+  ];
+  const t = consolidateInvestments(list, 'USD', R, 'BCV_USD');
+  close(t.invested, 200); close(t.value, 270); close(t.gain, 70); close(t.pct, 35);
+  assert.equal(t.missing, false);
+  assert.equal(consolidateInvestments(list, 'USD', {}, 'BCV_USD').missing, true);
 });

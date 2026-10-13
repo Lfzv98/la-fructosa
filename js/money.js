@@ -318,6 +318,33 @@ export function consolidate(accounts, target, rates, valuation) {
   return { total, missing };
 }
 
+// Inversiones: ganancia o pérdida de una (en su moneda) y total convertido a la moneda elegida.
+export const INVESTMENT_KINDS = {
+  acciones:   { label: 'Acciones',    emoji: '📈' },
+  fondos:     { label: 'Fondos',      emoji: '🧺' },
+  cripto:     { label: 'Cripto',      emoji: '🪙' },
+  plazo_fijo: { label: 'Plazo fijo',  emoji: '🏦' },
+  otro:       { label: 'Otro',        emoji: '💼' },
+};
+export function investmentGain(inv) {
+  const invested = Number(inv.invested_amount) || 0;
+  const value = Number(inv.current_value) || 0;
+  const gain = value - invested;
+  return { invested, value, gain, pct: invested > 0 ? (gain / invested) * 100 : null };
+}
+export function consolidateInvestments(list, target, rates, valuation) {
+  let invested = 0, value = 0, missing = false;
+  for (const inv of list) {
+    const g = investmentGain(inv);
+    const a = convert(g.invested, inv.currency, target, rates, valuation);
+    const b = convert(g.value, inv.currency, target, rates, valuation);
+    if (a == null || b == null) { missing = true; continue; }
+    invested += a; value += b;
+  }
+  const gain = value - invested;
+  return { invested, value, gain, pct: invested > 0 ? (gain / invested) * 100 : null, missing };
+}
+
 // Tasa a la que realmente consigues bolívares desde una cuenta en divisas.
 export function marketRateFor(accountCurrency, rates) {
   if (accountCurrency === 'USDT') return rates.USDT ?? rates.PARALELO;

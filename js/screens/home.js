@@ -13,7 +13,7 @@ let INSIGHT_CLOSED_THIS_SESSION = false;
 
 export function Home() {
   const d = useData();
-  const { profile, region, rates, rateMeta, active, accById, txs, total, target, val, monthStats, budgets, recurring, actions } = d;
+  const { profile, region, rates, rateMeta, active, accById, txs, total, target, val, monthStats, budgets, recurring, actions, investmentsOn, wealth } = d;
   const [hide, setHide] = usePref('hide', false);
   const ym = monthKey(todayISO());
   const stats = useMemo(() => monthStats(ym), [txs, ym]);
@@ -32,7 +32,7 @@ export function Home() {
     hasAccounts: active.length > 0, hasTx: txs.length > 0, regionHasRates: region.rates, examples: region.examples });
 
   const altVal = val === 'PARALELO' ? 'BCV_USD' : 'PARALELO';
-  const alt = region.rates && rates[altVal] ? consolidate(active, target, rates, altVal).total : null;
+  const alt = region.rates && rates[altVal] ? wealth(target, altVal).total : null;
   const gap = rates.BCV_USD && rates.PARALELO ? ((rates.PARALELO - rates.BCV_USD) / rates.BCV_USD) * 100 : null;
   const hour = Number(new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: 'America/Caracas' }));
   const greet = hour < 12 ? 'Buenos días' : hour < 19 ? 'Buenas tardes' : 'Buenas noches';
@@ -98,7 +98,11 @@ export function Home() {
           Valorado a ${RATE_LABELS[val]} ${alt != null && html`· a ${RATE_LABELS[altVal].replace('Dólar ', '')}: <${Money} v=${alt} c=${target} />`}
           <${Icon} name="swap" size=${14} />
         </button>`}
-        ${total.missing && html`<p class="hero-warn">Faltan tasas para convertir algunas cuentas.</p>`}
+        ${investmentsOn && html`<a class="hero-split" href="#/inversiones">
+          <span>Cuentas <b class="num"><${Money} v=${total.accounts} c=${target} /></b></span>
+          <span>Inversiones <b class="num"><${Money} v=${total.investments} c=${target} /></b></span>
+        </a>`}
+        ${total.missing && html`<p class="hero-warn">Faltan tasas para convertir algunas cuentas${investmentsOn ? ' o inversiones' : ''}.</p>`}
         <div class="hero-month">
           <div><small>Ingresos ${monthLabel(ym, { month: 'short' })}</small><b class="inc"><${Money} v=${stats.income} c=${target} /></b></div>
           <div><small>Gastos</small><b class="exp"><${Money} v=${stats.expense} c=${target} /></b></div>

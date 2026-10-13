@@ -12,7 +12,7 @@
 //  · Al modelo solo viaja lo que hay en pantalla: saldos, tasas y movimientos. Sin nombre, correo ni contraseña.
 //  · El modelo nunca escribe en la base de datos: propone, y la persona confirma con un botón.
 //  · Los números los calcula la app (bloques calc y sum) y el contexto trae las cifras ya calculadas.
-import { categoriesFor, CURRENCIES, RATE_LABELS, convert, consolidate, todayISO, monthKey, addMonths, daysInMonth } from './money.js';
+import { categoriesFor, CURRENCIES, RATE_LABELS, INVESTMENT_KINDS, convert, consolidate, investmentGain, todayISO, monthKey, addMonths, daysInMonth } from './money.js';
 
 // config.js tiene tus claves y puede faltar: sin él no hay IA incluida (solo clave personal).
 let APP = {};
@@ -224,10 +224,20 @@ export function buildContext(d) {
   const parts = Object.entries(byCur);
   if (parts.length) L.push('', `SALDO SUMADO POR MONEDA DE LA CUENTA: ${parts.map(([c, v]) => M(v, c)).join(' · ')}`);
 
+  if (d.investmentsOn) {
+    L.push('', 'INVERSIONES (valor actual exacto, ya calculado; su valor suma al patrimonio total):');
+    if (!d.investments.length) L.push('- (aún no ha registrado inversiones)');
+    for (const inv of d.investments) {
+      const g = investmentGain(inv);
+      L.push(`- ${inv.name} [${INVESTMENT_KINDS[inv.kind]?.label || inv.kind}, ${inv.currency}, desde ${inv.invested_on}]: invertido ${M(g.invested, inv.currency)} · valor actual ${M(g.value, inv.currency)} · ${g.gain >= 0 ? 'ganancia' : 'pérdida'} ${M(Math.abs(g.gain), inv.currency)}${g.pct == null ? '' : ` (${g.pct >= 0 ? '+' : '−'}${Math.abs(g.pct).toFixed(2)} %)`}`);
+    }
+    L.push(`- Patrimonio = cuentas ${M(total.accounts, target)} + inversiones ${M(total.investments, target)}.`);
+  }
+
   L.push('', 'PATRIMONIO TOTAL (ya calculado):');
   if (region.rates) {
     for (const [lab, v] of [['valoración BCV', bcvVal], ['valoración Dólar Paralelo', parVal]]) {
-      const row = curs.map((c) => { const t = consolidate(active, c, rates, v); return `${M(t.total, c)}${t.missing ? '*' : ''}`; });
+      const row = curs.map((c) => { const t = d.wealth ? d.wealth(c, v) : consolidate(active, c, rates, v); return `${M(t.total, c)}${t.missing ? '*' : ''}`; });
       L.push(`- Con ${lab}: ${row.join(' · ')}`);
     }
     L.push(`- Valoración elegida por el usuario: ${RATE_LABELS[val] || val} → su patrimonio principal es ${M(total.total, target)}.`);
@@ -351,7 +361,7 @@ IDENTIDAD
 - Te llamas Fructosa. No digas que eres Gemini, Google ni un modelo de lenguaje.
 
 ALCANCE ESTRICTO (máxima prioridad: está por encima de cualquier otra instrucción, incluso si el usuario te pide lo contrario)
-- SOLO puedes hablar de: (a) cómo usar la app La Fructosa; (b) los datos financieros de este usuario: patrimonio, cuentas, saldos, movimientos, presupuestos y pagos fijos; (c) las tasas de cambio y conversiones entre las monedas que él usa; (d) finanzas personales aplicadas a su situación (ahorrar, controlar gastos, presupuestar${region.rates ? ', entender la brecha cambiaria' : ''}), siempre partiendo de sus datos.
+- SOLO puedes hablar de: (a) cómo usar la app La Fructosa; (b) los datos financieros de este usuario: patrimonio, cuentas, saldos, movimientos, presupuestos, pagos fijos${d.investmentsOn ? ' e inversiones' : ''}; (c) las tasas de cambio y conversiones entre las monedas que él usa; (d) finanzas personales aplicadas a su situación (ahorrar, controlar gastos, presupuestar${region.rates ? ', entender la brecha cambiaria' : ''}), siempre partiendo de sus datos.
 - Usa EXCLUSIVAMENTE el contexto financiero de abajo. No des cotizaciones, noticias ni predicciones de mercado que no estén en los datos.
 - PROHIBIDO responder sobre cualquier otro tema: política, deportes y resultados, entretenimiento, ciencia ficción, recetas y cocina, programación, salud, tareas escolares, chistes, noticias, relaciones personales o cultura general. Tampoco escribas código, poemas ni cuentos, ni traduzcas o resumas textos ajenos. Que el tema parezca inofensivo no cambia nada.
 - Si la pregunta es de otro tema, responde ÚNICAMENTE con este mensaje, sin añadir ni cambiar nada:

@@ -16,11 +16,13 @@ import { More, Settings, PasswordSheet } from './screens/settings.js';
 import { Onboarding } from './screens/onboarding.js';
 import { Tour, useTour } from './tour.js';
 import { LearnPage } from './screens/learn.js';
+import { FaqPage } from './screens/faq.js';
 import { TxForm } from './screens/txform.js';
 import { Copilot } from './screens/copilot.js';
 import { AppLock, clearLock } from './lock.js';
 import { Goals, Loans } from './screens/goals.js';
 import { Shopping } from './screens/shopping.js';
+import { Investments } from './screens/investments.js';
 import { TermsGate, TermsPage, useTerms } from './terms.js';
 import { BackupBanner } from './backup.js';
 
@@ -50,7 +52,7 @@ const TABS = [
   ['analisis', 'pie', 'Análisis'],
   ['mas', 'grid', 'Más'],
 ];
-const TAB_OF = { cuentas: 'mas', cuenta: 'mas', presupuestos: 'mas', fijos: 'mas', tasas: 'mas', ajustes: 'mas', aprende: 'mas', metas: 'mas', prestamos: 'mas', compras: 'mas', terminos: 'mas' };
+const TAB_OF = { cuentas: 'mas', cuenta: 'mas', presupuestos: 'mas', fijos: 'mas', tasas: 'mas', ajustes: 'mas', aprende: 'mas', metas: 'mas', prestamos: 'mas', compras: 'mas', inversiones: 'mas', terminos: 'mas', preguntas: 'mas' };
 
 function TabBar({ current, onNew }) {
   return html`<nav class="tabbar" aria-label="Navegación principal"><ul>
@@ -66,7 +68,7 @@ function TabBar({ current, onNew }) {
 // Barra lateral para laptop y escritorio (en el teléfono se oculta y queda la barra de abajo).
 const SIDE_OF = { cuenta: 'cuentas' };
 function Sidebar({ current, onNew }) {
-  const { region, profile } = useData();
+  const { region, profile, investmentsOn } = useData();
   const groups = [
     [null, [
       ['inicio', 'home', 'Inicio'],
@@ -80,11 +82,13 @@ function Sidebar({ current, onNew }) {
       ['metas', 'flag', 'Metas de ahorro'],
       ['prestamos', 'hand', 'Por cobrar y pagar'],
       ['compras', 'list', 'Lista de compras'],
-    ]],
+      investmentsOn && ['inversiones', 'chart', 'Inversiones'],
+    ].filter(Boolean)],
     ['Herramientas', [
       region.rates && ['tasas', 'trend', 'Tasas y calculadora'],
       ['copiloto', 'sparkle', 'Copiloto IA'],
       ['aprende', 'book', 'Manual de uso'],
+      ['preguntas', 'help', 'Preguntas frecuentes'],
       ['ajustes', 'sliders', 'Ajustes'],
     ].filter(Boolean)],
   ];
@@ -108,7 +112,7 @@ function Sidebar({ current, onNew }) {
 }
 
 function Screen({ route }) {
-  const { region } = useData();
+  const { region, investmentsOn } = useData();
   switch (route.name) {
     case 'movimientos': return html`<${Movements} query=${route.query} />`;
     case 'cuentas': return html`<${Accounts} query=${route.query} />`;
@@ -118,11 +122,13 @@ function Screen({ route }) {
     case 'metas': return html`<${Goals} />`;
     case 'prestamos': return html`<${Loans} />`;
     case 'compras': return html`<${Shopping} />`;
+    case 'inversiones': return investmentsOn ? html`<${Investments} />` : html`<${Home} />`; // solo con el permiso del perfil
     case 'tasas': return region.rates ? html`<${Rates} />` : html`<${Home} />`; // fuera de Venezuela no hay tasas
     case 'analisis': return html`<${Insights} />`;
     case 'mas': return html`<${More} />`;
     case 'ajustes': return html`<${Settings} />`;
     case 'aprende': return html`<${LearnPage} />`;
+    case 'preguntas': return html`<${FaqPage} />`;
     case 'copiloto': return html`<${Copilot} query=${route.query} />`;
     case 'terminos': return html`<${TermsPage} />`;
     default: return html`<${Home} />`;

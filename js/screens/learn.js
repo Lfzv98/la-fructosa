@@ -30,6 +30,12 @@ export function LearnPage() {
       <${Icon} name="right" class="muted" />
     </button>
 
+    <a class="card pad tour-cta" href="#/preguntas">
+      <span class="tile-ico" style=${{ '--tc': '#FFD6A5' }}><${Icon} name="help" /></span>
+      <span><b>Preguntas frecuentes</b><small>Privacidad, contraseña, respaldo, IA y más</small></span>
+      <${Icon} name="right" class="muted" />
+    </a>
+
     <${SectionTitle}>Paso a paso<//>
     <div class="stack sm">${CORE.map((s, i) => html`<details key=${s.id} class="card pad glossary" open=${i === 0}>
       <summary><b>${s.emoji} ${s.title}</b><${Icon} name="down" size=${18} /></summary>

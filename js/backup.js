@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { html, Icon, toast } from './ui.js';
 import { buildXlsx, HEADER_STYLE } from './xlsx.js';
 import { saveFile } from './export.js';
-import { todayISO, monthKey, monthLabel, convert, REGIONS, RATE_LABELS, ADJUST_CATEGORY } from './money.js';
+import { todayISO, monthKey, monthLabel, convert, REGIONS, RATE_LABELS, ADJUST_CATEGORY, INVESTMENT_KINDS, investmentGain } from './money.js';
 import { api } from './api.js';
 
 const TYPE = { income: 'Ingreso', expense: 'Gasto', transfer: 'Transferencia' };
@@ -132,6 +132,7 @@ export function backupSheets(d) {
     ['Cuenta', 'Saldo', 'Moneda', `Valor en ${T}`].map((v) => ({ v, s: HEADER_STYLE })),
     ...active.map((a, i) => ({ cells: [{ v: a.name, s: { indent: 1 } }, signed(r2(n(a.balance)), true), { v: a.currency, s: { align: 'center' } }, signed(valueIn(a), true)],
       s: { border: 'thin', ...(i % 2 ? { fill: XL.zebra } : {}) } })),
+    ...(d.investmentsOn ? [{ cells: [{ v: 'Inversiones (valor actual)', s: { indent: 1 } }, '', '', signed(r2(Number(d.total?.investments ?? 0)), true)], s: { border: 'thin' } }] : []),
     { cells: [{ v: 'Patrimonio total', s: { bold: true, indent: 1 } }, '', '', signed(r2(Number(d.total?.total ?? 0)), true)], s: { fill: XL.total.fill, border: 'total', bold: true } },
     [],
     { cells: [{ v: 'Guía de colores', s: SECTION }], h: 22 },
@@ -177,6 +178,15 @@ export function backupSheets(d) {
         { v: goal ? Math.min(1, saved / goal) : 0, s: { fmt: 'pct', align: 'center' } }, { v: g.currency, s: { align: 'center' } }, day(g.target_date),
         { v: g.done ? 'Cumplida' : 'En curso', s: { align: 'center', bold: true, color: g.done ? XL.income.ink : XL.transfer.ink } }],
       s: g.done ? { fill: XL.income.fill, border: 'thin' } : { border: 'thin', ...(i % 2 ? { fill: XL.zebra } : {}) } };
+    }),
+  ] });
+  if (d.investmentsOn && d.investments?.length) sheets.push({ name: 'Inversiones', widths: [26, 13, 14, 14, 14, 10, 9, 12, 30], filter: true, tab: '1D4ED8', title: 'La Fructosa · Inversiones', rows: [
+    ['Inversión', 'Tipo', 'Invertido', 'Valor actual', 'Ganancia', '%', 'Moneda', 'Fecha', 'Nota'],
+    ...d.investments.map((inv, i) => {
+      const g = investmentGain(inv);
+      return { cells: [{ v: inv.name, s: { indent: 1, bold: true } }, INVESTMENT_KINDS[inv.kind]?.label || inv.kind, r2(g.invested), r2(g.value), signed(r2(g.gain)),
+        { v: g.pct == null ? 0 : g.pct / 100, s: { fmt: 'pct', align: 'center', color: g.gain < 0 ? XL.expense.ink : XL.income.ink } }, { v: inv.currency, s: { align: 'center' } }, day(inv.invested_on), inv.note || ''],
+      s: { border: 'thin', ...(i % 2 ? { fill: XL.zebra } : {}) } };
     }),
   ] });
   if (d.loans?.length) sheets.push({ name: 'Préstamos', widths: [22, 13, 13, 13, 13, 9, 12, 12, 11, 30], filter: true, tab: 'B7791F', title: 'La Fructosa · Préstamos', rows: [

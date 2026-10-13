@@ -133,6 +133,8 @@ h1, h2, h3, p { margin: 0; }
 .hero-amount { font-size: 36px; font-weight: 800; letter-spacing: -0.04em; margin-top: 6px; position: relative; z-index: 1; }
 .hero-val { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; opacity: .75; margin-top: 2px; text-align: left; color: var(--ink); }
 .hero-warn { font-size: 12px; color: #7A2E2E; margin-top: 4px; }
+.hero-split { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12.5px; font-weight: 600; opacity: .8; margin-top: 4px; color: var(--ink); text-decoration: none; position: relative; z-index: 1; }
+.hero-split b { font-weight: 750; }
 .hero-month { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 6px; margin-top: 14px;
   background: rgba(255, 255, 255, .38); border-radius: 16px; padding: 10px 12px; }
 .hero-month small { display: flex; align-items: center; gap: 2px; font-size: 11px; font-weight: 650; opacity: .7; }
@@ -790,6 +792,22 @@ b.big { font-size: 20px; }
 .loan-sum .pos, .loan-row .pos { color: var(--inc); }
 .loan-sum .neg, .loan-row .neg { color: var(--exp); }
 
+/* Inversiones: 3 tarjetas arriba (en teléfonos chicos, la ganancia baja a su propia fila) */
+.inv-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.inv-sum .card { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.inv-sum b { font-size: 18px; font-weight: 800; overflow-wrap: anywhere; }
+.inv-sum small.num { font-size: 12.5px; font-weight: 700; }
+.inv-sum .pos, .inv-row .pos, .inv-group .pos, .inv-preview.pos { color: var(--inc); }
+.inv-sum .neg, .inv-row .neg, .inv-group .neg, .inv-preview.neg { color: var(--exp); }
+.inv-amt { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; text-align: right; }
+.inv-amt small { font-size: 12px; font-weight: 650; }
+.inv-preview { font-size: 14px; font-weight: 700; margin-top: -6px; }
+@media (max-width: 420px) {
+  .inv-sum { grid-template-columns: 1fr 1fr; }
+  .inv-sum .card:last-child { grid-column: 1 / -1; }
+}
+@media (min-width: 960px) { .inv-sum b { font-size: 22px; } }
+
 /* Confianza y términos (antes del tour) */
 .terms-gate { z-index: 70; padding-left: 20px; padding-right: 20px; overflow: hidden; }
 .terms-scroll { flex: 1; overflow-y: auto; max-width: 460px; width: 100%; margin: 0 auto; padding-bottom: 12px; -webkit-overflow-scrolling: touch; }
@@ -1000,3 +1018,18 @@ b.big { font-size: 20px; }
   .rate-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .rates-split { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); align-items: start; }
 }
+
+/* Preguntas frecuentes (v36): buscador, temas y acordeones. */
+.faq-search .input::-webkit-search-cancel-button { display: none; }
+.faq-topics { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 2px 16px; scroll-padding: 16px; }
+.faq-topics::-webkit-scrollbar { display: none; }
+.faq-topics .chip { flex: none; white-space: nowrap; }
+.faq-group { display: flex; flex-direction: column; gap: 10px; }
+.faq-group-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 4px 2px 0; }
+.faq-item summary b { padding-right: 10px; line-height: 1.35; }
+.faq-item summary svg { flex: none; }
+.faq-item .prose p + p { margin-top: 8px; }
+@media (min-width: 960px), (min-width: 700px) and (min-height: 600px) {
+  .faq-topics { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; }
+}
+a.tour-cta { color: var(--text); text-decoration: none; }

@@ -13,11 +13,11 @@ import { LockSettings, clearLock } from '../lock.js';
 import { applyTheme } from '../theme.js';
 import { pushSupport, publicKey, currentSubscription, enablePush, disablePush, updatePushPrefs, DEFAULT_PREFS } from '../push.js';
 
-export const APP_VERSION = '3.5.0';
+export const APP_VERSION = '3.6.0';
 
 export function More() {
   const d = useData();
-  const { region, txs, accById, recurring, budgets, goals, loans, shopping } = d;
+  const { region, txs, accById, recurring, budgets, goals, loans, shopping, investmentsOn } = d;
   const owed = loans.filter((l) => !l.settled).length;
   const tiles = [
     ['#/cuentas', 'wallet', 'Cuentas', 'Saldos y billeteras', '#A0C4FF'],
@@ -26,9 +26,11 @@ export function More() {
     ['#/metas', 'flag', 'Metas de ahorro', goals.length ? `${goals.filter((g) => !g.done).length} en curso` : 'Ahorra para algo', '#FFD6A5'],
     ['#/prestamos', 'hand', 'Por cobrar y pagar', owed ? `${owed} pendientes` : 'Quién te debe y a quién debes', '#CAFFBF'],
     ['#/compras', 'list', 'Lista de compras', shopping.filter((i) => !i.done).length ? `${shopping.filter((i) => !i.done).length} por comprar` : 'Con total estimado', '#FFADAD'],
+    investmentsOn && ['#/inversiones', 'chart', 'Inversiones', 'Ganancia y pérdida', '#BDB2FF'],
     region.rates && ['#/tasas', 'trend', 'Tasas y calculadora', 'BCV, Paralelo, USDT', '#CAFFBF'],
     ['#/copiloto', 'sparkle', 'Copiloto IA', 'Pregunta por tus finanzas', '#FFC6FF'],
     ['#/aprende', 'book', 'Manual de uso', 'Guía fácil y tour', '#BDB2FF'],
+    ['#/preguntas', 'help', 'Preguntas frecuentes', 'Dudas comunes, respondidas', '#FFD6A5'],
     ['#/ajustes', 'sliders', 'Ajustes', 'Perfil, moneda, privacidad', '#9BF6FF'],
   ].filter(Boolean);
   return html`<div class="page more">
@@ -133,6 +135,7 @@ export function Settings() {
     <section class="card list">
       ${install.state !== 'installed' && html`<button class="menu-row" onClick=${install.run}><${Icon} name="phone" /><span>Instalar en este teléfono<small>${install.state === 'ios' ? 'Safari → Compartir → Agregar a inicio' : 'Abre como app, a pantalla completa'}</small></span><${Icon} name="right" class="muted" /></button>`}
       <a class="menu-row" href="#/aprende"><${Icon} name="book" /><span>Manual de uso y tour</span><${Icon} name="right" class="muted" /></a>
+      <a class="menu-row" href="#/preguntas"><${Icon} name="help" /><span>Preguntas frecuentes</span><${Icon} name="right" class="muted" /></a>
       ${isDemo && html`<button class="menu-row" onClick=${resetDemo}><${Icon} name="refresh" /><span>Reiniciar datos de ejemplo</span></button>`}
       ${!isDemo && html`<button class="menu-row danger-text" onClick=${() => setDel(true)}><${Icon} name="trash" /><span>Borrar mi cuenta<small>Elimina tu cuenta y todos tus datos para siempre</small></span></button>`}
       <button class="menu-row danger-text" onClick=${signOut}><${Icon} name="logout" /><span>${isDemo ? 'Salir del demo' : 'Cerrar sesión'}</span></button>

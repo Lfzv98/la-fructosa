@@ -5,7 +5,7 @@ import { api, isDemo } from './api.js';
 import { fetchLiveRates } from './rates.js';
 import { snapshot, queue, isNetworkError, uuid } from './offline.js';
 import { toast } from './ui.js';
-import { regionFor, setTimeZoneFor, ACCOUNT_TEMPLATES, ACCOUNT_COLORS, KINDS, convert, consolidate, todayISO, monthKey } from './money.js';
+import { regionFor, setTimeZoneFor, ACCOUNT_TEMPLATES, ACCOUNT_COLORS, KINDS, convert, consolidate, consolidateInvestments, todayISO, monthKey } from './money.js';
 
 const Ctx = createContext(null);
 export const useData = () => useContext(Ctx);
@@ -37,7 +37,7 @@ export function usePref(key, initial) {
   return [v, set];
 }
 
-const TABLE_KEY = { accounts: 'accounts', transactions: 'transactions', budgets: 'budgets', recurring_expenses: 'recurring', savings_goals: 'goals', loans: 'loans', shopping_items: 'shopping' };
+const TABLE_KEY = { accounts: 'accounts', transactions: 'transactions', budgets: 'budgets', recurring_expenses: 'recurring', savings_goals: 'goals', loans: 'loans', shopping_items: 'shopping', investments: 'investments' };
 
 export function DataProvider({ uid, children }) {
   const [data, setData] = useState(null);
@@ -232,7 +232,17 @@ export function DataProvider({ uid, children }) {
       t.value = convert(t.amount, t.currency, target, ratesOn(t.date), val) ?? 0;
     }
 
-    const total = consolidate(active, target, rates, val);
+    // Inversiones: solo con el permiso del perfil (migración 015). Su valor actual suma al patrimonio.
+    const investmentsOn = profile.investments_enabled === true && !(data.missing || []).includes('investments');
+    const investments = investmentsOn ? (data.investments || []) : [];
+    // Patrimonio total = cuentas + inversiones, con la valoración que se pida (BCV o Paralelo).
+    const wealth = (cur, v) => {
+      const acc = consolidate(active, cur, rates, v);
+      if (!investmentsOn) return { ...acc, accounts: acc.total, investments: 0 };
+      const inv = consolidateInvestments(investments, cur, rates, v);
+      return { total: acc.total + inv.value, missing: acc.missing || inv.missing, accounts: acc.total, investments: inv.value };
+    };
+    const total = wealth(target, val);
 
     const monthStats = (ym) => {
       let income = 0, expense = 0, spread = 0;
@@ -252,6 +262,7 @@ export function DataProvider({ uid, children }) {
 
     return { profile, region, accountTemplates, rates, rateMeta, ratesOn, accounts, active, accById, txs, total, target, val, monthStats,
       budgets: data.budgets, recurring: data.recurring, goals: data.goals || [], loans: data.loans || [], shopping: data.shopping || [],
+      investmentsOn, investments, wealth,
       rateHistory: data.rateHistory, missing: data.missing || [], savedAt: data.savedAt };
   }, [data, live]);
 

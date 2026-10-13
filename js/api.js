@@ -243,7 +243,7 @@ const real = {
       return res.data;
     };
 
-    const [profileRes, accounts, transactions, budgets, recurring, rateRows, goals, loans, shopping] = await Promise.all([
+    const [profileRes, accounts, transactions, budgets, recurring, rateRows, goals, loans, shopping, investments] = await Promise.all([
       c.from('profiles').select('*').eq('id', user.id).maybeSingle(),
       c.from('accounts').select('*').order('created_at').then(unwrap),
       fetchAll(() => c.from('transactions').select('*').order('created_at', { ascending: false }).order('id')),
@@ -257,6 +257,8 @@ const real = {
       optional('loans', c.from('loans').select('*').order('occurred_on', { ascending: false })),
       // Lista de compras (migración 013).
       optional('shopping_items', c.from('shopping_items').select('*').order('created_at')),
+      // Inversiones (migración 015): RLS solo devuelve filas a quien tiene el permiso en su perfil.
+      optional('investments', c.from('investments').select('*').order('invested_on', { ascending: false })),
     ]);
 
     const meta = user.user_metadata || {};
@@ -292,7 +294,7 @@ const real = {
       profile.region = reg;
     }
     const { rates, meta: rateMeta } = ratesFromRows(rateRows);
-    return { profile, accounts, transactions, budgets, recurring, goals, loans, shopping, rates, rateMeta, rateHistory: rateRows, missing };
+    return { profile, accounts, transactions, budgets, recurring, goals, loans, shopping, investments, rates, rateMeta, rateHistory: rateRows, missing };
   },
 
   async updateProfile(patch) {
@@ -589,7 +591,7 @@ const demo = {
     const s = state();
     const { rates, meta } = ratesFromRows(s.rateHistory);
     return wait(clone({ profile: s.profile, accounts: s.accounts, transactions: s.transactions, budgets: s.budgets,
-      recurring: s.recurring_expenses, goals: s.savings_goals || [], loans: s.loans || [], shopping: s.shopping_items || [],
+      recurring: s.recurring_expenses, goals: s.savings_goals || [], loans: s.loans || [], shopping: s.shopping_items || [], investments: s.investments || [],
       rates, rateMeta: meta, rateHistory: s.rateHistory, missing: [] }));
   },
   async updateProfile(patch) { Object.assign(state().profile, patch); demoSave(); return wait(clone(state().profile)); },
