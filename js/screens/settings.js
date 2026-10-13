@@ -13,7 +13,7 @@ import { LockSettings, clearLock } from '../lock.js';
 import { applyTheme } from '../theme.js';
 import { pushSupport, publicKey, currentSubscription, enablePush, disablePush, updatePushPrefs, DEFAULT_PREFS } from '../push.js';
 
-export const APP_VERSION = '3.3.0';
+export const APP_VERSION = '3.5.0';
 
 export function More() {
   const d = useData();
@@ -31,7 +31,7 @@ export function More() {
     ['#/aprende', 'book', 'Manual de uso', 'Guía fácil y tour', '#BDB2FF'],
     ['#/ajustes', 'sliders', 'Ajustes', 'Perfil, moneda, privacidad', '#9BF6FF'],
   ].filter(Boolean);
-  return html`<div class="page">
+  return html`<div class="page more">
     <${PageHeader} title="Más" />
     <div class="tiles">${tiles.map(([h, i, t, s, c]) => html`<a key=${h} href=${h} class="tile" style=${{ '--tc': c }}>
       <span class="tile-ico"><${Icon} name=${i} /></span><b>${t}</b><small>${s}</small></a>`)}</div>

@@ -65,7 +65,7 @@ export function Home() {
     });
   };
 
-  return html`<div class="page">
+  return html`<div class="page home">
     ${insight && html`<div class="insight-wrap">
       <${SwipeBanner} key=${insight.id} tourId="insight" emoji=${insight.emoji} title=${insight.title} text=${insight.text} tone=${insight.tone}
         action=${insight.action} onAction=${() => go(insight.action.href)} onDismiss=${() => closeInsight(insight.id)} />
@@ -84,76 +84,80 @@ export function Home() {
       </div>
     </header>
 
-    <section class="hero" data-tour="hero">
-      <div class="hero-top">
-        <span class="hero-label">Patrimonio total <${Learn} term="consolidado" /></span>
-        <div class="cur-switch">
-          ${[...new Set([region.base, ...region.currencies.filter((c) => c !== 'USDT')])].slice(0, 3).map((c) => html`<button key=${c}
-            class=${c === target ? 'on' : ''} onClick=${() => setCurrency(c)}>${c}</button>`)}
+    <div class="home-a">
+      <section class="hero" data-tour="hero">
+        <div class="hero-top">
+          <span class="hero-label">Patrimonio total <${Learn} term="consolidado" /></span>
+          <div class="cur-switch">
+            ${[...new Set([region.base, ...region.currencies.filter((c) => c !== 'USDT')])].slice(0, 3).map((c) => html`<button key=${c}
+              class=${c === target ? 'on' : ''} onClick=${() => setCurrency(c)}>${c}</button>`)}
+          </div>
         </div>
-      </div>
-      <p class="hero-amount"><${Money} v=${total.total} c=${target} /></p>
-      ${region.rates && html`<button class="hero-val" onClick=${toggleVal}>
-        Valorado a ${RATE_LABELS[val]} ${alt != null && html`· a ${RATE_LABELS[altVal].replace('Dólar ', '')}: <${Money} v=${alt} c=${target} />`}
-        <${Icon} name="swap" size=${14} />
+        <p class="hero-amount"><${Money} v=${total.total} c=${target} /></p>
+        ${region.rates && html`<button class="hero-val" onClick=${toggleVal}>
+          Valorado a ${RATE_LABELS[val]} ${alt != null && html`· a ${RATE_LABELS[altVal].replace('Dólar ', '')}: <${Money} v=${alt} c=${target} />`}
+          <${Icon} name="swap" size=${14} />
+        </button>`}
+        ${total.missing && html`<p class="hero-warn">Faltan tasas para convertir algunas cuentas.</p>`}
+        <div class="hero-month">
+          <div><small>Ingresos ${monthLabel(ym, { month: 'short' })}</small><b class="inc"><${Money} v=${stats.income} c=${target} /></b></div>
+          <div><small>Gastos</small><b class="exp"><${Money} v=${stats.expense} c=${target} /></b></div>
+          <div><small>Ahorro <${Learn} term="ahorro" /></small><b>${savingsRate == null ? '—' : fmtPct(savingsRate * 100, 0)}</b></div>
+        </div>
+      </section>
+
+      ${region.rates && html`<button class="rates-strip" data-tour="rates" onClick=${() => go('#/tasas')}>
+        ${['BCV_USD', 'PARALELO', 'USDT', 'BCV_EUR'].map((k) => html`<div key=${k} class="rate-mini">
+          <small>${RATE_LABELS[k].replace('Dólar ', '').replace(' P2P', '')}</small>
+          <b class="num">${fmtRate(rates[k])}</b>
+        </div>`)}
+        ${gap != null && html`<div class="rate-gap"><small>Brecha</small><b>${fmtPct(gap)}</b></div>`}
+        ${rateMeta.BCV_USD && rateMeta.BCV_USD.rate_date < todayISO() && html`<span class="rate-stale">Tasas del ${rateMeta.BCV_USD.rate_date.slice(8)}/${rateMeta.BCV_USD.rate_date.slice(5, 7)}</span>`}
       </button>`}
-      ${total.missing && html`<p class="hero-warn">Faltan tasas para convertir algunas cuentas.</p>`}
-      <div class="hero-month">
-        <div><small>Ingresos ${monthLabel(ym, { month: 'short' })}</small><b class="inc"><${Money} v=${stats.income} c=${target} /></b></div>
-        <div><small>Gastos</small><b class="exp"><${Money} v=${stats.expense} c=${target} /></b></div>
-        <div><small>Ahorro <${Learn} term="ahorro" /></small><b>${savingsRate == null ? '—' : fmtPct(savingsRate * 100, 0)}</b></div>
+
+      ${region.rates && html`<${RatesStale} rateMeta=${rateMeta} onRetry=${() => actions.refreshRates()} />`}
+      <${BackupReminder} d=${d} />
+
+      <div class="tip">
+        <span class="tip-emoji">${tip.emoji}</span>
+        <p>${tip.text} ${tip.term && html`<${Learn} term=${tip.term} label="Aprender" />`}</p>
       </div>
-    </section>
-
-    ${region.rates && html`<button class="rates-strip" data-tour="rates" onClick=${() => go('#/tasas')}>
-      ${['BCV_USD', 'PARALELO', 'USDT', 'BCV_EUR'].map((k) => html`<div key=${k} class="rate-mini">
-        <small>${RATE_LABELS[k].replace('Dólar ', '').replace(' P2P', '')}</small>
-        <b class="num">${fmtRate(rates[k])}</b>
-      </div>`)}
-      ${gap != null && html`<div class="rate-gap"><small>Brecha</small><b>${fmtPct(gap)}</b></div>`}
-      ${rateMeta.BCV_USD && rateMeta.BCV_USD.rate_date < todayISO() && html`<span class="rate-stale">Tasas del ${rateMeta.BCV_USD.rate_date.slice(8)}/${rateMeta.BCV_USD.rate_date.slice(5, 7)}</span>`}
-    </button>`}
-
-    ${region.rates && html`<${RatesStale} rateMeta=${rateMeta} onRetry=${() => actions.refreshRates()} />`}
-    <${BackupReminder} d=${d} />
-
-    <div class="tip">
-      <span class="tip-emoji">${tip.emoji}</span>
-      <p>${tip.text} ${tip.term && html`<${Learn} term=${tip.term} label="Aprender" />`}</p>
     </div>
 
-    ${upcoming.length > 0 && html`<section>
-      <${SectionTitle} action=${html`<a href="#/fijos">Ver todos</a>`}>Pagos próximos<//>
-      <div class="card list">
-        ${upcoming.slice(0, 3).map(({ r, s }) => html`<div key=${r.id} class="due-row">
-          <span class=${'due-dot ' + (s.overdue ? 'bad' : s.diff <= 2 ? 'warn' : 'ok')}></span>
-          <span class="tx-main"><b>${r.name}</b><small>${dueLabel(s)} · ${accById[r.account_id]?.name || ''}</small></span>
-          <${Money} v=${r.amount} c=${r.currency} />
-          <button class="btn sm primary" onClick=${() => payRecurring(r, accById, rates)}>Pagar</button>
-        </div>`)}
-      </div>
-    </section>`}
+    <div class="home-b">
+      ${upcoming.length > 0 && html`<section>
+        <${SectionTitle} action=${html`<a href="#/fijos">Ver todos</a>`}>Pagos próximos<//>
+        <div class="card list">
+          ${upcoming.slice(0, 3).map(({ r, s }) => html`<div key=${r.id} class="due-row">
+            <span class=${'due-dot ' + (s.overdue ? 'bad' : s.diff <= 2 ? 'warn' : 'ok')}></span>
+            <span class="tx-main"><b>${r.name}</b><small>${dueLabel(s)} · ${accById[r.account_id]?.name || ''}</small></span>
+            <${Money} v=${r.amount} c=${r.currency} />
+            <button class="btn sm primary" onClick=${() => payRecurring(r, accById, rates)}>Pagar</button>
+          </div>`)}
+        </div>
+      </section>`}
 
-    ${budgetRows.length > 0 && html`<section>
-      <${SectionTitle} action=${html`<a href="#/presupuestos">Ver todos</a>`}>Presupuestos del mes<//>
-      <div class="card list pad">
-        ${budgetRows.slice(0, 3).map(({ b, spent, ratio }) => html`<div key=${b.id} class="budget-mini">
-          <div class="row-between"><span>${b.category}</span><span class="num muted"><${Money} v=${spent} c=${b.currency} /> / <${Money} v=${b.monthly_limit} c=${b.currency} /></span></div>
-          <${Progress} value=${ratio} tone=${ratio < 1 && ratio > monthPct + 0.15 ? 'warn' : undefined} />
-        </div>`)}
-      </div>
-    </section>`}
+      ${budgetRows.length > 0 && html`<section>
+        <${SectionTitle} action=${html`<a href="#/presupuestos">Ver todos</a>`}>Presupuestos del mes<//>
+        <div class="card list pad">
+          ${budgetRows.slice(0, 3).map(({ b, spent, ratio }) => html`<div key=${b.id} class="budget-mini">
+            <div class="row-between"><span>${b.category}</span><span class="num muted"><${Money} v=${spent} c=${b.currency} /> / <${Money} v=${b.monthly_limit} c=${b.currency} /></span></div>
+            <${Progress} value=${ratio} tone=${ratio < 1 && ratio > monthPct + 0.15 ? 'warn' : undefined} />
+          </div>`)}
+        </div>
+      </section>`}
 
-    <section>
-      <${SectionTitle} action=${html`<a href="#/cuentas">Gestionar</a>`}>Cuentas<//>
-      ${active.length === 0
-        ? html`<${Empty} art="bank" title="Crea tu primera cuenta" text=${`${region.examples.charAt(0).toUpperCase()}${region.examples.slice(1)} Cada una con su moneda.`}
-            action=${html`<button class="btn primary" onClick=${() => go('#/cuentas?nueva=1')}>Crear cuenta</button>`} />`
-        : html`<div class="card list">${active.map((a) => html`<${AccountRow} key=${a.id} a=${a} target=${target}
-            converted=${convert(a.balance, a.currency, target, rates, val)} onClick=${() => go('#/cuenta/' + a.id)} />`)}</div>`}
-    </section>
+      <section>
+        <${SectionTitle} action=${html`<a href="#/cuentas">Gestionar</a>`}>Cuentas<//>
+        ${active.length === 0
+          ? html`<${Empty} art="bank" title="Crea tu primera cuenta" text=${`${region.examples.charAt(0).toUpperCase()}${region.examples.slice(1)} Cada una con su moneda.`}
+              action=${html`<button class="btn primary" onClick=${() => go('#/cuentas?nueva=1')}>Crear cuenta</button>`} />`
+          : html`<div class="card list">${active.map((a) => html`<${AccountRow} key=${a.id} a=${a} target=${target}
+              converted=${convert(a.balance, a.currency, target, rates, val)} onClick=${() => go('#/cuenta/' + a.id)} />`)}</div>`}
+      </section>
+    </div>
 
-    <section>
+    <section class="home-c">
       <${SectionTitle} action=${txs.length > 0 && html`<a href="#/movimientos">Ver todos</a>`}>Últimos movimientos<//>
       ${txs.length === 0
         ? html`<${Empty} art="receipt" title="Aún no hay movimientos" text="Toca el botón + para registrar tu primer gasto o ingreso." />`

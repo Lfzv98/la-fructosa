@@ -65,7 +65,10 @@ h1, h2, h3, p { margin: 0; }
 .app { max-width: 520px; margin: 0 auto; min-height: 100dvh; position: relative; }
 .main { padding: calc(var(--safe-t) + 12px) 16px calc(var(--tab-h) + var(--safe-b) + 28px); }
 .page { display: flex; flex-direction: column; gap: 16px; animation: fade .22s ease; }
-.page > section:not([class]) { display: flex; flex-direction: column; gap: 8px; }
+.page > section:not([class]), .home-b > section:not([class]), .page > .home-c { display: flex; flex-direction: column; gap: 8px; }
+/* Inicio: en el teléfono los grupos no existen (todo va en una columna, en el mismo orden). */
+.home-a, .home-b { display: contents; }
+.sidebar { display: none; }
 @keyframes fade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 .center-screen { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
 .stack { display: flex; flex-direction: column; gap: 16px; }
@@ -886,3 +889,98 @@ b.big { font-size: 20px; }
 .dictate-card small { display: block; font-size: 12.5px; margin-top: 2px; }
 .dictate-mic { width: 58px; height: 58px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--salmon); color: var(--ink); }
 .dictate-mic.listening { animation: pulse-mic 1.2s infinite ease-in-out; }
+
+/* =====================================================================
+   Tablet, laptop y escritorio
+   - Desde 960 px: barra lateral completa en lugar de la barra de abajo.
+   - iPad en vertical (700–959 px con buena altura): barra lateral compacta, solo íconos.
+   - Desde 1180 px: el Inicio va en dos columnas.
+   El teléfono (también acostado: poca altura) no cambia.
+   ===================================================================== */
+@media (min-width: 960px), (min-width: 700px) and (min-height: 600px) {
+  :root { --side-w: 248px; }
+  .app { max-width: none; padding-left: var(--side-w); }
+  .main { max-width: 1200px; margin: 0 auto; padding: calc(var(--safe-t) + 28px) 40px 56px; }
+  .page { max-width: 880px; margin: 0 auto; gap: 18px; }
+  .page.more { max-width: none; }
+  .tabbar { display: none; }
+
+  .sidebar { display: flex; flex-direction: column; gap: 18px; position: fixed; top: 0; left: 0; bottom: 0; width: var(--side-w); z-index: 30;
+    padding: calc(var(--safe-t) + 20px) 14px 16px; background: var(--bg-2); border-right: 1px solid var(--line); overflow-y: auto; }
+  .side-brand { display: flex; align-items: center; gap: 10px; padding: 0 8px; color: var(--text); }
+  .side-brand img { border-radius: 10px; }
+  .side-brand b { font-size: 17px; font-weight: 800; letter-spacing: -0.02em; }
+  .side-new { width: 100%; justify-content: center; }
+  .side-nav { display: flex; flex-direction: column; gap: 14px; flex: 1; }
+  .side-group { display: flex; flex-direction: column; gap: 2px; }
+  .side-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); padding: 0 12px 4px; }
+  .side-nav a { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 12px; color: var(--muted); font-size: 14.5px; font-weight: 600; }
+  .side-nav a:hover { background: var(--surface); color: var(--text); }
+  .side-nav a.on { background: var(--surface-2); color: var(--blue); }
+  .side-user { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 14px; border: 1px solid var(--line); color: var(--text); }
+  .side-user:hover { background: var(--surface); }
+  .side-user .avatar { width: 36px; height: 36px; font-size: 15px; flex-shrink: 0; }
+  .side-user-main { display: flex; flex-direction: column; min-width: 0; }
+  .side-user-main b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .side-user-main small { font-size: 12px; color: var(--muted); }
+
+  .page.home { max-width: 880px; }
+  .hero { padding: 24px; }
+  .hero-amount { font-size: 44px; }
+
+  .tiles { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+  .page.more > .btn.block { width: auto; align-self: flex-start; }
+  .main > .backup-banner { max-width: 880px; margin-left: auto; margin-right: auto; }
+  .kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+  /* Botones flotantes, avisos y chat: respetan la barra lateral. */
+  .ai-fab { display: none; } /* el Copiloto está en la barra lateral */
+  .demo-badge { bottom: 12px; left: calc(var(--side-w) + 12px); }
+  .toasts { bottom: 28px; left: var(--side-w); }
+  .banner { left: calc(50% + var(--side-w) / 2); }
+  .chat { left: var(--side-w); }
+  .tx-row:hover, .acc-row:hover, .tile:hover { background: var(--surface-2); }
+}
+/* iPad en vertical: barra compacta con íconos (el nombre sale al pasar el cursor). */
+@media (min-width: 700px) and (max-width: 959px) and (min-height: 600px) {
+  :root { --side-w: 76px; }
+  .main { padding: calc(var(--safe-t) + 24px) 28px 48px; }
+  .page, .page.home, .main > .backup-banner { max-width: 760px; }
+  .sidebar { align-items: center; gap: 14px; padding: calc(var(--safe-t) + 16px) 10px 14px; }
+  .side-brand { padding: 0; }
+  .side-brand b, .side-new span, .side-nav a span, .side-title, .side-user-main { display: none; }
+  .side-new { width: 48px; height: 48px; padding: 0; border-radius: 16px; }
+  .side-nav { align-items: center; gap: 10px; }
+  .side-group { align-items: center; }
+  .side-group + .side-group { border-top: 1px solid var(--line); padding-top: 10px; }
+  .side-nav a { width: 48px; height: 44px; padding: 0; justify-content: center; }
+  .side-user { padding: 0; border: 0; }
+  .side-user:hover { background: none; }
+  /* Inicio: pagos próximos y presupuestos lado a lado; cuentas a todo el ancho. */
+  .home-b { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+  .home-b > section:last-child, .home-b > section:first-child:nth-last-child(2) { grid-column: 1 / -1; }
+}
+/* Inicio en dos columnas cuando hay espacio (laptop de 13" en adelante). */
+@media (min-width: 1180px) {
+  /* Resumen a la izquierda; pagos, presupuestos y cuentas a la derecha. */
+  .page.home { max-width: none; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); grid-template-rows: auto auto auto 1fr; column-gap: 24px; row-gap: 18px; align-items: start; }
+  .page.home > .insight-wrap, .page.home > .home-head { grid-column: 1 / -1; }
+  .page.home .insight-wrap { max-width: 720px; }
+  .home-a, .home-b { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+  .home-a { grid-column: 1; }
+  .home-b { grid-column: 2; grid-row: span 2; }
+  .page.home > .home-c { grid-column: 1; }
+}
+/* Pantallas bajas (laptop de 768 px de alto, iPad acostado): menú más compacto para que quepa entero. */
+@media (min-width: 960px) and (max-height: 820px) {
+  .sidebar { gap: 12px; padding-top: calc(var(--safe-t) + 14px); }
+  .side-nav { gap: 8px; }
+  .side-nav a { padding: 6px 12px; }
+  .side-title { padding-bottom: 2px; }
+  .side-user { padding: 6px 10px; }
+}
+/* Monitores muy anchos: un poco más de espacio, sin estirar las listas. */
+@media (min-width: 1680px) {
+  .main { max-width: 1360px; }
+}
+:root[data-theme="light"] .sidebar { background: #FFFFFF; }

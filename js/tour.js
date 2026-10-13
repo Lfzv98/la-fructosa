@@ -49,8 +49,16 @@ function stepsFor(region) {
   return steps;
 }
 
+// El mismo paso puede existir dos veces (barra de abajo en el teléfono, barra lateral en la laptop):
+// se usa el que está visible.
+function visible(selector) {
+  if (!selector) return null;
+  const all = [...document.querySelectorAll(selector)];
+  return all.find((e) => { const r = e.getBoundingClientRect(); return r.width && r.height; }) || all[0] || null;
+}
+
 function rectOf(selector) {
-  const el = selector ? document.querySelector(selector) : null;
+  const el = visible(selector);
   if (!el) return null;
   const r = el.getBoundingClientRect();
   if (!r.width || !r.height) return null;
@@ -67,7 +75,7 @@ export function Tour({ region, onClose }) {
   // Medir el elemento de cada paso (y volver a medir si se desplaza la pantalla).
   useEffect(() => {
     let alive = true;
-    const el = step.target ? document.querySelector(step.target) : null;
+    const el = visible(step.target);
     if (el && !/fab|copilot|insight/.test(step.target)) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     const measure = () => { if (alive) setRect(rectOf(step.target)); };
     measure();

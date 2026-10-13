@@ -63,6 +63,50 @@ function TabBar({ current, onNew }) {
   </ul></nav>`;
 }
 
+// Barra lateral para laptop y escritorio (en el teléfono se oculta y queda la barra de abajo).
+const SIDE_OF = { cuenta: 'cuentas' };
+function Sidebar({ current, onNew }) {
+  const { region, profile } = useData();
+  const groups = [
+    [null, [
+      ['inicio', 'home', 'Inicio'],
+      ['movimientos', 'list', 'Movimientos'],
+      ['analisis', 'pie', 'Análisis'],
+      ['cuentas', 'wallet', 'Cuentas'],
+    ]],
+    ['Planifica', [
+      ['presupuestos', 'target', 'Presupuestos'],
+      ['fijos', 'repeat', 'Pagos fijos'],
+      ['metas', 'flag', 'Metas de ahorro'],
+      ['prestamos', 'hand', 'Por cobrar y pagar'],
+      ['compras', 'list', 'Lista de compras'],
+    ]],
+    ['Herramientas', [
+      region.rates && ['tasas', 'trend', 'Tasas y calculadora'],
+      ['copiloto', 'sparkle', 'Copiloto IA'],
+      ['aprende', 'book', 'Manual de uso'],
+      ['ajustes', 'sliders', 'Ajustes'],
+    ].filter(Boolean)],
+  ];
+  const on = SIDE_OF[current] || current;
+  const name = profile.display_name || profile.username || '';
+  return html`<aside class="sidebar" aria-label="Menú">
+    <a class="side-brand" href="#/"><img src="./icons/icon-192.png" alt="" width="34" height="34" /><b>La Fructosa</b></a>
+    <button class="btn primary side-new" data-tour="fab" onClick=${onNew} title="Registrar movimiento"><${Icon} name="plus" size=${18} stroke=${2.5} /><span>Registrar movimiento</span></button>
+    <nav class="side-nav" aria-label="Navegación principal">
+      ${groups.map(([title, items]) => html`<div key=${title || 'main'} class="side-group">
+        ${title && html`<p class="side-title">${title}</p>`}
+        ${items.map(([r, icon, label]) => html`<a key=${r} href=${'#/' + (r === 'inicio' ? '' : r)} class=${on === r ? 'on' : ''} data-tour=${r === 'copiloto' ? 'copilot' : undefined} title=${label} aria-current=${on === r ? 'page' : undefined}>
+          <${Icon} name=${icon} size=${19} /><span>${label}</span></a>`)}
+      </div>`)}
+    </nav>
+    <a class="side-user" href="#/ajustes" title="Ajustes">
+      <span class="avatar">${(name || 'L')[0].toUpperCase()}</span>
+      <span class="side-user-main"><b>${name || 'Mi perfil'}</b><small>${region.flag} ${region.label}</small></span>
+    </a>
+  </aside>`;
+}
+
 function Screen({ route }) {
   const { region } = useData();
   switch (route.name) {
@@ -126,6 +170,7 @@ function Shell({ uid, recovery, clearRecovery }) {
     <main class="main" key=${route.key}>${route.name !== 'inicio' && html`<${BackupBanner} d=${d} />`}<${Screen} route=${route} /></main>
     ${['inicio', 'analisis'].includes(route.name) && html`<a class="ai-fab" data-tour="copilot" href="#/copiloto" aria-label="Abrir Copiloto IA"><${Icon} name="sparkle" size=${20} /><span>Copiloto IA</span></a>`}
     <${TabBar} current=${route.name} onNew=${() => setTx({})} />
+    <${Sidebar} current=${route.name} onNew=${() => setTx({})} />
     ${tx && html`<${TxForm} key=${tx.tx?.id || 'new'} tx=${tx.tx} preset=${tx.preset} onClose=${() => setTx(null)} />`}
     ${showOnboard && html`<${Onboarding} />`}
     ${showTerms && html`<${TermsGate} onAccept=${acceptTerms} />`}
