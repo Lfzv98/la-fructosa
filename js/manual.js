@@ -83,10 +83,10 @@ function dedicationPage() {
   return `<div class="pg pg-dedic">
     ${tilesBand}
     <div class="dd-inner">
-      <p class="dd-kicker">Para la familia</p>
-      <p class="dd-text">Este libro, como la app, lleva el nombre de <b>La Fructosa</b>: la casa de los abuelos, donde siempre hubo un lugar para todos.</p>
-      <p class="dd-text">La Fructosa es gratis y 100% privada. Cada quien tiene su propia cuenta y nadie más puede ver tus cuentas, tus saldos ni tus movimientos.</p>
-      <p class="dd-sign">Que tus finanzas se sientan como en casa. 🏡</p>
+      <p class="dd-kicker">Introducción</p>
+      <p class="dd-text">La llamé <b>La Fructosa</b>.</p>
+      <p class="dd-text">Como la casa de los abuelos: donde siempre hubo un lugar para todos.</p>
+      <p class="dd-sign">Ahora es una app, para que tus finanzas se sientan como en casa.</p>
     </div>
   </div>`;
 }
