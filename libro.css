@@ -293,3 +293,13 @@ blockquote { font: italic 600 calc(var(--fs) * 1.18)/1.35 var(--serif); color: v
 .lb-toast { --tx: -50%; }
 
 @media (prefers-reduced-motion: reduce) { .cv-hand, .lb-loading img { animation: none; } }
+
+/* ---------- PDF ---------- */
+#lb-print { display: none; }
+body.printing { display: block; height: auto; overflow: visible; background: #fff; }
+body.printing > :not(#lb-print) { display: none !important; }
+body.printing #lb-print { display: block; }
+#lb-print .pg { position: relative; break-after: page; page-break-after: always; }
+#lb-print .cv-change, #lb-print .cv-hint, #lb-print .cv-chips, #lb-print .cv-ask { display: none !important; }
+@media print { @page { margin: 0; } html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+.lb-btn[hidden] { display: none; }

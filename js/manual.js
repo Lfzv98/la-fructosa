@@ -25,6 +25,12 @@ if (!REGIONS[country]) country = null;
 let scale = store.get('escala', 1);
 let sound = store.get('sonido', true);
 
+// Abierto como archivo (descargado) en vez de desde la web: los enlaces van al sitio oficial.
+const SITE = 'https://la-fructosa.vercel.app/';
+const ONLINE = /^https?:$/.test(location.protocol);
+const APP_LINK = ONLINE ? APP_URL : SITE;
+const pdfHref = (c) => `${ONLINE ? './' : SITE}libro/El-libro-de-La-Fructosa-${c}.pdf`;
+
 const ORDER = ['VE', 'ES', 'US', 'INT'];
 const ROMAN = { I: 'Parte I', II: 'Parte II', III: 'Parte III' };
 
@@ -107,7 +113,7 @@ function backCover() {
       <h2 class="cv-title sm">Ahora te toca a ti</h2>
       <p class="cv-rule" aria-hidden="true"><span></span>✦<span></span></p>
       <p class="cv-sub">Elige un tip esta semana, anótalo todo durante 30 días y mira cómo cambian tus números.</p>
-      <a class="cv-open" href="${esc(APP_URL)}" data-noflip>Abrir La Fructosa</a>
+      <a class="cv-open" href="${esc(APP_LINK)}" data-noflip>Abrir La Fructosa</a>
       <button class="cv-change" data-act="inicio">Volver a la portada</button>
       <p class="cv-small">Gratis y 100% privada. Cada quien tiene su cuenta.</p>
     </div>
@@ -245,8 +251,9 @@ const book = new FlipBook($('lb-book'), { onChange: onView, sound: () => sound }
 window.libro = book; // para probar desde la consola
 let layout = null, pages = [], tocEntries = [], tocOffset = 0, lastFirst = 0;
 
+let forced = null; // tamaño fijo para imprimir el PDF
 function build(keepPage = true) {
-  layout = computeLayout();
+  layout = forced || computeLayout();
   const region = bookRegion(country || 'VE', { rates });
   const blocks = country ? bookFor(region, { investmentsOn: inv }) : [];
   book.layout(layout);
@@ -268,6 +275,7 @@ function build(keepPage = true) {
   all.forEach((p, i) => {
     p.classList.add(i % 2 ? 'odd' : 'even');
     p.dataset.index = i;
+    p.id = `p${i}`;
     const num = p.querySelector('.pg-num'); if (num) num.textContent = i;
   });
   pages = all;
@@ -279,7 +287,25 @@ function build(keepPage = true) {
   $('lb-range').max = String(Math.max(0, pages.length - 1));
   book.setPages(pages, at);
   document.body.classList.toggle('no-country', !country);
+  const dl = $('lb-dl');
+  dl.hidden = !country;
+  if (country) { dl.href = pdfHref(country); dl.setAttribute('download', `El libro de La Fructosa (${REGIONS[country].label}).pdf`); }
 }
+
+// PDF: todas las páginas, una debajo de otra, del tamaño indicado (lo usa tools/libro-pdf.mjs).
+window.libroImprimir = (W, H, code) => {
+  forced = { mode: 'single', W, H };
+  if (code) { country = code; rates = false; }
+  build(false);
+  const out = document.createElement('div');
+  out.id = 'lb-print';
+  out.style.setProperty('--W', `${W}px`); out.style.setProperty('--H', `${H}px`);
+  out.style.setProperty('--fs', `${fontSize(W)}px`);
+  out.append(...pages);
+  document.body.append(out);
+  document.body.classList.add('printing');
+  return pages.length;
+};
 
 function onView() {
   const vis = book.visiblePages();
@@ -351,7 +377,7 @@ $('lb-sound').addEventListener('click', () => { sound = !sound; store.set('sonid
 paintSound();
 
 $('lb-share').addEventListener('click', async () => {
-  const base = location.origin + location.pathname.replace(/manual\.html$/, 'manual');
+  const base = ONLINE ? location.origin + location.pathname.replace(/manual\.html$/, 'manual') : SITE + 'manual';
   const url = country ? `${base}?pais=${country}` : base;
   const data = { title: 'El libro de La Fructosa', text: 'Manual de uso, preguntas frecuentes y 30 tips financieros de La Fructosa.', url };
   try {
@@ -361,6 +387,7 @@ $('lb-share').addEventListener('click', async () => {
 });
 
 // Volver: a la app si viniste de ahí.
+if (!ONLINE) $('lb-home').href = SITE;
 $('lb-home').addEventListener('click', (e) => {
   if (fromApp && history.length > 1) { e.preventDefault(); history.back(); }
 });
