@@ -1,5 +1,6 @@
 // Tour guiado de bienvenida: resalta partes reales de la pantalla de inicio y explica
-// cada una en pocas palabras. Sale en los 3 primeros ingresos de cada persona (y se puede repetir desde "Aprende").
+// cada una en pocas palabras. Sale solo en el primer ingreso de cada persona (y se puede repetir desde "Aprende").
+// Para seguir aprendiendo está el libro (manual.html).
 import { useEffect, useState } from 'react';
 import { html, Icon } from './ui.js';
 import { usePref } from './store.js';
@@ -121,8 +122,8 @@ export function Tour({ region, onClose, onNever, left = 0 }) {
           <button type="button" class="btn primary sm" onClick=${() => (last ? onClose() : setI(i + 1))}>${last ? '¡Listo!' : 'Siguiente'}</button>
         </div>
       </div>
-      ${onNever && i === 0 && html`<button type="button" class="tour-never" onClick=${onNever}>
-        No volver a mostrar${left > 1 ? ` · se mostrará ${left - 1} ${left - 1 === 1 ? 'vez' : 'veces'} más` : ''}</button>`}
+      ${onNever && i === 0 && left > 1 && html`<button type="button" class="tour-never" onClick=${onNever}>
+        No volver a mostrar · se mostrará ${left - 1} ${left - 1 === 1 ? 'vez' : 'veces'} más</button>`}
     </div>
   </div>`;
 }
@@ -145,7 +146,7 @@ export function TourOutro({ onClose }) {
 
 // Decide cuándo mostrar el tour: en los primeros TOUR_TIMES ingresos de cada persona (uno por
 // vez que abre la app), o cuando la pide desde "Aprende". Cuenta por usuario, no por teléfono.
-export const TOUR_TIMES = 3;
+export const TOUR_TIMES = 1;
 const sessionKey = (uid) => 'fructosa-tour-session-' + uid;
 export function useTour(uid) {
   const [views, setViews] = usePref('tour-views-' + uid, 0);
