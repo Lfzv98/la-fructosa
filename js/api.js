@@ -21,6 +21,14 @@ function unwrap({ data, error }) {
   return data;
 }
 
+// Crea la fila de perfil si falta (algunas bases exigen el correo en "profiles"; otras no tienen esa columna).
+async function ensureProfile(c, user) {
+  const opts = { onConflict: 'id', ignoreDuplicates: true };
+  const res = await c.from('profiles').upsert({ id: user.id, email: user.email || '' }, opts);
+  if (res.error && /email/.test(res.error.message || '')) return c.from('profiles').upsert({ id: user.id }, opts);
+  return res;
+}
+
 // Si la base de datos aún no tiene una columna nueva (migración pendiente), la quitamos y reintentamos.
 async function tolerant(run, row) {
   let payload = { ...row };
@@ -235,7 +243,18 @@ const real = {
 
   async loadAll() {
     const c = await sb();
-    const { data: { user } } = await c.auth.getUser();
+    const { data: { user }, error: userErr } = await c.auth.getUser();
+    if (!user) {
+      // Sin internet: se lanza un error de red y la app abre con la última copia guardada.
+      const msg = userErr?.message || '';
+      if (!navigator.onLine || userErr?.name === 'AuthRetryableFetchError' || /fetch|network|load failed/i.test(msg)) {
+        throw new TypeError('Failed to fetch');
+      }
+      // La sesión guardada ya no vale (usuario borrado o sesión cerrada en el servidor):
+      // se cierra en este teléfono y la app vuelve sola a la pantalla de entrar.
+      await c.auth.signOut({ scope: 'local' }).catch(() => {});
+      throw new Error('Tu sesión terminó. Vuelve a entrar.');
+    }
     const missing = [];
     const optional = async (table, q) => {
       const res = await q;
@@ -261,35 +280,48 @@ const real = {
       optional('investments', c.from('investments').select('*').order('invested_on', { ascending: false })),
     ]);
 
+    // Sin fila de perfil (el alta no la creó): se crea ya, para que guardar cuentas no falle.
+    if (!profileRes.error && !profileRes.data) {
+      await withTimeout(ensureProfile(c, user), 6000).catch(() => {});
+    }
+
     const meta = user.user_metadata || {};
-    const fallback = { ...readFallback('last'), ...readFallback(user.id) };
+    const fallback = readFallback(user.id); // solo de esta persona (el teléfono puede ser compartido)
     const dbProfile = profileRes.data || {};
-    const uName = dbProfile.username || meta.username || fallback.username || (user.email ? user.email.split('@')[0] : '');
+
+    // Con el usuario se entra a la app: tiene que estar guardado en la tabla, no solo en este teléfono.
+    // Si la tabla aún no lo tiene, se guarda ahora el que eligió al registrarse. Si otra persona ya lo
+    // tiene, queda vacío y la app le pide elegir otro (pantalla "Elige tu usuario").
+    let uName = dbProfile.username || '';
+    if (!uName) {
+      const want = String(fallback.username || meta.username || '').trim().toLowerCase();
+      if (want && /^[a-z0-9._]{3,20}$/.test(want)) {
+        if (profileRes.error) {
+          uName = want; // la tabla no respondió: se usa lo guardado y se reintenta en la próxima carga
+        } else {
+          const r = await withTimeout(c.from('profiles').update({ username: want }).eq('id', user.id).select('username').maybeSingle(), 6000)
+            .catch((e) => ({ error: e }));
+          if (!r.error && r.data?.username) { uName = r.data.username; clearFallback(user.id); }
+          else if (r.error && !isDuplicate(r.error)) uName = want;
+        }
+      }
+    }
+    const emailName = user.email ? user.email.split('@')[0] : '';
     const reg = dbProfile.region || meta.region || fallback.region || 'VE';
     const profile = {
       id: user.id,
-      username: uName,
-      display_name: dbProfile.display_name || meta.display_name || fallback.display_name || uName,
+      display_name: dbProfile.display_name || meta.display_name || fallback.display_name || uName || emailName,
       region: reg,
       preferred_currency: dbProfile.preferred_currency || (reg === 'ES' ? 'EUR' : 'USD'),
       valuation_rate: dbProfile.valuation_rate || 'BCV_USD',
       ...dbProfile,
     };
-    if (uName) profile.username = uName;
+    profile.username = uName;
     if (reg) profile.region = reg;
     // Un display_name vacío en la tabla no debe tapar el nombre guardado al registrarse ni el usuario.
-    if (!String(profile.display_name || '').trim()) profile.display_name = meta.display_name || fallback.display_name || uName;
+    if (!String(profile.display_name || '').trim()) profile.display_name = meta.display_name || fallback.display_name || uName || emailName;
     profile.email = user.email;
 
-    // Usuario y país guardados por el plan B (o elegidos en el registro) que la tabla aún no tiene:
-    // se aplican ya, para no volver a pedirlos, y se intenta sincronizarlos en segundo plano.
-    if (!profile.username) {
-      const pending = { ...pickProfile(meta), ...pickProfile(fallback) };
-      if (pending.username) {
-        Object.assign(profile, pending);
-        c.from('profiles').update(pending).eq('id', user.id).then((r) => { if (!r.error) clearFallback(user.id); }, () => {});
-      }
-    }
     if (!profile.region) {
       profile.region = reg;
     }
@@ -319,8 +351,8 @@ const real = {
       } catch (e) {
         if (isDuplicate(e)) throw e;
         // Sin fila de perfil (cuenta antigua o trigger caído): la creamos.
-        const display_name = user.user_metadata?.display_name || user.email.split('@')[0];
-        return tolerant((p) => c.from('profiles').upsert({ id: user.id, display_name, ...p }).select().single(), patch);
+        await ensureProfile(c, user).catch(() => {});
+        return tolerant((p) => c.from('profiles').update(p).eq('id', user.id).select().single(), patch);
       }
     };
     try {
@@ -339,7 +371,26 @@ const real = {
     const { data: { session } } = await c.auth.getSession();
     if (!session?.user) throw new Error('Tu sesión expiró. Vuelve a iniciar sesión.');
     const full = await withTxCurrency(c, table, { ...withoutNulls(row), user_id: session.user.id });
-    return tolerant((p) => c.from(table).insert(p).select().single(), full);
+    const run = () => tolerant((p) => c.from(table).insert(p).select().single(), full);
+    const ownerMissing = (e) => e?.code === '23503' && /user_id_fkey/.test(e?.message || '');
+    try {
+      return await run();
+    } catch (e) {
+      // "..._user_id_fkey": en algunas bases las tablas apuntan al perfil y a esta persona le
+      // faltaba (el alta no lo creó). Se crea el perfil vacío y se reintenta una vez.
+      if (!ownerMissing(e)) throw e;
+      await ensureProfile(c, session.user).catch(() => {});
+      try {
+        return await run();
+      } catch (e2) {
+        if (!ownerMissing(e2)) throw e2;
+        // Si el usuario ya no existe (borrado), la sesión guardada en el teléfono quedó vieja.
+        const { data: who } = await c.auth.getUser().catch(() => ({ data: null }));
+        if (who?.user) throw e2;
+        await c.auth.signOut({ scope: 'local' }).catch(() => {});
+        throw new Error('Tu sesión ya no es válida. Vuelve a iniciar sesión.');
+      }
+    }
   },
   async update(table, id, patch) {
     const c = await sb();
